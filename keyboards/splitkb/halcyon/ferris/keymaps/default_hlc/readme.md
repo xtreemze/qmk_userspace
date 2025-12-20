@@ -1,15 +1,5 @@
 # Halcyon Ferris rev1 — Vial keymap
 
-## Build
-
-Example (adjust `-km` to your keymap folder name):
-
-```sh
-qmk compile -kb splitkb/halcyon/ferris/rev1 -km <your_keymap>
-```
-
-Flash the resulting firmware to the appropriate half/controller per your Halcyon setup.
-
 ## Keymap
 
 This keymap is authored in **Vial** (dynamic keymap) and stored in the firmware’s non-volatile storage.
