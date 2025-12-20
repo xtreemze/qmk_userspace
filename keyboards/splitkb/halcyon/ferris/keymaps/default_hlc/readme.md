@@ -19,7 +19,7 @@ This keymap is authored in **Vial** (dynamic keymap) and stored in the firmwareâ
 
 Layers 8â€“12 are currently empty (`TRNS` everywhere) and reserved.
 
-## Layers (from `finalVial.vil`)
+## Layers
 
 Each layer is shown as:
 
