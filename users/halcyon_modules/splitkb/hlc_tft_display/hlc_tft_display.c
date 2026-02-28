@@ -10,26 +10,13 @@
 #include "graphics/fonts/Retron2000-27.qff.h"
 #include "graphics/fonts/Retron2000-underline-27.qff.h"
 
-// Numbers mono2
-#include "graphics/numbers/0.qgf.h"
-#include "graphics/numbers/1.qgf.h"
-#include "graphics/numbers/2.qgf.h"
-#include "graphics/numbers/3.qgf.h"
-#include "graphics/numbers/4.qgf.h"
-#include "graphics/numbers/5.qgf.h"
-#include "graphics/numbers/6.qgf.h"
-#include "graphics/numbers/7.qgf.h"
-#include "graphics/numbers/8.qgf.h"
-#include "graphics/numbers/9.qgf.h"
-#include "graphics/numbers/undef.qgf.h"
-
-static const char *caps =        "Caps";
-static const char *num =         "Num";
-static const char *scroll =      "Scroll";
+static const char *ctrl =  "Ctrl";
+static const char *shift = "Shift";
+static const char *alt =   "Alt";
+static const char *gui =   "Gui";
 
 static painter_font_handle_t Retron27;
 static painter_font_handle_t Retron27_underline;
-static painter_image_handle_t layer_number;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
@@ -38,8 +25,24 @@ int color_value = 0;
 painter_device_t lcd;
 painter_device_t lcd_surface;
 
-led_t last_led_usb_state = {0};
-layer_state_t last_layer_state = {0};
+static uint8_t last_mod_state = 0xFF;
+static uint8_t last_display_layer = 0xFF;
+
+#define STATUS_X       5
+#define STATUS_LAYER_Y 5
+
+__attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer) {
+    static const char *const fallback_layer_names[] = {
+        "L0", "L1", "L2", "L3", "L4", "L5", "L6",
+        "L7", "L8", "L9", "L10", "L11", "L12"
+    };
+
+    if (layer < ARRAY_SIZE(fallback_layer_names)) {
+        return fallback_layer_names[layer];
+    }
+
+    return "L?";
+}
 
 #define GRID_WIDTH 27
 #define GRID_HEIGHT 48
@@ -73,10 +76,6 @@ void init_grid() {
 }
 
 void draw_grid() {
-    uint8_t hue = 0;  // Hue for alive cells
-    uint8_t sat = 0;  // Saturation for alive cells
-    uint8_t val_dead = 0;  // Brightness for dead cells
-
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
             if (changed_grid[y][x]) { // Only update changed cells
@@ -86,7 +85,7 @@ void draw_grid() {
                 uint16_t bottom = top + CELL_SIZE + OUTLINE_SIZE;
 
                 // Draw the outline
-                qp_rect(lcd_surface, left, top, right, bottom, hue, sat, val_dead, true);
+                qp_rect(lcd_surface, left, top, right, bottom, HSV_EF_BG, true);
 
                 // Draw the filled cell inside the outline if it's alive
                 if (grid[y][x]) {
@@ -179,67 +178,101 @@ void add_cell_cluster() {
 }
 
 void update_display(void) {
-    static bool first_run_led = false;
-    static bool first_run_layer = false;
+    static bool fonts_loaded = false;
 
-    if( first_run_layer == false) {
-        // Load fonts
+    if (!fonts_loaded) {
         Retron27 = qp_load_font_mem(font_Retron2000_27);
         Retron27_underline = qp_load_font_mem(font_Retron2000_underline_27);
+        fonts_loaded = true;
     }
 
-    if(last_led_usb_state.raw != host_keyboard_led_state().raw || first_run_led == false) {
-        led_t led_usb_state = host_keyboard_led_state();
+    const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
+    const uint8_t active_mods = get_mods() | get_oneshot_mods();
+    const bool first_run = (last_display_layer == 0xFF);
 
-        led_usb_state.caps_lock   ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 3 - 15, Retron27_underline, caps,   HSV_CAPS_ON,   HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 3 - 15, Retron27, caps,   HSV_CAPS_OFF,   HSV_BLACK);
-        led_usb_state.num_lock    ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 2 - 10, Retron27_underline, num,    HSV_NUM_ON,    HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 2 - 10, Retron27, num,    HSV_NUM_OFF,    HSV_BLACK);
-        led_usb_state.scroll_lock ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height - 5,      Retron27_underline, scroll, HSV_SCROLL_ON, HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height - 5,      Retron27, scroll, HSV_SCROLL_OFF, HSV_BLACK);
+    if (first_run || active_layer != last_display_layer) {
+        qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
 
-        last_led_usb_state = led_usb_state;
-        first_run_led = true;
-    }
-
-    if(last_layer_state != layer_state || first_run_layer == false) {
-        switch (get_highest_layer(layer_state|default_layer_state)) {
-        case 0:
-            layer_number = qp_load_image_mem(gfx_0);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_0, HSV_BLACK);
-            break;
-        case 1:
-            layer_number = qp_load_image_mem(gfx_1);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_1, HSV_BLACK);
-            break;
-        case 2:
-            layer_number = qp_load_image_mem(gfx_2);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_2, HSV_BLACK);
-            break;
-        case 3:
-            layer_number = qp_load_image_mem(gfx_3);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_3, HSV_BLACK);
-            break;
-        case 4:
-            layer_number = qp_load_image_mem(gfx_4);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_4, HSV_BLACK);
-            break;
-        case 5:
-            layer_number = qp_load_image_mem(gfx_5);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_5, HSV_BLACK);
-            break;
-        case 6:
-            layer_number = qp_load_image_mem(gfx_6);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_6, HSV_BLACK);
-            break;
-        case 7:
-            layer_number = qp_load_image_mem(gfx_7);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_7, HSV_BLACK);
-            break;
-        default:
-            layer_number = qp_load_image_mem(gfx_undef);
-            qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_UNDEF, HSV_BLACK);
+        uint8_t layer_h = 0;
+        uint8_t layer_s = 0;
+        uint8_t layer_v = 0;
+        switch (active_layer) {
+            case 0: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
+            case 1: layer_h = 122; layer_s = 82;  layer_v = 187; break;
+            case 2: layer_h = 28;  layer_s = 107; layer_v = 219; break;
+            case 3: layer_h = 254; layer_s = 115; layer_v = 230; break;
+            case 4: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
+            case 5: layer_h = 122; layer_s = 82;  layer_v = 187; break;
+            case 6: layer_h = 28;  layer_s = 107; layer_v = 219; break;
+            case 7: layer_h = 254; layer_s = 115; layer_v = 230; break;
+            case 8: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
+            case 9: layer_h = 122; layer_s = 82;  layer_v = 187; break;
+            case 10: layer_h = 28; layer_s = 107; layer_v = 219; break;
+            case 11: layer_h = 254; layer_s = 115; layer_v = 230; break;
+            case 12: layer_h = 59; layer_s = 85;  layer_v = 192; break;
+            default: layer_h = 29; layer_s = 50; layer_v = 211; break;
         }
-        qp_close_image(layer_number);
-        last_layer_state = layer_state;
-        first_run_layer = true;
+
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            STATUS_LAYER_Y,
+            Retron27_underline,
+            halcyon_display_layer_name_user(active_layer),
+            layer_h, layer_s, layer_v,
+            HSV_EF_BG
+        );
+
+        last_display_layer = active_layer;
+    }
+
+    if (first_run || active_mods != last_mod_state) {
+        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 12;
+        qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+
+        const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
+        const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
+        const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
+        const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
+
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            mod_top,
+            ctrl_active ? Retron27_underline : Retron27,
+            ctrl,
+            ctrl_active ? 122 : 98, ctrl_active ? 82 : 23, ctrl_active ? 187 : 146,
+            HSV_EF_BG
+        );
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            mod_top + Retron27->line_height,
+            shift_active ? Retron27_underline : Retron27,
+            shift,
+            shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146,
+            HSV_EF_BG
+        );
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            mod_top + Retron27->line_height * 2,
+            alt_active ? Retron27_underline : Retron27,
+            alt,
+            alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146,
+            HSV_EF_BG
+        );
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            mod_top + Retron27->line_height * 3,
+            gui_active ? Retron27_underline : Retron27,
+            gui,
+            gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146,
+            HSV_EF_BG
+        );
+
+        last_mod_state = active_mods;
     }
 }
 
@@ -266,13 +299,13 @@ bool module_post_init_kb(void) {
     qp_init(lcd, LCD_ROTATION);
     qp_set_viewport_offsets(lcd, LCD_OFFSET_X, LCD_OFFSET_Y);
     qp_clear(lcd);
-    qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_BLACK, true);
+    qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_power(lcd, true);
     qp_flush(lcd);
 
     // Initialise the LCD surface
     qp_init(lcd_surface, LCD_ROTATION);
-    qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_BLACK, true);
+    qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
     qp_flush(lcd);
 

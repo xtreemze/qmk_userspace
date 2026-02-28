@@ -6,28 +6,36 @@
 #include "qp.h"
 #include "qp_surface.h"
 
-// All values (including hue) are scaled to 0-255
-#define HSV_SPLITKB 145, 235, 155
-#define HSV_CAPS_OFF 17, 104, 77
-#define HSV_CAPS_ON 17, 191, 245
-#define HSV_SCROLL_OFF 202, 104, 77
-#define HSV_SCROLL_ON 202, 191, 245
-#define HSV_NUM_OFF 142, 104, 77
-#define HSV_NUM_ON 142, 191, 245
+// Everforest medium-dark RGB565 constants for easy future palette swaps.
+#define EF_RGB565_BG     0x29A7
+#define EF_RGB565_FG     0xD635
+#define EF_RGB565_GREEN  0xA610
+#define EF_RGB565_BLUE   0x7DD6
+#define EF_RGB565_YELLOW 0xDDEF
+#define EF_RGB565_RED    0xE3F0
 
-#define HSV_LAYER_0 0, 0, 160
-#define HSV_LAYER_3 0, 82, 255
-#define HSV_LAYER_1 23, 89, 255
-#define HSV_LAYER_2 43, 71, 255
-#define HSV_LAYER_4 77, 64, 255
-#define HSV_LAYER_6 131, 99, 255
-#define HSV_LAYER_7 154, 94, 255
-#define HSV_LAYER_5 176, 77, 255
-// #define HSV_LAYER_8 213, 56, 255
-#define HSV_LAYER_UNDEF 0, 255, 255
+// Quantum Painter drawing APIs use HSV; these are approximations of the RGB565 colors above.
+#define HSV_EF_BG     146, 61, 59
+#define HSV_EF_FG     29, 50, 211
+#define HSV_EF_GREEN  59, 85, 192
+#define HSV_EF_BLUE   122, 82, 187
+#define HSV_EF_YELLOW 28, 107, 219
+#define HSV_EF_RED    254, 115, 230
+#define HSV_EF_DIM    98, 23, 146
+
+#define HSV_LAYER_0 HSV_EF_GREEN
+#define HSV_LAYER_1 HSV_EF_BLUE
+#define HSV_LAYER_2 HSV_EF_YELLOW
+#define HSV_LAYER_3 HSV_EF_RED
+#define HSV_LAYER_4 HSV_EF_GREEN
+#define HSV_LAYER_5 HSV_EF_BLUE
+#define HSV_LAYER_6 HSV_EF_YELLOW
+#define HSV_LAYER_7 HSV_EF_RED
+#define HSV_LAYER_UNDEF HSV_EF_FG
 
 extern painter_device_t lcd;
 extern painter_device_t lcd_surface;
+const char *halcyon_display_layer_name_user(uint8_t layer);
 
 void draw_grid(void);
 void update_grid(void);
