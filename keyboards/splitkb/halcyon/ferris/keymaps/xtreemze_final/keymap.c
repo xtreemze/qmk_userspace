@@ -4,6 +4,7 @@
 #include QMK_KEYBOARD_H
 #include "dynamic_keymap.h"
 #include <stdio.h>
+#include <string.h>
 #ifdef RGB_MATRIX_ENABLE
 #include "rgb_matrix.h"
 #endif
@@ -25,7 +26,7 @@ enum layers {
 };
 
 enum custom_keycodes {
-    MC_0 = SAFE_RANGE,
+    MC_0 = QK_KB_0,
     MC_1,
     MC_2,
     MC_3,
@@ -35,10 +36,12 @@ enum custom_keycodes {
     MC_7,
     MC_8,
     MC_9,
-    RGBL0, RGBL1, RGBL2, RGBL3, RGBL4, RGBL5, RGBL6, RGBL7,
-    RGBM0, RGBM1, RGBM2, RGBM3, RGBM4, RGBM5, RGBM6, RGBM7,
-    RGBC0, RGBC1, RGBC2, RGBC3, RGBC4, RGBC5, RGBC6, RGBC7,
-    RGBDU, RGBDD
+    RGB_SLAY,
+    RGB_SMOD,
+    RGB_SCHD,
+    RGB_TCHD,
+    RGB_DURU,
+    RGB_DURD
 };
 
 /*
@@ -46,142 +49,237 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0x58544603UL
-
-static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
-    if (eeconfig_read_user() == XTREEMZE_DEFAULTS_EE_MARKER) {
-        return;
-    }
-
-    dynamic_keymap_reset();
-    eeconfig_update_user(XTREEMZE_DEFAULTS_EE_MARKER);
-}
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xA5
+#define XTREEMZE_USER_DATA_MAGIC 0x58
+#define XTREEMZE_USER_DATA_VERSION 0x02
+#define XTREEMZE_CHORD_MS_DEFAULT 2000
+#define XTREEMZE_CHORD_MS_MIN 250
+#define XTREEMZE_CHORD_MS_MAX 10000
+#define XTREEMZE_CHORD_MS_STEP 250
 
 static char alt_repeat_display_text[24] = "---";
 
 #ifdef RGB_MATRIX_ENABLE
-enum {
-    RGB_PRESET_NONE = 0xFF,
-    RGB_PRESET_0 = 0,
-    RGB_PRESET_1,
-    RGB_PRESET_2,
-    RGB_PRESET_3,
-    RGB_PRESET_4,
-    RGB_PRESET_5,
-    RGB_PRESET_6,
-    RGB_PRESET_7
-};
-
 typedef struct {
     uint8_t mode;
     uint8_t h;
     uint8_t s;
     uint8_t v;
     uint8_t speed;
-} rgb_preset_t;
+} rgb_profile_t;
 
-static const rgb_preset_t rgb_presets[8] = {
-    [RGB_PRESET_0] = { RGB_MATRIX_SOLID_COLOR, 59, 85, 192, 80 },
-    [RGB_PRESET_1] = { RGB_MATRIX_SOLID_COLOR, 122, 82, 187, 80 },
-    [RGB_PRESET_2] = { RGB_MATRIX_SOLID_COLOR, 28, 107, 219, 80 },
-    [RGB_PRESET_3] = { RGB_MATRIX_SOLID_COLOR, 254, 115, 230, 80 },
-    [RGB_PRESET_4] = { RGB_MATRIX_BREATHING, 59, 85, 192, 100 },
-    [RGB_PRESET_5] = { RGB_MATRIX_CYCLE_ALL, 122, 82, 187, 110 },
-    [RGB_PRESET_6] = { RGB_MATRIX_CYCLE_LEFT_RIGHT, 28, 107, 219, 105 },
-    [RGB_PRESET_7] = { RGB_MATRIX_RAINBOW_MOVING_CHEVRON, 254, 115, 230, 120 },
-};
+#define RGB_PROFILE_UNASSIGNED 0xFF
+#endif
 
-static uint8_t layer_rgb_presets[13] = {
-    RGB_PRESET_0, RGB_PRESET_1, RGB_PRESET_2, RGB_PRESET_3, RGB_PRESET_0, RGB_PRESET_1, RGB_PRESET_2,
-    RGB_PRESET_3, RGB_PRESET_4, RGB_PRESET_5, RGB_PRESET_6, RGB_PRESET_7, RGB_PRESET_0,
-};
+typedef struct {
+    uint8_t magic;
+    uint8_t version;
+    uint8_t defaults_marker;
+    uint8_t reserved;
+    uint16_t chord_override_ms;
+    uint8_t reserved1[2];
+#ifdef RGB_MATRIX_ENABLE
+    rgb_profile_t layer_profiles[13];
+    rgb_profile_t mod_profiles[4]; // Ctrl, Gui, Shift, Alt
+    rgb_profile_t chord_profile;
+#endif
+} xtreemze_user_data_t;
 
-static uint8_t mod_rgb_presets[4] = {
-    RGB_PRESET_NONE, RGB_PRESET_NONE, RGB_PRESET_NONE, RGB_PRESET_NONE
-}; // Ctrl, Gui, Shift, Alt
+static xtreemze_user_data_t xtreemze_user_data;
 
-static uint8_t chord_override_preset = RGB_PRESET_NONE;
-static uint32_t chord_override_start = 0;
-static uint16_t chord_override_ms = 1500;
-static uint8_t last_applied_rgb_preset = RGB_PRESET_NONE;
+static void set_user_data_defaults(xtreemze_user_data_t *data) {
+    memset(data, 0, sizeof(*data));
+    data->magic = XTREEMZE_USER_DATA_MAGIC;
+    data->version = XTREEMZE_USER_DATA_VERSION;
+    data->chord_override_ms = XTREEMZE_CHORD_MS_DEFAULT;
 
-static void apply_rgb_preset(uint8_t preset) {
-    if (preset >= ARRAY_SIZE(rgb_presets)) {
+#ifdef RGB_MATRIX_ENABLE
+    for (uint8_t i = 0; i < ARRAY_SIZE(data->layer_profiles); ++i) {
+        data->layer_profiles[i].mode = RGB_PROFILE_UNASSIGNED;
+    }
+    for (uint8_t i = 0; i < ARRAY_SIZE(data->mod_profiles); ++i) {
+        data->mod_profiles[i].mode = RGB_PROFILE_UNASSIGNED;
+    }
+    data->chord_profile.mode = RGB_PROFILE_UNASSIGNED;
+#endif
+}
+
+void eeconfig_init_user_datablock(void) {
+    set_user_data_defaults(&xtreemze_user_data);
+    eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
+}
+
+static void save_user_data(void) {
+    eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
+}
+
+static void load_user_data(void) {
+    if (!eeconfig_is_user_datablock_valid()) {
+        eeconfig_init_user_datablock();
         return;
     }
 
-    const rgb_preset_t *p = &rgb_presets[preset];
-    rgb_matrix_mode_noeeprom(p->mode);
-    rgb_matrix_sethsv_noeeprom(p->h, p->s, p->v);
-    rgb_matrix_set_speed_noeeprom(p->speed);
-}
-
-static void refresh_rgb_preset_state(void) {
-    if (chord_override_preset != RGB_PRESET_NONE && timer_elapsed32(chord_override_start) > chord_override_ms) {
-        chord_override_preset = RGB_PRESET_NONE;
+    eeconfig_read_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
+    if (xtreemze_user_data.magic != XTREEMZE_USER_DATA_MAGIC || xtreemze_user_data.version != XTREEMZE_USER_DATA_VERSION) {
+        set_user_data_defaults(&xtreemze_user_data);
+        save_user_data();
     }
 
-    uint8_t target = RGB_PRESET_NONE;
-    if (chord_override_preset != RGB_PRESET_NONE) {
-        target = chord_override_preset;
+    if (xtreemze_user_data.chord_override_ms < XTREEMZE_CHORD_MS_MIN || xtreemze_user_data.chord_override_ms > XTREEMZE_CHORD_MS_MAX) {
+        xtreemze_user_data.chord_override_ms = XTREEMZE_CHORD_MS_DEFAULT;
+        save_user_data();
+    }
+}
+
+static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
+    if (xtreemze_user_data.defaults_marker == XTREEMZE_DEFAULTS_EE_MARKER) {
+        return;
+    }
+
+    dynamic_keymap_reset();
+    xtreemze_user_data.defaults_marker = XTREEMZE_DEFAULTS_EE_MARKER;
+    save_user_data();
+}
+
+#ifdef RGB_MATRIX_ENABLE
+static uint32_t chord_override_start = 0;
+static bool chord_override_active = false;
+static rgb_profile_t last_applied_profile;
+static bool has_last_applied_profile = false;
+
+static inline bool is_profile_assigned(const rgb_profile_t *profile) {
+    return profile->mode != RGB_PROFILE_UNASSIGNED;
+}
+
+static inline bool rgb_profile_equal(const rgb_profile_t *a, const rgb_profile_t *b) {
+    return a->mode == b->mode && a->h == b->h && a->s == b->s && a->v == b->v && a->speed == b->speed;
+}
+
+static rgb_profile_t capture_current_rgb_profile(void) {
+    return (rgb_profile_t){
+        .mode = rgb_matrix_get_mode(),
+        .h = rgb_matrix_get_hue(),
+        .s = rgb_matrix_get_sat(),
+        .v = rgb_matrix_get_val(),
+        .speed = rgb_matrix_get_speed(),
+    };
+}
+
+static void apply_rgb_profile(const rgb_profile_t *profile) {
+    if (!is_profile_assigned(profile)) {
+        return;
+    }
+
+    rgb_matrix_mode_noeeprom(profile->mode);
+    rgb_matrix_sethsv_noeeprom(profile->h, profile->s, profile->v);
+    rgb_matrix_set_speed_noeeprom(profile->speed);
+}
+
+static void set_layer_profile_from_current_rgb(void) {
+    const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+    if (layer >= ARRAY_SIZE(xtreemze_user_data.layer_profiles)) {
+        return;
+    }
+
+    xtreemze_user_data.layer_profiles[layer] = capture_current_rgb_profile();
+    save_user_data();
+}
+
+static void set_mod_profiles_from_current_rgb(void) {
+    const uint8_t mods = get_mods() | get_oneshot_mods();
+    if (mods == 0U) {
+        return;
+    }
+
+    const rgb_profile_t profile = capture_current_rgb_profile();
+
+    if ((mods & MOD_MASK_CTRL) != 0U) {
+        xtreemze_user_data.mod_profiles[0] = profile;
+    }
+    if ((mods & MOD_MASK_GUI) != 0U) {
+        xtreemze_user_data.mod_profiles[1] = profile;
+    }
+    if ((mods & MOD_MASK_SHIFT) != 0U) {
+        xtreemze_user_data.mod_profiles[2] = profile;
+    }
+    if ((mods & MOD_MASK_ALT) != 0U) {
+        xtreemze_user_data.mod_profiles[3] = profile;
+    }
+
+    save_user_data();
+}
+
+static void set_chord_profile_from_current_rgb(void) {
+    xtreemze_user_data.chord_profile = capture_current_rgb_profile();
+    save_user_data();
+}
+
+static void trigger_chord_profile(void) {
+    if (!is_profile_assigned(&xtreemze_user_data.chord_profile)) {
+        return;
+    }
+
+    chord_override_active = true;
+    chord_override_start = timer_read32();
+}
+
+static void adjust_chord_override_duration(bool increase) {
+    uint16_t duration = xtreemze_user_data.chord_override_ms;
+    if (increase) {
+        if (duration + XTREEMZE_CHORD_MS_STEP <= XTREEMZE_CHORD_MS_MAX) {
+            duration += XTREEMZE_CHORD_MS_STEP;
+        } else {
+            duration = XTREEMZE_CHORD_MS_MAX;
+        }
+    } else {
+        if (duration > XTREEMZE_CHORD_MS_MIN + XTREEMZE_CHORD_MS_STEP - 1) {
+            duration -= XTREEMZE_CHORD_MS_STEP;
+        } else {
+            duration = XTREEMZE_CHORD_MS_MIN;
+        }
+    }
+
+    if (duration != xtreemze_user_data.chord_override_ms) {
+        xtreemze_user_data.chord_override_ms = duration;
+        save_user_data();
+    }
+}
+
+static void refresh_rgb_profile_state(void) {
+    if (chord_override_active && timer_elapsed32(chord_override_start) > xtreemze_user_data.chord_override_ms) {
+        chord_override_active = false;
+    }
+
+    const rgb_profile_t *target = NULL;
+    if (chord_override_active && is_profile_assigned(&xtreemze_user_data.chord_profile)) {
+        target = &xtreemze_user_data.chord_profile;
     } else {
         const uint8_t mods = get_mods() | get_oneshot_mods();
-        if ((mods & MOD_MASK_CTRL) != 0U && mod_rgb_presets[0] != RGB_PRESET_NONE) {
-            target = mod_rgb_presets[0];
-        } else if ((mods & MOD_MASK_GUI) != 0U && mod_rgb_presets[1] != RGB_PRESET_NONE) {
-            target = mod_rgb_presets[1];
-        } else if ((mods & MOD_MASK_SHIFT) != 0U && mod_rgb_presets[2] != RGB_PRESET_NONE) {
-            target = mod_rgb_presets[2];
-        } else if ((mods & MOD_MASK_ALT) != 0U && mod_rgb_presets[3] != RGB_PRESET_NONE) {
-            target = mod_rgb_presets[3];
+        if ((mods & MOD_MASK_CTRL) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[0])) {
+            target = &xtreemze_user_data.mod_profiles[0];
+        } else if ((mods & MOD_MASK_GUI) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[1])) {
+            target = &xtreemze_user_data.mod_profiles[1];
+        } else if ((mods & MOD_MASK_SHIFT) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[2])) {
+            target = &xtreemze_user_data.mod_profiles[2];
+        } else if ((mods & MOD_MASK_ALT) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[3])) {
+            target = &xtreemze_user_data.mod_profiles[3];
         } else {
             const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
-            if (layer < ARRAY_SIZE(layer_rgb_presets)) {
-                target = layer_rgb_presets[layer];
+            if (layer < ARRAY_SIZE(xtreemze_user_data.layer_profiles) && is_profile_assigned(&xtreemze_user_data.layer_profiles[layer])) {
+                target = &xtreemze_user_data.layer_profiles[layer];
             }
         }
     }
 
-    if (target != RGB_PRESET_NONE && target != last_applied_rgb_preset) {
-        apply_rgb_preset(target);
-        last_applied_rgb_preset = target;
-    }
-}
-
-static void set_layer_preset_from_keycode(uint16_t keycode) {
-    const uint8_t preset = (uint8_t)(keycode - RGBL0);
-    const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
-    if (layer < ARRAY_SIZE(layer_rgb_presets) && preset < 8) {
-        layer_rgb_presets[layer] = preset;
-    }
-}
-
-static void set_mod_preset_from_keycode(uint16_t keycode) {
-    const uint8_t preset = (uint8_t)(keycode - RGBM0);
-    const uint8_t mods = get_mods() | get_oneshot_mods();
-    if (preset >= 8) {
+    if (target == NULL) {
+        has_last_applied_profile = false;
         return;
     }
 
-    if ((mods & MOD_MASK_CTRL) != 0U) {
-        mod_rgb_presets[0] = preset;
-    }
-    if ((mods & MOD_MASK_GUI) != 0U) {
-        mod_rgb_presets[1] = preset;
-    }
-    if ((mods & MOD_MASK_SHIFT) != 0U) {
-        mod_rgb_presets[2] = preset;
-    }
-    if ((mods & MOD_MASK_ALT) != 0U) {
-        mod_rgb_presets[3] = preset;
-    }
-}
-
-static void trigger_chord_preset_from_keycode(uint16_t keycode) {
-    const uint8_t preset = (uint8_t)(keycode - RGBC0);
-    if (preset < 8) {
-        chord_override_preset = preset;
-        chord_override_start = timer_read32();
+    if (!has_last_applied_profile || !rgb_profile_equal(target, &last_applied_profile)) {
+        apply_rgb_profile(target);
+        last_applied_profile = *target;
+        has_last_applied_profile = true;
     }
 }
 #endif
@@ -948,44 +1046,48 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     update_alt_repeat_display_text(keycode);
 #endif
 
-    if (keycode >= RGBL0 && keycode <= RGBL7) {
+    if (keycode == RGB_SLAY) {
 #ifdef RGB_MATRIX_ENABLE
-        set_layer_preset_from_keycode(keycode);
-        refresh_rgb_preset_state();
+        set_layer_profile_from_current_rgb();
+        refresh_rgb_profile_state();
 #endif
         return false;
     }
 
-    if (keycode >= RGBM0 && keycode <= RGBM7) {
+    if (keycode == RGB_SMOD) {
 #ifdef RGB_MATRIX_ENABLE
-        set_mod_preset_from_keycode(keycode);
-        refresh_rgb_preset_state();
+        set_mod_profiles_from_current_rgb();
+        refresh_rgb_profile_state();
 #endif
         return false;
     }
 
-    if (keycode >= RGBC0 && keycode <= RGBC7) {
+    if (keycode == RGB_SCHD) {
 #ifdef RGB_MATRIX_ENABLE
-        trigger_chord_preset_from_keycode(keycode);
-        refresh_rgb_preset_state();
+        set_chord_profile_from_current_rgb();
+        refresh_rgb_profile_state();
 #endif
         return false;
     }
 
-    if (keycode == RGBDU) {
+    if (keycode == RGB_TCHD) {
 #ifdef RGB_MATRIX_ENABLE
-        if (chord_override_ms < 10000) {
-            chord_override_ms += 250;
-        }
+        trigger_chord_profile();
+        refresh_rgb_profile_state();
 #endif
         return false;
     }
 
-    if (keycode == RGBDD) {
+    if (keycode == RGB_DURU) {
 #ifdef RGB_MATRIX_ENABLE
-        if (chord_override_ms > 250) {
-            chord_override_ms -= 250;
-        }
+        adjust_chord_override_duration(true);
+#endif
+        return false;
+    }
+
+    if (keycode == RGB_DURD) {
+#ifdef RGB_MATRIX_ENABLE
+        adjust_chord_override_duration(false);
 #endif
         return false;
     }
@@ -999,15 +1101,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void keyboard_post_init_user(void) {
+    load_user_data();
     sync_compiled_defaults_to_dynamic_keymap_once();
 #ifdef RGB_MATRIX_ENABLE
-    refresh_rgb_preset_state();
+    refresh_rgb_profile_state();
 #endif
 }
 
 void matrix_scan_user(void) {
 #ifdef RGB_MATRIX_ENABLE
-    refresh_rgb_preset_state();
+    refresh_rgb_profile_state();
 #endif
 }
 

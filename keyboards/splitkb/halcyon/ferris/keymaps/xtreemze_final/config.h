@@ -19,3 +19,10 @@
 
 /* Keep parity with splitkb vial_hlc defaults for dynamic macro storage. */
 #define DYNAMIC_KEYMAP_MACRO_COUNT 32
+
+/*
+ * Persistent user datablock used for RGB profile engine state.
+ * Note: with EECONFIG_USER_DATA_SIZE > 0, eeconfig_read_user()/update_user()
+ * are replaced by eeconfig_*_user_datablock() APIs.
+ */
+#define EECONFIG_USER_DATA_SIZE 128

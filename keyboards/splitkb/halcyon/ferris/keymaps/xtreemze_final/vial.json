@@ -1,5 +1,23 @@
 {
     "lighting": "vialrgb",
+    "customKeycodes": [
+        {"name": "MC_0", "title": "Macro 0", "shortName": "MC0"},
+        {"name": "MC_1", "title": "Macro 1", "shortName": "MC1"},
+        {"name": "MC_2", "title": "Macro 2", "shortName": "MC2"},
+        {"name": "MC_3", "title": "Macro 3", "shortName": "MC3"},
+        {"name": "MC_4", "title": "Macro 4", "shortName": "MC4"},
+        {"name": "MC_5", "title": "Macro 5", "shortName": "MC5"},
+        {"name": "MC_6", "title": "Macro 6", "shortName": "MC6"},
+        {"name": "MC_7", "title": "Macro 7", "shortName": "MC7"},
+        {"name": "MC_8", "title": "Macro 8", "shortName": "MC8"},
+        {"name": "MC_9", "title": "Macro 9", "shortName": "MC9"},
+        {"name": "RGB_SLAY", "title": "Save RGB to Active Layer", "shortName": "SLYR"},
+        {"name": "RGB_SMOD", "title": "Save RGB to Held Modifiers", "shortName": "SMOD"},
+        {"name": "RGB_SCHD", "title": "Save RGB as Chord Profile", "shortName": "SCHD"},
+        {"name": "RGB_TCHD", "title": "Trigger Chord RGB", "shortName": "TCHD"},
+        {"name": "RGB_DURU", "title": "Chord Duration Up", "shortName": "DUR+"},
+        {"name": "RGB_DURD", "title": "Chord Duration Down", "shortName": "DUR-"}
+    ],
     "matrix": {
         "rows": 10,
         "cols": 5

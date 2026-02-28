@@ -7,6 +7,14 @@ Vial enabled.
 - Vial dynamic keymap storage can override those defaults after flashing.
 - Reset EEPROM to return to compiled defaults.
 
+## RGB profile keycodes (Vial custom buttons)
+
+- `SLYR`: Save the current RGB Matrix mode/hsv/speed to the active layer profile.
+- `SMOD`: Hold one or more modifiers, then press to save current RGB to those mod profiles.
+- `SCHD`: Save current RGB as the chord override profile.
+- `TCHD`: Trigger the chord override profile.
+- `DUR+` / `DUR-`: Increase/decrease chord override duration (default `2000ms`, persistent).
+
 ## Module builds
 
 Build left-half firmware (TFT module):
