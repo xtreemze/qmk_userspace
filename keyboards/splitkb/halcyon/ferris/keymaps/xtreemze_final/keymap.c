@@ -26,16 +26,16 @@ enum layers {
 };
 
 enum custom_keycodes {
-    MC_0 = QK_KB_0,
-    MC_1,
-    MC_2,
-    MC_3,
-    MC_4,
-    MC_5,
-    MC_6,
-    MC_7,
-    MC_8,
-    MC_9,
+    XM_0 = QK_KB_0,
+    XM_1,
+    XM_2,
+    XM_3,
+    XM_4,
+    XM_5,
+    XM_6,
+    XM_7,
+    XM_8,
+    XM_9,
     RGB_SLAY,
     RGB_SMOD,
     RGB_SCHD,
@@ -288,7 +288,7 @@ static void refresh_rgb_profile_state(void) {
 uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods);
 #endif
 
-static void format_basic_keycode_name(uint8_t keycode, char *out, size_t out_size) {
+static void __attribute__((unused)) format_basic_keycode_name(uint8_t keycode, char *out, size_t out_size) {
     if (keycode >= KC_A && keycode <= KC_Z) {
         out[0] = 'A' + (char)(keycode - KC_A);
         out[1] = '\0';
@@ -347,7 +347,7 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
 }
 
 static inline bool is_macro_keycode(uint16_t keycode) {
-    return keycode >= MC_0 && keycode <= MC_9;
+    return keycode >= XM_0 && keycode <= XM_9;
 }
 
 static void run_macro_slot(uint8_t slot);
@@ -358,7 +358,7 @@ static void tap_action_keycode(uint16_t keycode) {
     }
 
     if (is_macro_keycode(keycode)) {
-        run_macro_slot((uint8_t)(keycode - MC_0));
+        run_macro_slot((uint8_t)(keycode - XM_0));
         return;
     }
 
@@ -382,13 +382,13 @@ static void tap_action_keycode(uint16_t keycode) {
     tap_code16(keycode);
 }
 
-static void press_action_keycode(uint16_t keycode) {
+static void __attribute__((unused)) press_action_keycode(uint16_t keycode) {
     if (keycode == KC_NO || keycode == KC_TRNS) {
         return;
     }
 
     if (is_macro_keycode(keycode)) {
-        run_macro_slot((uint8_t)(keycode - MC_0));
+        run_macro_slot((uint8_t)(keycode - XM_0));
         return;
     }
 
@@ -405,7 +405,7 @@ static void press_action_keycode(uint16_t keycode) {
     register_code16(keycode);
 }
 
-static void release_action_keycode(uint16_t keycode) {
+static void __attribute__((unused)) release_action_keycode(uint16_t keycode) {
     if (keycode == KC_NO || keycode == KC_TRNS || is_macro_keycode(keycode)) {
         return;
     }
@@ -427,7 +427,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {               MO(10),                MO(9),                MO(5),                MO(4),                MO(8) },
         {              RM_TOGG,              KC_LCTL,              KC_LGUI,              KC_LSFT,              KC_LALT },
         {           SGUI(KC_Z),           LGUI(KC_V),           LGUI(KC_C),           LGUI(KC_X),           LGUI(KC_Z) },
-        {     LT(3, KC_BSPACE),                MO(6),                KC_NO,                KC_NO,                KC_NO },
+        {     LT(3, KC_BSPC),                MO(6),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                KC_NO,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {              MS_LEFT,              MS_DOWN,                MS_UP,              MS_RGHT,                KC_NO },
@@ -439,24 +439,24 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {                 KC_T,                 KC_R,                 KC_E,                 KC_W,                 KC_Q },
         {                 KC_G,                 KC_F,                 KC_D,                 KC_S,                 KC_A },
         {                 KC_B,                 KC_V,                 KC_C,                 KC_X,                 KC_Z },
-        {     LT(3, KC_BSPACE),                MO(6),                KC_NO,                KC_NO,                KC_NO },
+        {     LT(3, KC_BSPC),                MO(6),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                 KC_Y,                 KC_U,                 KC_I,                 KC_O,                 KC_P },
         {                 KC_H,                 KC_J,                 KC_K,                 KC_L,                TD(1) },
         {                 KC_N,                 KC_M,                TD(7),                TD(3),                TD(0) },
-        {     LT(3, KC_BSPACE),             KC_SPACE,                KC_NO,                KC_NO,                KC_NO },
+        {     LT(3, KC_BSPC),             KC_SPACE,                KC_NO,                KC_NO,                KC_NO },
         {                TO(0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L2] = {
         {                 KC_V,                 KC_P,                 KC_D,                 KC_R,                 KC_F },
         {                 KC_B,                 KC_C,                 KC_T,                 KC_N,                 KC_S },
         {                 KC_W,                 KC_G,                 KC_K,                 KC_X,                 KC_Z },
-        {     LT(3, KC_BSPACE),                MO(6),                KC_NO,                KC_NO,                KC_NO },
+        {     LT(3, KC_BSPC),                MO(6),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                 KC_Q,                 KC_J,                 KC_U,                 KC_O,                 KC_Y },
         {                TD(3),                 KC_H,                 KC_E,                 KC_A,                 KC_I },
         {                 KC_M,                 KC_L,                TD(4),                TD(7),                TD(2) },
-        {     LT(3, KC_BSPACE),             KC_SPACE,                KC_NO,                KC_NO,                KC_NO },
+        {     LT(3, KC_BSPC),             KC_SPACE,                KC_NO,                KC_NO,                KC_NO },
         {                TO(0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L3] = {
@@ -487,7 +487,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
-        {           LGUI(KC_S),      LALT(KC_BSPACE),                KC_NO,                KC_NO,                KC_NO },
+        {           LGUI(KC_S),      LALT(KC_BSPC),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {              _______,         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
         {              _______,        OSM(MOD_RCTL),        OSM(MOD_RGUI),        OSM(MOD_RSFT),        OSM(MOD_RALT) },
@@ -509,12 +509,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     },
     [L7] = {
         {                KC_F5,                KC_F4,                KC_F3,                KC_F2,                KC_F1 },
-        {           LSFT(KC_0),              KC_RBRC,         LSFT(KC_DOT),    LSFT(KC_RBRACKET),              KC_PSLS },
+        {           LSFT(KC_0),              KC_RBRC,         LSFT(KC_DOT),    LSFT(KC_RBRC),              KC_PSLS },
         {                KC_F6,              KC_MNXT,              KC_MPLY,              KC_MSTP,              KC_MPRV },
         {                KC_UP,              KC_LEFT,                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                KC_F8,                KC_F9,               KC_F10,               KC_F11,               KC_F12 },
-        {           LSFT(KC_9),              KC_LBRC,       LSFT(KC_COMMA),    LSFT(KC_LBRACKET),              KC_BSLS },
+        {           LSFT(KC_9),              KC_LBRC,       LSFT(KC_COMMA),    LSFT(KC_LBRC),              KC_BSLS },
         {                KC_F7,              KC_MNXT,              KC_MPLY,              KC_MSTP,              KC_MPRV },
         {              KC_DOWN,             KC_RIGHT,                KC_NO,                KC_NO,                KC_NO },
         {           LGUI(KC_0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
@@ -647,11 +647,11 @@ combo_t key_combos[] = {
     [CM_1] = COMBO(combo_1, MO(7)),
     [CM_2] = COMBO(combo_2, KC_ESC),
     [CM_3] = COMBO(combo_3, KC_ENT),
-    [CM_4] = COMBO(combo_4, MC_2),
+    [CM_4] = COMBO(combo_4, XM_2),
     [CM_5] = COMBO(combo_5, HYPR(KC_SPACE)),
-    [CM_6] = COMBO(combo_6, MC_2),
+    [CM_6] = COMBO(combo_6, XM_2),
     [CM_7] = COMBO(combo_7, KC_ENT),
-    [CM_8] = COMBO(combo_8, MC_2),
+    [CM_8] = COMBO(combo_8, XM_2),
     [CM_9] = COMBO(combo_9, QK_REBOOT),
     [CM_10] = COMBO(combo_10, QK_REBOOT),
     [CM_11] = COMBO(combo_11, QK_BOOT),
@@ -676,16 +676,16 @@ typedef struct {
 #define TAP_DANCE_SLOT_COUNT 14
 
 static const vial_like_tap_dance_entry_t tap_dance_entries[TAP_DANCE_SLOT_COUNT] = {
-    [0] = { KC_PSLS, LSFT(KC_SLASH), MC_9, KC_PSLS, 160 },
+    [0] = { KC_PSLS, LSFT(KC_SLASH), XM_9, KC_PSLS, 160 },
     [1] = { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 160 },
     [2] = { KC_COMM, LSFT(KC_SLASH), KC_SLASH, LSFT(KC_SLASH), 160 },
-    [3] = { KC_DOT, KC_DOT, MC_3, KC_DOT, 180 },
-    [4] = { KC_N, MC_6, MC_7, MC_6, 175 },
-    [5] = { OSM(MOD_LSFT), MO(6), MC_5, MO(6), 45 },
+    [3] = { KC_DOT, KC_DOT, XM_3, KC_DOT, 180 },
+    [4] = { KC_N, XM_6, XM_7, XM_6, 175 },
+    [5] = { OSM(MOD_LSFT), MO(6), XM_5, MO(6), 45 },
     [6] = { KC_Q, LSFT(KC_1), KC_GRV, KC_Q, 180 },
     [7] = { KC_COMM, KC_SCLN, KC_COMM, KC_SCLN, 160 },
     [8] = { KC_O, KC_MINS, KC_O, KC_O, 200 },
-    [13] = { KC_ESC, KC_GRV, MC_0, KC_NO, 220 },
+    [13] = { KC_ESC, KC_GRV, XM_0, KC_NO, 220 },
 };
 
 enum {
@@ -1093,7 +1093,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
     if (is_macro_keycode(keycode)) {
-        run_macro_slot((uint8_t)(keycode - MC_0));
+        run_macro_slot((uint8_t)(keycode - XM_0));
         return false;
     }
 

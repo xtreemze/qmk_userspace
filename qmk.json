@@ -6,6 +6,7 @@
       "xtreemze_final",
       {
         "HLC_TFT_DISPLAY": "1",
+        "SKIP_GIT": "yes",
         "TARGET": "splitkb_halcyon_ferris_rev1_xtreemze_final_display"
       }
     ],
@@ -14,6 +15,7 @@
       "xtreemze_final",
       {
         "HLC_ENCODER": "1",
+        "SKIP_GIT": "yes",
         "TARGET": "splitkb_halcyon_ferris_rev1_xtreemze_final_encoder"
       }
     ]

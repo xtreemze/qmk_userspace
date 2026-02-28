@@ -12,7 +12,9 @@
 
 #define COMBO_TERM 35
 #define TAPPING_TERM 180
+#ifndef TAPPING_TERM_PER_KEY
 #define TAPPING_TERM_PER_KEY
+#endif
 
 /* Vial dynamic keymap layer count must match the compiled keymap and encoder_map layer count. */
 #define DYNAMIC_KEYMAP_LAYER_COUNT 13
