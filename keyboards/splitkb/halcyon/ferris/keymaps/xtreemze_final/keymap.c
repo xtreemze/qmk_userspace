@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "dynamic_keymap.h"
 
 enum layers {
     L0 = 0,
@@ -31,6 +32,22 @@ enum custom_keycodes {
     MC_8,
     MC_9
 };
+
+/*
+ * When this marker changes, firmware will re-seed Vial's dynamic keymap from the
+ * compiled keymap once on boot. This guarantees shipped defaults are applied while
+ * still allowing later Vial edits to persist.
+ */
+#define XTREEMZE_DEFAULTS_EE_MARKER 0x58544602UL
+
+static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
+    if (eeconfig_read_user() == XTREEMZE_DEFAULTS_EE_MARKER) {
+        return;
+    }
+
+    dynamic_keymap_reset();
+    eeconfig_update_user(XTREEMZE_DEFAULTS_EE_MARKER);
+}
 
 static inline bool is_macro_keycode(uint16_t keycode) {
     return keycode >= MC_0 && keycode <= MC_9;
@@ -652,6 +669,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
     return true;
+}
+
+void keyboard_post_init_user(void) {
+    sync_compiled_defaults_to_dynamic_keymap_once();
 }
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
