@@ -10,14 +10,12 @@
 
 // Fonts mono2
 #include "graphics/fonts/Retron2000-27.qff.h"
-#include "graphics/fonts/Retron2000-underline-27.qff.h"
 
 static const char *ctrl =  "Ctl";
 static const char *gui =   "Gui";
 static const char *shift = "Shf";
 static const char *alt =   "Alt";
 static painter_font_handle_t Retron27;
-static painter_font_handle_t Retron27_underline;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
@@ -241,7 +239,6 @@ void update_display(void) {
 
     if (!fonts_loaded) {
         Retron27 = qp_load_font_mem(font_Retron2000_27);
-        Retron27_underline = qp_load_font_mem(font_Retron2000_underline_27);
         fonts_loaded = true;
     }
 
@@ -285,7 +282,7 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             STATUS_LAYER_Y,
-            Retron27_underline,
+            Retron27,
             halcyon_display_layer_name_user(active_layer),
             layer_h, layer_s, layer_v,
             HSV_EF_BG
@@ -308,7 +305,7 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             mod_top,
-            ctrl_active ? Retron27_underline : Retron27,
+            Retron27,
             ctrl,
             ctrl_active ? 122 : 98, ctrl_active ? 82 : 23, ctrl_active ? 187 : 146,
             HSV_EF_BG
@@ -317,7 +314,7 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             mod_top + Retron27->line_height,
-            gui_active ? Retron27_underline : Retron27,
+            Retron27,
             gui,
             gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146,
             HSV_EF_BG
@@ -326,7 +323,7 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             mod_top + Retron27->line_height * 2,
-            shift_active ? Retron27_underline : Retron27,
+            Retron27,
             shift,
             shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146,
             HSV_EF_BG
@@ -335,7 +332,7 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             mod_top + Retron27->line_height * 3,
-            alt_active ? Retron27_underline : Retron27,
+            Retron27,
             alt,
             alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146,
             HSV_EF_BG
