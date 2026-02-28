@@ -4,6 +4,9 @@
 #include QMK_KEYBOARD_H
 #include "dynamic_keymap.h"
 #include <stdio.h>
+#ifdef RGB_MATRIX_ENABLE
+#include "rgb_matrix.h"
+#endif
 
 enum layers {
     L0 = 0,
@@ -31,7 +34,11 @@ enum custom_keycodes {
     MC_6,
     MC_7,
     MC_8,
-    MC_9
+    MC_9,
+    RGBL0, RGBL1, RGBL2, RGBL3, RGBL4, RGBL5, RGBL6, RGBL7,
+    RGBM0, RGBM1, RGBM2, RGBM3, RGBM4, RGBM5, RGBM6, RGBM7,
+    RGBC0, RGBC1, RGBC2, RGBC3, RGBC4, RGBC5, RGBC6, RGBC7,
+    RGBDU, RGBDD
 };
 
 /*
@@ -50,7 +57,134 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
     eeconfig_update_user(XTREEMZE_DEFAULTS_EE_MARKER);
 }
 
-static char alt_repeat_display_text[24] = "Arp ---";
+static char alt_repeat_display_text[24] = "---";
+
+#ifdef RGB_MATRIX_ENABLE
+enum {
+    RGB_PRESET_NONE = 0xFF,
+    RGB_PRESET_0 = 0,
+    RGB_PRESET_1,
+    RGB_PRESET_2,
+    RGB_PRESET_3,
+    RGB_PRESET_4,
+    RGB_PRESET_5,
+    RGB_PRESET_6,
+    RGB_PRESET_7
+};
+
+typedef struct {
+    uint8_t mode;
+    uint8_t h;
+    uint8_t s;
+    uint8_t v;
+    uint8_t speed;
+} rgb_preset_t;
+
+static const rgb_preset_t rgb_presets[8] = {
+    [RGB_PRESET_0] = { RGB_MATRIX_SOLID_COLOR, 59, 85, 192, 80 },
+    [RGB_PRESET_1] = { RGB_MATRIX_SOLID_COLOR, 122, 82, 187, 80 },
+    [RGB_PRESET_2] = { RGB_MATRIX_SOLID_COLOR, 28, 107, 219, 80 },
+    [RGB_PRESET_3] = { RGB_MATRIX_SOLID_COLOR, 254, 115, 230, 80 },
+    [RGB_PRESET_4] = { RGB_MATRIX_BREATHING, 59, 85, 192, 100 },
+    [RGB_PRESET_5] = { RGB_MATRIX_CYCLE_ALL, 122, 82, 187, 110 },
+    [RGB_PRESET_6] = { RGB_MATRIX_CYCLE_LEFT_RIGHT, 28, 107, 219, 105 },
+    [RGB_PRESET_7] = { RGB_MATRIX_RAINBOW_MOVING_CHEVRON, 254, 115, 230, 120 },
+};
+
+static uint8_t layer_rgb_presets[13] = {
+    RGB_PRESET_0, RGB_PRESET_1, RGB_PRESET_2, RGB_PRESET_3, RGB_PRESET_0, RGB_PRESET_1, RGB_PRESET_2,
+    RGB_PRESET_3, RGB_PRESET_4, RGB_PRESET_5, RGB_PRESET_6, RGB_PRESET_7, RGB_PRESET_0,
+};
+
+static uint8_t mod_rgb_presets[4] = {
+    RGB_PRESET_NONE, RGB_PRESET_NONE, RGB_PRESET_NONE, RGB_PRESET_NONE
+}; // Ctrl, Gui, Shift, Alt
+
+static uint8_t chord_override_preset = RGB_PRESET_NONE;
+static uint32_t chord_override_start = 0;
+static uint16_t chord_override_ms = 1500;
+static uint8_t last_applied_rgb_preset = RGB_PRESET_NONE;
+
+static void apply_rgb_preset(uint8_t preset) {
+    if (preset >= ARRAY_SIZE(rgb_presets)) {
+        return;
+    }
+
+    const rgb_preset_t *p = &rgb_presets[preset];
+    rgb_matrix_mode_noeeprom(p->mode);
+    rgb_matrix_sethsv_noeeprom(p->h, p->s, p->v);
+    rgb_matrix_set_speed_noeeprom(p->speed);
+}
+
+static void refresh_rgb_preset_state(void) {
+    if (chord_override_preset != RGB_PRESET_NONE && timer_elapsed32(chord_override_start) > chord_override_ms) {
+        chord_override_preset = RGB_PRESET_NONE;
+    }
+
+    uint8_t target = RGB_PRESET_NONE;
+    if (chord_override_preset != RGB_PRESET_NONE) {
+        target = chord_override_preset;
+    } else {
+        const uint8_t mods = get_mods() | get_oneshot_mods();
+        if ((mods & MOD_MASK_CTRL) != 0U && mod_rgb_presets[0] != RGB_PRESET_NONE) {
+            target = mod_rgb_presets[0];
+        } else if ((mods & MOD_MASK_GUI) != 0U && mod_rgb_presets[1] != RGB_PRESET_NONE) {
+            target = mod_rgb_presets[1];
+        } else if ((mods & MOD_MASK_SHIFT) != 0U && mod_rgb_presets[2] != RGB_PRESET_NONE) {
+            target = mod_rgb_presets[2];
+        } else if ((mods & MOD_MASK_ALT) != 0U && mod_rgb_presets[3] != RGB_PRESET_NONE) {
+            target = mod_rgb_presets[3];
+        } else {
+            const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+            if (layer < ARRAY_SIZE(layer_rgb_presets)) {
+                target = layer_rgb_presets[layer];
+            }
+        }
+    }
+
+    if (target != RGB_PRESET_NONE && target != last_applied_rgb_preset) {
+        apply_rgb_preset(target);
+        last_applied_rgb_preset = target;
+    }
+}
+
+static void set_layer_preset_from_keycode(uint16_t keycode) {
+    const uint8_t preset = (uint8_t)(keycode - RGBL0);
+    const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+    if (layer < ARRAY_SIZE(layer_rgb_presets) && preset < 8) {
+        layer_rgb_presets[layer] = preset;
+    }
+}
+
+static void set_mod_preset_from_keycode(uint16_t keycode) {
+    const uint8_t preset = (uint8_t)(keycode - RGBM0);
+    const uint8_t mods = get_mods() | get_oneshot_mods();
+    if (preset >= 8) {
+        return;
+    }
+
+    if ((mods & MOD_MASK_CTRL) != 0U) {
+        mod_rgb_presets[0] = preset;
+    }
+    if ((mods & MOD_MASK_GUI) != 0U) {
+        mod_rgb_presets[1] = preset;
+    }
+    if ((mods & MOD_MASK_SHIFT) != 0U) {
+        mod_rgb_presets[2] = preset;
+    }
+    if ((mods & MOD_MASK_ALT) != 0U) {
+        mod_rgb_presets[3] = preset;
+    }
+}
+
+static void trigger_chord_preset_from_keycode(uint16_t keycode) {
+    const uint8_t preset = (uint8_t)(keycode - RGBC0);
+    if (preset < 8) {
+        chord_override_preset = preset;
+        chord_override_start = timer_read32();
+    }
+}
+#endif
 
 #if defined(REPEAT_KEY_ENABLE) && !defined(VIAL_ALT_REPEAT_KEY_ENTRIES)
 uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods);
@@ -99,7 +233,7 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
     const uint16_t alt_keycode = get_alt_repeat_key_keycode_user(keycode, mods);
 
     if (alt_keycode == KC_TRNS || alt_keycode == KC_NO) {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp ---");
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "---");
         return;
     }
 
@@ -126,13 +260,13 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
     mod_prefix[idx] = '\0';
 
     if (idx > 0) {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp %s-%s", mod_prefix, key_name);
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s-%s", mod_prefix, key_name);
     } else {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp %s", key_name);
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s", key_name);
     }
 #else
     (void)keycode;
-    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp ---");
+    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "---");
 #endif
 }
 
@@ -836,6 +970,48 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     update_alt_repeat_display_text(keycode);
 #endif
 
+    if (keycode >= RGBL0 && keycode <= RGBL7) {
+#ifdef RGB_MATRIX_ENABLE
+        set_layer_preset_from_keycode(keycode);
+        refresh_rgb_preset_state();
+#endif
+        return false;
+    }
+
+    if (keycode >= RGBM0 && keycode <= RGBM7) {
+#ifdef RGB_MATRIX_ENABLE
+        set_mod_preset_from_keycode(keycode);
+        refresh_rgb_preset_state();
+#endif
+        return false;
+    }
+
+    if (keycode >= RGBC0 && keycode <= RGBC7) {
+#ifdef RGB_MATRIX_ENABLE
+        trigger_chord_preset_from_keycode(keycode);
+        refresh_rgb_preset_state();
+#endif
+        return false;
+    }
+
+    if (keycode == RGBDU) {
+#ifdef RGB_MATRIX_ENABLE
+        if (chord_override_ms < 10000) {
+            chord_override_ms += 250;
+        }
+#endif
+        return false;
+    }
+
+    if (keycode == RGBDD) {
+#ifdef RGB_MATRIX_ENABLE
+        if (chord_override_ms > 250) {
+            chord_override_ms -= 250;
+        }
+#endif
+        return false;
+    }
+
     if (is_macro_keycode(keycode)) {
         run_macro_slot((uint8_t)(keycode - MC_0));
         return false;
@@ -846,6 +1022,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 void keyboard_post_init_user(void) {
     sync_compiled_defaults_to_dynamic_keymap_once();
+#ifdef RGB_MATRIX_ENABLE
+    refresh_rgb_preset_state();
+#endif
+}
+
+void matrix_scan_user(void) {
+#ifdef RGB_MATRIX_ENABLE
+    refresh_rgb_preset_state();
+#endif
 }
 
 const char *halcyon_display_alt_repeat_text_user(void) {

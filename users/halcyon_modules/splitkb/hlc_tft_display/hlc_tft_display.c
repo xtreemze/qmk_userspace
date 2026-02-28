@@ -29,6 +29,9 @@ painter_device_t lcd_surface;
 static uint8_t last_mod_state = 0xFF;
 static uint8_t last_display_layer = 0xFF;
 static char last_arp_text[24] = "";
+static bool idle_animation_active = false;
+static uint32_t idle_last_draw = 0;
+static uint32_t idle_prev_activity_time = 0;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
@@ -47,7 +50,7 @@ __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer)
 }
 
 __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
-    return "Arp ---";
+    return "---";
 }
 
 #define GRID_WIDTH 27
@@ -183,6 +186,37 @@ void add_cell_cluster() {
     }
 }
 
+static void draw_layer_background_pattern(uint8_t layer) {
+    const uint16_t top = Retron27->line_height * 2 + 18;
+    const uint16_t bottom = LCD_HEIGHT - (Retron27->line_height * 5) - 18;
+    uint8_t h = 29, s = 50, v = 90;
+
+    switch (layer % 8) {
+        case 0: h = 59;  s = 60; v = 95; break;
+        case 1: h = 122; s = 58; v = 92; break;
+        case 2: h = 28;  s = 72; v = 110; break;
+        case 3: h = 254; s = 70; v = 108; break;
+        case 4: h = 170; s = 62; v = 95; break;
+        case 5: h = 210; s = 55; v = 98; break;
+        case 6: h = 12;  s = 78; v = 108; break;
+        case 7: h = 95;  s = 64; v = 100; break;
+    }
+
+    qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+
+    for (uint8_t i = 0; i < 12; i++) {
+        uint16_t x = (uint16_t)(((uint16_t)i * 17U + (uint16_t)layer * 9U) % LCD_WIDTH);
+        uint16_t y = (uint16_t)(top + (((uint16_t)i * 11U + (uint16_t)layer * 7U) % (bottom - top + 1)));
+        uint16_t w = (uint16_t)(2 + ((i + layer) % 5));
+        uint16_t hgt = (uint16_t)(1 + ((i + layer * 2) % 3));
+        uint16_t x2 = x + w;
+        uint16_t y2 = y + hgt;
+        if (x2 >= LCD_WIDTH) x2 = LCD_WIDTH - 1;
+        if (y2 >= LCD_HEIGHT) y2 = LCD_HEIGHT - 1;
+        qp_rect(lcd_surface, x, y, x2, y2, h, s, v, true);
+    }
+}
+
 void update_display(void) {
     static bool fonts_loaded = false;
 
@@ -198,8 +232,8 @@ void update_display(void) {
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
-    if (first_run || active_layer != last_display_layer) {
-        qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
+    if (first_run || active_layer != last_display_layer || idle_animation_active) {
+        draw_layer_background_pattern(active_layer);
 
         uint8_t layer_h = 0;
         uint8_t layer_s = 0;
@@ -230,8 +264,18 @@ void update_display(void) {
             layer_h, layer_s, layer_v,
             HSV_EF_BG
         );
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            STATUS_LAYER_Y + Retron27->line_height - 4,
+            Retron27_underline,
+            halcyon_display_layer_name_user(active_layer),
+            layer_h, layer_s, layer_v,
+            HSV_EF_BG
+        );
 
         last_display_layer = active_layer;
+        idle_animation_active = false;
     }
 
     if (first_run || active_mods != last_mod_state || arp_changed) {
@@ -336,34 +380,31 @@ bool module_post_init_kb(void) {
 bool display_module_housekeeping_task_kb(bool second_display) {
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
-    if(second_display) {
-        static uint32_t last_draw = 0;
-        static bool second_display_set = false;
-        static uint32_t previous_matrix_activity_time = 0;
+    const bool idle_mode = timer_elapsed32(last_matrix_activity_time()) >= 30000;
 
-        if(!second_display_set) {
+    if (idle_mode) {
+        if (!idle_animation_active) {
             srand(get_random_32bit());
             init_grid();
             color_value = rand() % 8;
-            second_display_set = true;
+            idle_animation_active = true;
+            idle_prev_activity_time = last_matrix_activity_time();
+            idle_last_draw = timer_read32();
         }
 
-        if (timer_elapsed32(last_draw) >= 100) { // Throttle to 10 fps
+        if (timer_elapsed32(idle_last_draw) >= 100) { // Throttle to 10 fps
             draw_grid();
             update_grid();
 
-            if (previous_matrix_activity_time != last_matrix_activity_time()) {
+            if (idle_prev_activity_time != last_matrix_activity_time()) {
                 color_value = rand() % 8;
                 add_cell_cluster();
-                previous_matrix_activity_time = last_matrix_activity_time();
+                idle_prev_activity_time = last_matrix_activity_time();
             }
 
-            last_draw = timer_read32();
+            idle_last_draw = timer_read32();
         }
-    }
-
-    // Update display information (layers, numlock, etc.)
-    if(!second_display) {
+    } else {
         update_display();
     }
 
