@@ -228,7 +228,7 @@ static const vial_key_override_entry_t xtreemze_default_key_overrides[] = {
     { .trigger = MS_WHLU, .replacement = LSFT(KC_TAB), .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
     { .trigger = MS_WHLD, .replacement = KC_TAB, .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
     { .trigger = MS_WHLD, .replacement = LCTL(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
-    { .trigger = MS_WHLU, .replacement = C_S(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
+    { .trigger = MS_WHLU, .replacement = LCTL(LSFT(KC_TAB)), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
     { .trigger = MS_WHLU, .replacement = SGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
     { .trigger = MS_WHLD, .replacement = LGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
     { .trigger = MS_WHLD, .replacement = KC_VOLU, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 135 },
@@ -243,8 +243,8 @@ static const vial_key_override_entry_t xtreemze_default_key_overrides[] = {
     { .trigger = KC_BRID, .replacement = LSFT(KC_TAB), .layers = 64, .trigger_mods = 17, .negative_mod_mask = 238, .suppressed_mods = 255, .options = 135 },
     { .trigger = KC_VOLU, .replacement = MS_WHLD, .layers = 16, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
     { .trigger = KC_BRIU, .replacement = LCTL(KC_TAB), .layers = 64, .trigger_mods = 102, .negative_mod_mask = 153, .suppressed_mods = 255, .options = 135 },
-    { .trigger = KC_BRID, .replacement = C_S(KC_TAB), .layers = 64, .trigger_mods = 102, .negative_mod_mask = 153, .suppressed_mods = 255, .options = 135 },
-    { .trigger = KC_VOLD, .replacement = C_S(KC_TAB), .layers = 0, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 4 },
+    { .trigger = KC_BRID, .replacement = LCTL(LSFT(KC_TAB)), .layers = 64, .trigger_mods = 102, .negative_mod_mask = 153, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_VOLD, .replacement = LCTL(LSFT(KC_TAB)), .layers = 0, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 4 },
     { .trigger = KC_VOLU, .replacement = KC_DOWN, .layers = 0, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
     { .trigger = KC_VOLD, .replacement = KC_UP, .layers = 0, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
     { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
@@ -1036,7 +1036,7 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 static const key_override_t ko_0 = { .trigger = MS_WHLU, .trigger_mods = 68, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 68, .replacement = LSFT(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_1 = { .trigger = MS_WHLD, .trigger_mods = 68, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 68, .replacement = KC_TAB, .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_2 = { .trigger = MS_WHLD, .trigger_mods = 17, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 0, .replacement = LCTL(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
-static const key_override_t ko_3 = { .trigger = MS_WHLU, .trigger_mods = 17, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 0, .replacement = C_S(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
+static const key_override_t ko_3 = { .trigger = MS_WHLU, .trigger_mods = 17, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 0, .replacement = LCTL(LSFT(KC_TAB)), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_4 = { .trigger = MS_WHLU, .trigger_mods = 136, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 0, .replacement = SGUI(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_5 = { .trigger = MS_WHLD, .trigger_mods = 136, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 0, .replacement = LGUI(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_6 = { .trigger = MS_WHLD, .trigger_mods = 34, .layers = (layer_state_t)7, .negative_mod_mask = 0, .suppressed_mods = 34, .replacement = KC_VOLU, .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
@@ -1050,7 +1050,7 @@ static const key_override_t ko_13 = { .trigger = KC_BRID, .trigger_mods = 68, .l
 static const key_override_t ko_14 = { .trigger = KC_BRIU, .trigger_mods = 17, .layers = (layer_state_t)64, .negative_mod_mask = 238, .suppressed_mods = 255, .replacement = KC_TAB, .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_15 = { .trigger = KC_BRID, .trigger_mods = 17, .layers = (layer_state_t)64, .negative_mod_mask = 238, .suppressed_mods = 255, .replacement = LSFT(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 static const key_override_t ko_17 = { .trigger = KC_BRIU, .trigger_mods = 102, .layers = (layer_state_t)64, .negative_mod_mask = 153, .suppressed_mods = 255, .replacement = LCTL(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
-static const key_override_t ko_18 = { .trigger = KC_BRID, .trigger_mods = 102, .layers = (layer_state_t)64, .negative_mod_mask = 153, .suppressed_mods = 255, .replacement = C_S(KC_TAB), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
+static const key_override_t ko_18 = { .trigger = KC_BRID, .trigger_mods = 102, .layers = (layer_state_t)64, .negative_mod_mask = 153, .suppressed_mods = 255, .replacement = LCTL(LSFT(KC_TAB)), .options = KO_COMMON_OPTIONS, .custom_action = NULL, .context = NULL, .enabled = NULL };
 
 const key_override_t *key_overrides[] = {
     &ko_0,
