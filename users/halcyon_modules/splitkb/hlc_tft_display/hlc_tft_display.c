@@ -35,18 +35,19 @@ static uint32_t idle_prev_activity_time = 0;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
+#define STATUS_ARP_X   150
 
 __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const fallback_layer_names[] = {
-        "L0", "L1", "L2", "L3", "L4", "L5", "L6",
-        "L7", "L8", "L9", "L10", "L11", "L12"
+        "LAYA", "LAYB", "LAYC", "LAYD", "LAYE", "LAYF", "LAYG",
+        "LAYH", "LAYI", "LAYJ", "LAYK", "LAYL", "LAYM"
     };
 
     if (layer < ARRAY_SIZE(fallback_layer_names)) {
         return fallback_layer_names[layer];
     }
 
-    return "L?";
+    return "LAYX";
 }
 
 __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
@@ -187,33 +188,51 @@ void add_cell_cluster() {
 }
 
 static void draw_layer_background_pattern(uint8_t layer) {
-    const uint16_t top = Retron27->line_height * 2 + 18;
-    const uint16_t bottom = LCD_HEIGHT - (Retron27->line_height * 5) - 18;
-    uint8_t h = 29, s = 50, v = 90;
+    const uint8_t tile_w = 24;
+    const uint8_t tile_h = 24;
+    uint8_t h1 = 59, s1 = 42, v1 = 92;
+    uint8_t h2 = 122, s2 = 36, v2 = 82;
 
     switch (layer % 8) {
-        case 0: h = 59;  s = 60; v = 95; break;
-        case 1: h = 122; s = 58; v = 92; break;
-        case 2: h = 28;  s = 72; v = 110; break;
-        case 3: h = 254; s = 70; v = 108; break;
-        case 4: h = 170; s = 62; v = 95; break;
-        case 5: h = 210; s = 55; v = 98; break;
-        case 6: h = 12;  s = 78; v = 108; break;
-        case 7: h = 95;  s = 64; v = 100; break;
+        case 0: h1 = 59;  s1 = 42; v1 = 92;  h2 = 122; s2 = 36; v2 = 82;  break;
+        case 1: h1 = 122; s1 = 40; v1 = 90;  h2 = 28;  s2 = 34; v2 = 82;  break;
+        case 2: h1 = 28;  s1 = 48; v1 = 96;  h2 = 254; s2 = 34; v2 = 80;  break;
+        case 3: h1 = 254; s1 = 44; v1 = 94;  h2 = 59;  s2 = 32; v2 = 78;  break;
+        case 4: h1 = 170; s1 = 40; v1 = 88;  h2 = 95;  s2 = 36; v2 = 78;  break;
+        case 5: h1 = 210; s1 = 38; v1 = 90;  h2 = 12;  s2 = 40; v2 = 80;  break;
+        case 6: h1 = 12;  s1 = 42; v1 = 94;  h2 = 122; s2 = 32; v2 = 78;  break;
+        case 7: h1 = 95;  s1 = 40; v1 = 90;  h2 = 210; s2 = 34; v2 = 78;  break;
     }
 
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
-    for (uint8_t i = 0; i < 12; i++) {
-        uint16_t x = (uint16_t)(((uint16_t)i * 17U + (uint16_t)layer * 9U) % LCD_WIDTH);
-        uint16_t y = (uint16_t)(top + (((uint16_t)i * 11U + (uint16_t)layer * 7U) % (bottom - top + 1)));
-        uint16_t w = (uint16_t)(2 + ((i + layer) % 5));
-        uint16_t hgt = (uint16_t)(1 + ((i + layer * 2) % 3));
-        uint16_t x2 = x + w;
-        uint16_t y2 = y + hgt;
-        if (x2 >= LCD_WIDTH) x2 = LCD_WIDTH - 1;
-        if (y2 >= LCD_HEIGHT) y2 = LCD_HEIGHT - 1;
-        qp_rect(lcd_surface, x, y, x2, y2, h, s, v, true);
+    for (uint16_t y = 0; y + tile_h < LCD_HEIGHT; y += tile_h) {
+        for (uint16_t x = 0; x + tile_w < LCD_WIDTH; x += tile_w) {
+            const bool phase = (((x / tile_w) + (y / tile_h) + layer) & 1U) != 0U;
+            const uint8_t ah = phase ? h1 : h2;
+            const uint8_t as = phase ? s1 : s2;
+            const uint8_t av = phase ? v1 : v2;
+            const uint8_t bh = phase ? h2 : h1;
+            const uint8_t bs = phase ? s2 : s1;
+            const uint8_t bv = phase ? v2 : v1;
+            const uint16_t cx = x + tile_w / 2;
+            const uint16_t cy = y + tile_h / 2;
+
+            // Center motif.
+            qp_rect(lcd_surface, cx - 1, cy - 1, cx + 1, cy + 1, ah, as, av, true);
+
+            // Four-way symmetric accents.
+            qp_rect(lcd_surface, cx - 7, cy - 7, cx - 5, cy - 5, bh, bs, bv, true);
+            qp_rect(lcd_surface, cx + 5, cy - 7, cx + 7, cy - 5, bh, bs, bv, true);
+            qp_rect(lcd_surface, cx - 7, cy + 5, cx - 5, cy + 7, bh, bs, bv, true);
+            qp_rect(lcd_surface, cx + 5, cy + 5, cx + 7, cy + 7, bh, bs, bv, true);
+
+            // Cross structure for tiled continuity.
+            qp_rect(lcd_surface, cx - 1, y + 2, cx + 1, y + 6, ah, as, av, true);
+            qp_rect(lcd_surface, cx - 1, y + tile_h - 7, cx + 1, y + tile_h - 3, ah, as, av, true);
+            qp_rect(lcd_surface, x + 2, cy - 1, x + 6, cy + 1, ah, as, av, true);
+            qp_rect(lcd_surface, x + tile_w - 7, cy - 1, x + tile_w - 3, cy + 1, ah, as, av, true);
+        }
     }
 }
 
@@ -232,8 +251,15 @@ void update_display(void) {
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
-    if (first_run || active_layer != last_display_layer || idle_animation_active) {
+    const bool need_full_redraw = first_run || active_layer != last_display_layer || idle_animation_active;
+
+    if (need_full_redraw) {
         draw_layer_background_pattern(active_layer);
+        idle_animation_active = false;
+    }
+
+    if (need_full_redraw || arp_changed || active_layer != last_display_layer) {
+        qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
 
         uint8_t layer_h = 0;
         uint8_t layer_s = 0;
@@ -264,22 +290,13 @@ void update_display(void) {
             layer_h, layer_s, layer_v,
             HSV_EF_BG
         );
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            STATUS_LAYER_Y + Retron27->line_height - 4,
-            Retron27_underline,
-            halcyon_display_layer_name_user(active_layer),
-            layer_h, layer_s, layer_v,
-            HSV_EF_BG
-        );
+        qp_drawtext_recolor(lcd_surface, STATUS_ARP_X, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
 
         last_display_layer = active_layer;
-        idle_animation_active = false;
     }
 
-    if (first_run || active_mods != last_mod_state || arp_changed) {
-        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 5) - 14;
+    if (first_run || need_full_redraw || active_mods != last_mod_state) {
+        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
         const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
@@ -323,17 +340,10 @@ void update_display(void) {
             alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146,
             HSV_EF_BG
         );
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            mod_top + Retron27->line_height * 4,
-            Retron27,
-            arp_text,
-            122, 82, 187,
-            HSV_EF_BG
-        );
-
         last_mod_state = active_mods;
+    }
+
+    if (arp_changed) {
         snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
     }
 }
@@ -380,7 +390,8 @@ bool module_post_init_kb(void) {
 bool display_module_housekeeping_task_kb(bool second_display) {
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
-    const bool idle_mode = timer_elapsed32(last_matrix_activity_time()) >= 30000;
+    const uint32_t idle_elapsed = timer_elapsed32(last_matrix_activity_time());
+    const bool idle_mode = idle_elapsed >= 15000U && idle_elapsed < 35000U;
 
     if (idle_mode) {
         if (!idle_animation_active) {

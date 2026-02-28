@@ -237,33 +237,11 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
         return;
     }
 
-    const uint8_t alt_mods = (uint8_t)(alt_keycode >> 8);
     const uint8_t basic = (uint8_t)(alt_keycode & 0xFF);
     char key_name[8] = {0};
-    char mod_prefix[6] = {0};
-    uint8_t idx = 0;
 
     format_basic_keycode_name(basic, key_name, sizeof(key_name));
-
-    if ((alt_mods & MOD_MASK_CTRL) != 0U) {
-        mod_prefix[idx++] = 'C';
-    }
-    if ((alt_mods & MOD_MASK_GUI) != 0U) {
-        mod_prefix[idx++] = 'G';
-    }
-    if ((alt_mods & MOD_MASK_SHIFT) != 0U) {
-        mod_prefix[idx++] = 'S';
-    }
-    if ((alt_mods & MOD_MASK_ALT) != 0U) {
-        mod_prefix[idx++] = 'A';
-    }
-    mod_prefix[idx] = '\0';
-
-    if (idx > 0) {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s-%s", mod_prefix, key_name);
-    } else {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s", key_name);
-    }
+    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s", key_name);
 #else
     (void)keycode;
     snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "---");
@@ -1039,24 +1017,24 @@ const char *halcyon_display_alt_repeat_text_user(void) {
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
-        "L0",
-        "L1",
-        "L2",
-        "L3",
-        "L4",
-        "L5",
-        "L6",
-        "L7",
-        "L8",
-        "L9",
-        "L10",
-        "L11",
-        "L12",
+        "LAYA",
+        "LAYB",
+        "LAYC",
+        "LAYD",
+        "LAYE",
+        "LAYF",
+        "LAYG",
+        "LAYH",
+        "LAYI",
+        "LAYJ",
+        "LAYK",
+        "LAYL",
+        "LAYM",
     };
 
     if (layer < ARRAY_SIZE(layer_names)) {
         return layer_names[layer];
     }
 
-    return "L?";
+    return "LAYX";
 }
