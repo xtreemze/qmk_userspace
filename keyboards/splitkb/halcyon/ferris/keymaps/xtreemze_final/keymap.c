@@ -1319,19 +1319,19 @@ const char *halcyon_display_alt_repeat_text_user(void) {
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
-        "LAYA",
-        "LAYB",
-        "LAYC",
-        "LAYD",
-        "LAYE",
-        "LAYF",
-        "LAYG",
-        "LAYH",
-        "LAYI",
-        "LAYJ",
-        "LAYK",
-        "LAYL",
-        "LAYM",
+        "MOUSEM",
+        "ALPHA1",
+        "ALPHA2",
+        "NUMSYM",
+        "TRANSP",
+        "MODNAV",
+        "MODHLD",
+        "FUNCMD",
+        "RGBSPD",
+        "RGBMOD",
+        "RGBHUE",
+        "SPARE1",
+        "SPARE2",
     };
 
     if (layer < ARRAY_SIZE(layer_names)) {
