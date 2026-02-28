@@ -36,6 +36,7 @@
 extern painter_device_t lcd;
 extern painter_device_t lcd_surface;
 const char *halcyon_display_layer_name_user(uint8_t layer);
+const char *halcyon_display_alt_repeat_text_user(void);
 
 void draw_grid(void);
 void update_grid(void);

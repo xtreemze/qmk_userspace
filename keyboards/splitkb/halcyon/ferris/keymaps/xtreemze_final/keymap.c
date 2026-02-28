@@ -3,6 +3,7 @@
 
 #include QMK_KEYBOARD_H
 #include "dynamic_keymap.h"
+#include <stdio.h>
 
 enum layers {
     L0 = 0,
@@ -47,6 +48,92 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
 
     dynamic_keymap_reset();
     eeconfig_update_user(XTREEMZE_DEFAULTS_EE_MARKER);
+}
+
+static char alt_repeat_display_text[24] = "Arp ---";
+
+#if defined(REPEAT_KEY_ENABLE) && !defined(VIAL_ALT_REPEAT_KEY_ENTRIES)
+uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods);
+#endif
+
+static void format_basic_keycode_name(uint8_t keycode, char *out, size_t out_size) {
+    if (keycode >= KC_A && keycode <= KC_Z) {
+        out[0] = 'A' + (char)(keycode - KC_A);
+        out[1] = '\0';
+        return;
+    }
+
+    if (keycode >= KC_1 && keycode <= KC_9) {
+        out[0] = '1' + (char)(keycode - KC_1);
+        out[1] = '\0';
+        return;
+    }
+
+    if (keycode == KC_0) {
+        out[0] = '0';
+        out[1] = '\0';
+        return;
+    }
+
+    switch (keycode) {
+        case KC_TAB:  snprintf(out, out_size, "Tab"); break;
+        case KC_ESC:  snprintf(out, out_size, "Esc"); break;
+        case KC_ENT:  snprintf(out, out_size, "Ent"); break;
+        case KC_SPC:  snprintf(out, out_size, "Spc"); break;
+        case KC_BSPC: snprintf(out, out_size, "Bsp"); break;
+        case KC_DEL:  snprintf(out, out_size, "Del"); break;
+        case KC_UP:   snprintf(out, out_size, "Up"); break;
+        case KC_DOWN: snprintf(out, out_size, "Dn"); break;
+        case KC_LEFT: snprintf(out, out_size, "Lt"); break;
+        case KC_RGHT: snprintf(out, out_size, "Rt"); break;
+        case KC_COMM: snprintf(out, out_size, ","); break;
+        case KC_DOT:  snprintf(out, out_size, "."); break;
+        case KC_SLSH: snprintf(out, out_size, "/"); break;
+        default:      snprintf(out, out_size, "%02X", keycode); break;
+    }
+}
+
+static void update_alt_repeat_display_text(uint16_t keycode) {
+#if defined(REPEAT_KEY_ENABLE) && !defined(VIAL_ALT_REPEAT_KEY_ENTRIES)
+    const uint8_t mods = get_mods() | get_oneshot_mods();
+    const uint16_t alt_keycode = get_alt_repeat_key_keycode_user(keycode, mods);
+
+    if (alt_keycode == KC_TRNS || alt_keycode == KC_NO) {
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp ---");
+        return;
+    }
+
+    const uint8_t alt_mods = (uint8_t)(alt_keycode >> 8);
+    const uint8_t basic = (uint8_t)(alt_keycode & 0xFF);
+    char key_name[8] = {0};
+    char mod_prefix[6] = {0};
+    uint8_t idx = 0;
+
+    format_basic_keycode_name(basic, key_name, sizeof(key_name));
+
+    if ((alt_mods & MOD_MASK_CTRL) != 0U) {
+        mod_prefix[idx++] = 'C';
+    }
+    if ((alt_mods & MOD_MASK_GUI) != 0U) {
+        mod_prefix[idx++] = 'G';
+    }
+    if ((alt_mods & MOD_MASK_SHIFT) != 0U) {
+        mod_prefix[idx++] = 'S';
+    }
+    if ((alt_mods & MOD_MASK_ALT) != 0U) {
+        mod_prefix[idx++] = 'A';
+    }
+    mod_prefix[idx] = '\0';
+
+    if (idx > 0) {
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp %s-%s", mod_prefix, key_name);
+    } else {
+        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp %s", key_name);
+    }
+#else
+    (void)keycode;
+    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "Arp ---");
+#endif
 }
 
 static inline bool is_macro_keycode(uint16_t keycode) {
@@ -741,6 +828,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return true;
     }
 
+#if defined(REPEAT_KEY_ENABLE)
+    if (keycode != QK_REPEAT_KEY && keycode != QK_ALT_REPEAT_KEY) {
+        update_alt_repeat_display_text(keycode);
+    }
+#else
+    update_alt_repeat_display_text(keycode);
+#endif
+
     if (is_macro_keycode(keycode)) {
         run_macro_slot((uint8_t)(keycode - MC_0));
         return false;
@@ -751,6 +846,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 void keyboard_post_init_user(void) {
     sync_compiled_defaults_to_dynamic_keymap_once();
+}
+
+const char *halcyon_display_alt_repeat_text_user(void) {
+    return alt_repeat_display_text;
 }
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {

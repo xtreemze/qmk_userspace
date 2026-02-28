@@ -5,6 +5,8 @@
 #include "hlc_tft_display.h"
 
 #include "hardware/structs/rosc.h"
+#include <stdio.h>
+#include <string.h>
 
 // Fonts mono2
 #include "graphics/fonts/Retron2000-27.qff.h"
@@ -14,8 +16,6 @@ static const char *ctrl =  "Ctl";
 static const char *gui =   "Gui";
 static const char *shift = "Shf";
 static const char *alt =   "Alt";
-static const char *arp =   "Arp";
-
 static painter_font_handle_t Retron27;
 static painter_font_handle_t Retron27_underline;
 
@@ -28,6 +28,7 @@ painter_device_t lcd_surface;
 
 static uint8_t last_mod_state = 0xFF;
 static uint8_t last_display_layer = 0xFF;
+static char last_arp_text[24] = "";
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
@@ -43,6 +44,10 @@ __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer)
     }
 
     return "L?";
+}
+
+__attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
+    return "Arp ---";
 }
 
 #define GRID_WIDTH 27
@@ -189,7 +194,9 @@ void update_display(void) {
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     const uint8_t active_mods = get_mods() | get_oneshot_mods();
+    const char *const arp_text = halcyon_display_alt_repeat_text_user();
     const bool first_run = (last_display_layer == 0xFF);
+    const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
     if (first_run || active_layer != last_display_layer) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
@@ -227,7 +234,7 @@ void update_display(void) {
         last_display_layer = active_layer;
     }
 
-    if (first_run || active_mods != last_mod_state) {
+    if (first_run || active_mods != last_mod_state || arp_changed) {
         const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 5) - 14;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
@@ -277,12 +284,13 @@ void update_display(void) {
             STATUS_X,
             mod_top + Retron27->line_height * 4,
             Retron27,
-            arp,
+            arp_text,
             122, 82, 187,
             HSV_EF_BG
         );
 
         last_mod_state = active_mods;
+        snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
     }
 }
 
