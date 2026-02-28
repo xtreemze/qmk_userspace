@@ -22,6 +22,12 @@
 /* Keep parity with splitkb vial_hlc defaults for dynamic macro storage. */
 #define DYNAMIC_KEYMAP_MACRO_COUNT 32
 
+/* Keep Vial dynamic feature slots deterministic and aligned with xtreemzeVial defaults. */
+#define VIAL_TAP_DANCE_ENTRIES 32
+#define VIAL_COMBO_ENTRIES 32
+#define VIAL_KEY_OVERRIDE_ENTRIES 32
+#define VIAL_ALT_REPEAT_KEY_ENTRIES 32
+
 /*
  * Persistent user datablock used for RGB profile engine state.
  * Note: with EECONFIG_USER_DATA_SIZE > 0, eeconfig_read_user()/update_user()

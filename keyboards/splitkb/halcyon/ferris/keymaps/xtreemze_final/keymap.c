@@ -49,7 +49,7 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xA5
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xA6
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
@@ -131,15 +131,214 @@ static void load_user_data(void) {
     }
 }
 
+#ifdef VIAL_ENABLE
+static void seed_vial_dynamic_entry_defaults(void);
+#endif
+
 static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
     if (xtreemze_user_data.defaults_marker == XTREEMZE_DEFAULTS_EE_MARKER) {
         return;
     }
 
     dynamic_keymap_reset();
+#ifdef VIAL_ENABLE
+    seed_vial_dynamic_entry_defaults();
+#endif
     xtreemze_user_data.defaults_marker = XTREEMZE_DEFAULTS_EE_MARKER;
     save_user_data();
 }
+
+#ifdef VIAL_ENABLE
+#if defined(VIAL_TAP_DANCE_ENTRIES) && (VIAL_TAP_DANCE_ENTRIES > 0)
+static const vial_tap_dance_entry_t xtreemze_default_tap_dances[] = {
+    { KC_PSLS, LSFT(KC_SLASH), XM_9, KC_PSLS, 160 },
+    { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 160 },
+    { KC_COMM, LSFT(KC_SLASH), KC_SLASH, LSFT(KC_SLASH), 160 },
+    { KC_DOT, KC_DOT, XM_3, KC_DOT, 180 },
+    { KC_N, XM_6, XM_7, XM_6, 175 },
+    { OSM(MOD_LSFT), MO(6), XM_5, MO(6), 45 },
+    { KC_Q, LSFT(KC_1), KC_GRV, KC_Q, 180 },
+    { KC_COMM, KC_SCLN, KC_COMM, KC_SCLN, 160 },
+    { KC_O, KC_MINS, KC_O, KC_O, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 120 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 1 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 1 },
+    { KC_ESC, KC_GRV, XM_0, KC_NO, 220 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
+};
+#endif
+
+#if defined(VIAL_COMBO_ENTRIES) && (VIAL_COMBO_ENTRIES > 0)
+static const vial_combo_entry_t xtreemze_default_combos[] = {
+    { { KC_F, KC_D, KC_NO, KC_NO }, MO(7) },
+    { { KC_J, KC_K, KC_NO, KC_NO }, MO(7) },
+    { { KC_S, KC_D, KC_NO, KC_NO }, KC_ESC },
+    { { KC_K, KC_L, KC_NO, KC_NO }, KC_ENT },
+    { { KC_J, KC_L, KC_NO, KC_NO }, XM_2 },
+    { { KC_S, KC_F, KC_NO, KC_NO }, HYPR(KC_SPACE) },
+    { { KC_DOWN, KC_RIGHT, KC_NO, KC_NO }, XM_2 },
+    { { MS_RGHT, MS_UP, KC_NO, KC_NO }, KC_ENT },
+    { { MS_RGHT, MS_DOWN, KC_NO, KC_NO }, XM_2 },
+    { { KC_Y, KC_N, KC_NO, KC_NO }, QK_REBOOT },
+    { { KC_T, KC_B, KC_NO, KC_NO }, QK_REBOOT },
+    { { KC_U, KC_M, KC_NO, KC_NO }, QK_BOOT },
+    { { KC_R, KC_V, KC_NO, KC_NO }, QK_BOOT },
+    { { KC_I, KC_COMM, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
+    { { KC_E, KC_C, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
+    { { KC_UP, KC_RIGHT, KC_NO, KC_NO }, KC_ENT },
+    { { KC_LALT, KC_LGUI, KC_NO, KC_NO }, TD(13) },
+    { { KC_W, KC_R, KC_NO, KC_NO }, RCTL(KC_B) },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, OSM(MOD_RSFT) },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, XM_4 },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, LALT(KC_BSPC) },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+};
+#endif
+
+#if defined(VIAL_KEY_OVERRIDE_ENTRIES) && (VIAL_KEY_OVERRIDE_ENTRIES > 0)
+static const vial_key_override_entry_t xtreemze_default_key_overrides[] = {
+    { .trigger = MS_WHLU, .replacement = LSFT(KC_TAB), .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
+    { .trigger = MS_WHLD, .replacement = KC_TAB, .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
+    { .trigger = MS_WHLD, .replacement = LCTL(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
+    { .trigger = MS_WHLU, .replacement = C_S(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
+    { .trigger = MS_WHLU, .replacement = SGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
+    { .trigger = MS_WHLD, .replacement = LGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
+    { .trigger = MS_WHLD, .replacement = KC_VOLU, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 135 },
+    { .trigger = MS_WHLU, .replacement = KC_VOLD, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 135 },
+    { .trigger = KC_BRID, .replacement = LSFT(KC_TAB), .layers = 64, .trigger_mods = 136, .negative_mod_mask = 119, .suppressed_mods = 119, .options = 135 },
+    { .trigger = KC_BRIU, .replacement = KC_TAB, .layers = 64, .trigger_mods = 136, .negative_mod_mask = 119, .suppressed_mods = 119, .options = 135 },
+    { .trigger = KC_BRID, .replacement = KC_VOLD, .layers = 64, .trigger_mods = 34, .negative_mod_mask = 221, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_BRIU, .replacement = KC_VOLU, .layers = 64, .trigger_mods = 34, .negative_mod_mask = 221, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_BRIU, .replacement = LCTL(KC_N), .layers = 64, .trigger_mods = 68, .negative_mod_mask = 187, .suppressed_mods = 238, .options = 135 },
+    { .trigger = KC_BRID, .replacement = LCTL(KC_P), .layers = 64, .trigger_mods = 68, .negative_mod_mask = 187, .suppressed_mods = 238, .options = 135 },
+    { .trigger = KC_BRIU, .replacement = KC_TAB, .layers = 64, .trigger_mods = 17, .negative_mod_mask = 238, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_BRID, .replacement = LSFT(KC_TAB), .layers = 64, .trigger_mods = 17, .negative_mod_mask = 238, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_VOLU, .replacement = MS_WHLD, .layers = 16, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_BRIU, .replacement = LCTL(KC_TAB), .layers = 64, .trigger_mods = 102, .negative_mod_mask = 153, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_BRID, .replacement = C_S(KC_TAB), .layers = 64, .trigger_mods = 102, .negative_mod_mask = 153, .suppressed_mods = 255, .options = 135 },
+    { .trigger = KC_VOLD, .replacement = C_S(KC_TAB), .layers = 0, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 4 },
+    { .trigger = KC_VOLU, .replacement = KC_DOWN, .layers = 0, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_VOLD, .replacement = KC_UP, .layers = 0, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = KC_NO, .replacement = KC_NO, .layers = 65535, .trigger_mods = 0, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+};
+#endif
+
+#if defined(VIAL_ALT_REPEAT_KEY_ENTRIES) && (VIAL_ALT_REPEAT_KEY_ENTRIES > 0)
+static const vial_alt_repeat_key_entry_t xtreemze_default_alt_repeat_keys[] = {
+    { .keycode = KC_N, .alt_keycode = LSFT(KC_N), .allowed_mods = 0, .options = 12 },
+    { .keycode = LCTL(KC_D), .alt_keycode = LCTL(KC_U), .allowed_mods = 0, .options = 12 },
+    { .keycode = KC_W, .alt_keycode = KC_B, .allowed_mods = 0, .options = 12 },
+    { .keycode = KC_J, .alt_keycode = KC_K, .allowed_mods = 68, .options = 12 },
+    { .keycode = KC_L, .alt_keycode = KC_H, .allowed_mods = 68, .options = 12 },
+    { .keycode = KC_TAB, .alt_keycode = LSFT(KC_TAB), .allowed_mods = 17, .options = 12 },
+    { .keycode = LGUI(KC_G), .alt_keycode = SGUI(KC_G), .allowed_mods = 0, .options = 12 },
+    { .keycode = KC_U, .alt_keycode = LSFT(KC_U), .allowed_mods = 0, .options = 14 },
+    { .keycode = LSFT(KC_DOT), .alt_keycode = LSFT(KC_COMM), .allowed_mods = 0, .options = 12 },
+    { .keycode = KC_RBRC, .alt_keycode = KC_LBRC, .allowed_mods = 119, .options = 12 },
+    { .keycode = LCTL(KC_A), .alt_keycode = LCTL(KC_X), .allowed_mods = 17, .options = 12 },
+    { .keycode = KC_BSPC, .alt_keycode = KC_DEL, .allowed_mods = 103, .options = 12 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+};
+#endif
+
+static void seed_vial_dynamic_entry_defaults(void) {
+#if defined(VIAL_TAP_DANCE_ENTRIES) && (VIAL_TAP_DANCE_ENTRIES > 0)
+    const vial_tap_dance_entry_t blank_td = { KC_NO, KC_NO, KC_NO, KC_NO, TAPPING_TERM };
+    for (uint8_t i = 0; i < VIAL_TAP_DANCE_ENTRIES; ++i) {
+        const vial_tap_dance_entry_t *entry = (i < ARRAY_SIZE(xtreemze_default_tap_dances)) ? &xtreemze_default_tap_dances[i] : &blank_td;
+        dynamic_keymap_set_tap_dance(i, entry);
+    }
+#endif
+
+#if defined(VIAL_COMBO_ENTRIES) && (VIAL_COMBO_ENTRIES > 0)
+    const vial_combo_entry_t blank_combo = { .input = { KC_NO, KC_NO, KC_NO, KC_NO }, .output = KC_NO };
+    for (uint8_t i = 0; i < VIAL_COMBO_ENTRIES; ++i) {
+        const vial_combo_entry_t *entry = (i < ARRAY_SIZE(xtreemze_default_combos)) ? &xtreemze_default_combos[i] : &blank_combo;
+        dynamic_keymap_set_combo(i, entry);
+    }
+#endif
+
+#if defined(VIAL_KEY_OVERRIDE_ENTRIES) && (VIAL_KEY_OVERRIDE_ENTRIES > 0)
+    const vial_key_override_entry_t blank_ko = {
+        .trigger = KC_NO,
+        .replacement = KC_NO,
+        .layers = 65535,
+        .trigger_mods = 0,
+        .negative_mod_mask = 0,
+        .suppressed_mods = 0,
+        .options = 7,
+    };
+    for (uint8_t i = 0; i < VIAL_KEY_OVERRIDE_ENTRIES; ++i) {
+        const vial_key_override_entry_t *entry = (i < ARRAY_SIZE(xtreemze_default_key_overrides)) ? &xtreemze_default_key_overrides[i] : &blank_ko;
+        dynamic_keymap_set_key_override(i, entry);
+    }
+#endif
+
+#if defined(VIAL_ALT_REPEAT_KEY_ENTRIES) && (VIAL_ALT_REPEAT_KEY_ENTRIES > 0)
+    const vial_alt_repeat_key_entry_t blank_arep = { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 };
+    for (uint8_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
+        const vial_alt_repeat_key_entry_t *entry = (i < ARRAY_SIZE(xtreemze_default_alt_repeat_keys)) ? &xtreemze_default_alt_repeat_keys[i] : &blank_arep;
+        dynamic_keymap_set_alt_repeat_key(i, entry);
+    }
+#endif
+}
+#endif
 
 #ifdef RGB_MATRIX_ENABLE
 static uint32_t chord_override_start = 0;
