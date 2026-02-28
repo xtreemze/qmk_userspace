@@ -10,10 +10,11 @@
 #include "graphics/fonts/Retron2000-27.qff.h"
 #include "graphics/fonts/Retron2000-underline-27.qff.h"
 
-static const char *ctrl =  "Ctrl";
-static const char *shift = "Shift";
-static const char *alt =   "Alt";
+static const char *ctrl =  "Ctl";
 static const char *gui =   "Gui";
+static const char *shift = "Shf";
+static const char *alt =   "Alt";
+static const char *arp =   "Arp";
 
 static painter_font_handle_t Retron27;
 static painter_font_handle_t Retron27_underline;
@@ -227,13 +228,13 @@ void update_display(void) {
     }
 
     if (first_run || active_mods != last_mod_state) {
-        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 12;
+        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 5) - 14;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
         const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
+        const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
         const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
         const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
-        const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
 
         qp_drawtext_recolor(
             lcd_surface,
@@ -248,6 +249,15 @@ void update_display(void) {
             lcd_surface,
             STATUS_X,
             mod_top + Retron27->line_height,
+            gui_active ? Retron27_underline : Retron27,
+            gui,
+            gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146,
+            HSV_EF_BG
+        );
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X,
+            mod_top + Retron27->line_height * 2,
             shift_active ? Retron27_underline : Retron27,
             shift,
             shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146,
@@ -256,7 +266,7 @@ void update_display(void) {
         qp_drawtext_recolor(
             lcd_surface,
             STATUS_X,
-            mod_top + Retron27->line_height * 2,
+            mod_top + Retron27->line_height * 3,
             alt_active ? Retron27_underline : Retron27,
             alt,
             alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146,
@@ -265,10 +275,10 @@ void update_display(void) {
         qp_drawtext_recolor(
             lcd_surface,
             STATUS_X,
-            mod_top + Retron27->line_height * 3,
-            gui_active ? Retron27_underline : Retron27,
-            gui,
-            gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146,
+            mod_top + Retron27->line_height * 4,
+            Retron27,
+            arp,
+            122, 82, 187,
             HSV_EF_BG
         );
 
