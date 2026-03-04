@@ -16,7 +16,12 @@
         {"name": "RGB_SCHD", "title": "Save RGB as Chord Profile", "shortName": "SCHD"},
         {"name": "RGB_TCHD", "title": "Trigger Chord RGB", "shortName": "TCHD"},
         {"name": "RGB_DURU", "title": "Chord Duration Up", "shortName": "DUR+"},
-        {"name": "RGB_DURD", "title": "Chord Duration Down", "shortName": "DUR-"}
+        {"name": "RGB_DURD", "title": "Chord Duration Down", "shortName": "DUR-"},
+        {"name": "OS_REDO", "title": "OS Redo (Cmd/Ctrl)", "shortName": "Redo"},
+        {"name": "OS_PSTE", "title": "OS Paste (Cmd/Ctrl)", "shortName": "Pste"},
+        {"name": "OS_COPY", "title": "OS Copy (Cmd/Ctrl)", "shortName": "Copy"},
+        {"name": "OS_CUT", "title": "OS Cut (Cmd/Ctrl)", "shortName": "Cut"},
+        {"name": "OS_UNDO", "title": "OS Undo (Cmd/Ctrl)", "shortName": "Undo"}
     ],
     "matrix": {
         "rows": 10,

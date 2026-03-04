@@ -27,13 +27,18 @@ painter_device_t lcd_surface;
 static uint8_t last_mod_state = 0xFF;
 static uint8_t last_display_layer = 0xFF;
 static char last_arp_text[24] = "";
-static bool idle_animation_active = false;
-static uint32_t idle_last_draw = 0;
-static uint32_t idle_prev_activity_time = 0;
+static bool life_animation_initialized = false;
+static uint32_t life_last_draw = 0;
+static uint32_t life_prev_activity_time = 0;
+static bool status_overlay_active = true;
+static uint32_t status_overlay_start = 0;
+static uint8_t status_overlay_layer = 0xFF;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
 #define STATUS_ARP_X   150
+#define LIFE_FRAME_MS 100
+#define STATUS_OVERLAY_MS 1200
 
 __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const fallback_layer_names[] = {
@@ -185,51 +190,145 @@ void add_cell_cluster() {
     }
 }
 
+typedef struct {
+    uint8_t h;
+    uint8_t s;
+    uint8_t v;
+} hsv_triplet_t;
+
+static const hsv_triplet_t layer_fg_hsv[13] = {
+    { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 254, 115, 230 },
+    { 170, 84, 182 }, { 12, 96, 206 },  { 95, 88, 194 },  { 210, 80, 186 },
+    { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 95, 88, 194 },
+    { 170, 84, 182 },
+};
+
+static const hsv_triplet_t layer_bg_hsv[13] = {
+    { 122, 36, 82 }, { 28, 34, 82 },  { 254, 34, 80 }, { 59, 32, 78 },
+    { 95, 32, 78 },  { 170, 30, 78 }, { 12, 34, 80 },  { 210, 30, 78 },
+    { 122, 36, 82 }, { 28, 34, 82 },  { 254, 34, 80 }, { 210, 30, 78 },
+    { 95, 32, 78 },
+};
+
+static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, uint8_t s, uint8_t v) {
+    for (int8_t dy = -(int8_t)radius; dy <= (int8_t)radius; ++dy) {
+        int8_t span = (int8_t)radius - (dy < 0 ? -dy : dy);
+        int16_t x0 = (int16_t)cx - span;
+        int16_t x1 = (int16_t)cx + span;
+        int16_t y = (int16_t)cy + dy;
+
+        if (y < 0 || y >= LCD_HEIGHT) {
+            continue;
+        }
+        if (x0 < 0) {
+            x0 = 0;
+        }
+        if (x1 >= LCD_WIDTH) {
+            x1 = LCD_WIDTH - 1;
+        }
+        if (x0 <= x1) {
+            qp_line(lcd_surface, (uint16_t)x0, (uint16_t)y, (uint16_t)x1, (uint16_t)y, h, s, v);
+        }
+    }
+}
+
 static void draw_layer_background_pattern(uint8_t layer) {
     const uint8_t tile_w = 24;
     const uint8_t tile_h = 24;
-    uint8_t h1 = 59, s1 = 42, v1 = 92;
-    uint8_t h2 = 122, s2 = 36, v2 = 82;
-
-    switch (layer % 8) {
-        case 0: h1 = 59;  s1 = 42; v1 = 92;  h2 = 122; s2 = 36; v2 = 82;  break;
-        case 1: h1 = 122; s1 = 40; v1 = 90;  h2 = 28;  s2 = 34; v2 = 82;  break;
-        case 2: h1 = 28;  s1 = 48; v1 = 96;  h2 = 254; s2 = 34; v2 = 80;  break;
-        case 3: h1 = 254; s1 = 44; v1 = 94;  h2 = 59;  s2 = 32; v2 = 78;  break;
-        case 4: h1 = 170; s1 = 40; v1 = 88;  h2 = 95;  s2 = 36; v2 = 78;  break;
-        case 5: h1 = 210; s1 = 38; v1 = 90;  h2 = 12;  s2 = 40; v2 = 80;  break;
-        case 6: h1 = 12;  s1 = 42; v1 = 94;  h2 = 122; s2 = 32; v2 = 78;  break;
-        case 7: h1 = 95;  s1 = 40; v1 = 90;  h2 = 210; s2 = 34; v2 = 78;  break;
-    }
+    const uint8_t variant = layer % 13;
+    const hsv_triplet_t fg = layer_fg_hsv[variant];
+    const hsv_triplet_t bg = layer_bg_hsv[variant];
 
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
-    for (uint16_t y = 0; y + tile_h < LCD_HEIGHT; y += tile_h) {
-        for (uint16_t x = 0; x + tile_w < LCD_WIDTH; x += tile_w) {
+    for (uint16_t y = 0; y + tile_h <= LCD_HEIGHT; y += tile_h) {
+        for (uint16_t x = 0; x + tile_w <= LCD_WIDTH; x += tile_w) {
             const bool phase = (((x / tile_w) + (y / tile_h) + layer) & 1U) != 0U;
-            const uint8_t ah = phase ? h1 : h2;
-            const uint8_t as = phase ? s1 : s2;
-            const uint8_t av = phase ? v1 : v2;
-            const uint8_t bh = phase ? h2 : h1;
-            const uint8_t bs = phase ? s2 : s1;
-            const uint8_t bv = phase ? v2 : v1;
             const uint16_t cx = x + tile_w / 2;
             const uint16_t cy = y + tile_h / 2;
+            const uint8_t ah = phase ? fg.h : bg.h;
+            const uint8_t as = phase ? fg.s : bg.s;
+            const uint8_t av = phase ? fg.v : bg.v;
+            const uint8_t bh = phase ? bg.h : fg.h;
+            const uint8_t bs = phase ? bg.s : fg.s;
+            const uint8_t bv = phase ? bg.v : fg.v;
 
-            // Center motif.
-            qp_rect(lcd_surface, cx - 1, cy - 1, cx + 1, cy + 1, ah, as, av, true);
-
-            // Four-way symmetric accents.
-            qp_rect(lcd_surface, cx - 7, cy - 7, cx - 5, cy - 5, bh, bs, bv, true);
-            qp_rect(lcd_surface, cx + 5, cy - 7, cx + 7, cy - 5, bh, bs, bv, true);
-            qp_rect(lcd_surface, cx - 7, cy + 5, cx - 5, cy + 7, bh, bs, bv, true);
-            qp_rect(lcd_surface, cx + 5, cy + 5, cx + 7, cy + 7, bh, bs, bv, true);
-
-            // Cross structure for tiled continuity.
-            qp_rect(lcd_surface, cx - 1, y + 2, cx + 1, y + 6, ah, as, av, true);
-            qp_rect(lcd_surface, cx - 1, y + tile_h - 7, cx + 1, y + tile_h - 3, ah, as, av, true);
-            qp_rect(lcd_surface, x + 2, cy - 1, x + 6, cy + 1, ah, as, av, true);
-            qp_rect(lcd_surface, x + tile_w - 7, cy - 1, x + tile_w - 3, cy + 1, ah, as, av, true);
+            // All variants are tiled diamond motifs and remain four-way symmetric.
+            switch (variant) {
+                case 0:
+                    draw_diamond(cx, cy, 6, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+                case 1:
+                    draw_diamond(cx, cy - 6, 3, ah, as, av);
+                    draw_diamond(cx - 6, cy, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy, 3, ah, as, av);
+                    draw_diamond(cx, cy + 6, 3, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+                case 2:
+                    draw_diamond(cx, cy, 7, ah, as, av);
+                    draw_diamond(cx, cy, 5, HSV_EF_BG);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+                case 3:
+                    draw_diamond(cx - 5, cy, 4, ah, as, av);
+                    draw_diamond(cx + 5, cy, 4, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+                case 4:
+                    draw_diamond(cx, cy - 5, 4, ah, as, av);
+                    draw_diamond(cx, cy + 5, 4, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+                case 5:
+                    draw_diamond(cx, cy, 3, ah, as, av);
+                    draw_diamond(cx - 7, cy - 7, 2, bh, bs, bv);
+                    draw_diamond(cx + 7, cy - 7, 2, bh, bs, bv);
+                    draw_diamond(cx - 7, cy + 7, 2, bh, bs, bv);
+                    draw_diamond(cx + 7, cy + 7, 2, bh, bs, bv);
+                    break;
+                case 6:
+                    draw_diamond(cx - 6, cy - 6, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy + 6, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy - 6, 2, bh, bs, bv);
+                    draw_diamond(cx - 6, cy + 6, 2, bh, bs, bv);
+                    break;
+                case 7:
+                    draw_diamond(cx, cy, 5, ah, as, av);
+                    draw_diamond(x + 2, cy, 2, bh, bs, bv);
+                    draw_diamond(x + tile_w - 3, cy, 2, bh, bs, bv);
+                    break;
+                case 8:
+                    draw_diamond(cx, y + 3, 2, ah, as, av);
+                    draw_diamond(cx, y + tile_h - 4, 2, ah, as, av);
+                    draw_diamond(cx, cy, 4, bh, bs, bv);
+                    break;
+                case 9:
+                    draw_diamond(cx, cy, 3, ah, as, av);
+                    draw_diamond(cx - 6, cy, 2, bh, bs, bv);
+                    draw_diamond(cx + 6, cy, 2, bh, bs, bv);
+                    draw_diamond(cx, cy - 6, 2, bh, bs, bv);
+                    draw_diamond(cx, cy + 6, 2, bh, bs, bv);
+                    break;
+                case 10:
+                    draw_diamond(cx, cy, 6, ah, as, av);
+                    draw_diamond(cx - 8, cy, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy, 2, bh, bs, bv);
+                    break;
+                case 11:
+                    draw_diamond(cx, cy, 4, ah, as, av);
+                    draw_diamond(cx - 8, cy - 8, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy - 8, 2, bh, bs, bv);
+                    draw_diamond(cx - 8, cy + 8, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy + 8, 2, bh, bs, bv);
+                    break;
+                default:
+                    draw_diamond(cx - 5, cy - 5, 3, ah, as, av);
+                    draw_diamond(cx + 5, cy + 5, 3, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
+                    break;
+            }
         }
     }
 }
@@ -248,11 +347,10 @@ void update_display(void) {
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
-    const bool need_full_redraw = first_run || active_layer != last_display_layer || idle_animation_active;
+    const bool need_full_redraw = first_run || active_layer != last_display_layer;
 
     if (need_full_redraw) {
         draw_layer_background_pattern(active_layer);
-        idle_animation_active = false;
     }
 
     if (need_full_redraw || arp_changed || active_layer != last_display_layer) {
@@ -387,33 +485,45 @@ bool module_post_init_kb(void) {
 bool display_module_housekeeping_task_kb(bool second_display) {
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
-    const uint32_t idle_elapsed = timer_elapsed32(last_matrix_activity_time());
-    const bool idle_mode = idle_elapsed >= 15000U && idle_elapsed < 35000U;
+    const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
 
-    if (idle_mode) {
-        if (!idle_animation_active) {
-            srand(get_random_32bit());
-            init_grid();
-            color_value = rand() % 8;
-            idle_animation_active = true;
-            idle_prev_activity_time = last_matrix_activity_time();
-            idle_last_draw = timer_read32();
+    if (!life_animation_initialized) {
+        srand(get_random_32bit());
+        init_grid();
+        color_value = rand() % 8;
+        life_prev_activity_time = last_matrix_activity_time();
+        life_last_draw = timer_read32();
+        status_overlay_layer = active_layer;
+        status_overlay_start = timer_read32();
+        status_overlay_active = true;
+        life_animation_initialized = true;
+    }
+
+    if (active_layer != status_overlay_layer) {
+        status_overlay_layer = active_layer;
+        status_overlay_start = timer_read32();
+        status_overlay_active = true;
+    }
+
+    if (status_overlay_active) {
+        update_display();
+
+        if (timer_elapsed32(status_overlay_start) >= STATUS_OVERLAY_MS) {
+            status_overlay_active = false;
         }
-
-        if (timer_elapsed32(idle_last_draw) >= 100) { // Throttle to 10 fps
+    } else {
+        if (timer_elapsed32(life_last_draw) >= LIFE_FRAME_MS) { // Throttle to 10 fps
             draw_grid();
             update_grid();
 
-            if (idle_prev_activity_time != last_matrix_activity_time()) {
+            if (life_prev_activity_time != last_matrix_activity_time()) {
                 color_value = rand() % 8;
                 add_cell_cluster();
-                idle_prev_activity_time = last_matrix_activity_time();
+                life_prev_activity_time = last_matrix_activity_time();
             }
 
-            idle_last_draw = timer_read32();
+            life_last_draw = timer_read32();
         }
-    } else {
-        update_display();
     }
 
     // Move surface to lcd

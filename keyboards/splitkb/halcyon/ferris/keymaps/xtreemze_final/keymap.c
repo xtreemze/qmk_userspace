@@ -3,6 +3,15 @@
 
 #include QMK_KEYBOARD_H
 #include "dynamic_keymap.h"
+#ifdef VIA_ENABLE
+#include "via.h"
+#endif
+#ifdef VIAL_ENABLE
+#include "vial.h"
+#endif
+#ifdef QMK_SETTINGS
+#include "qmk_settings.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #ifdef RGB_MATRIX_ENABLE
@@ -41,7 +50,12 @@ enum custom_keycodes {
     RGB_SCHD,
     RGB_TCHD,
     RGB_DURU,
-    RGB_DURD
+    RGB_DURD,
+    OS_REDO,
+    OS_PSTE,
+    OS_COPY,
+    OS_CUT,
+    OS_UNDO
 };
 
 /*
@@ -49,7 +63,7 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xA6
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xAA
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
@@ -133,6 +147,15 @@ static void load_user_data(void) {
 
 #ifdef VIAL_ENABLE
 static void seed_vial_dynamic_entry_defaults(void);
+#if (DYNAMIC_KEYMAP_MACRO_COUNT > 0)
+static void seed_vial_macro_defaults(void);
+#endif
+#endif
+#ifdef QMK_SETTINGS
+static void seed_qmk_settings_defaults(void);
+#endif
+#ifdef VIA_ENABLE
+static void seed_via_layout_options_default(void);
 #endif
 
 static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
@@ -143,6 +166,15 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
     dynamic_keymap_reset();
 #ifdef VIAL_ENABLE
     seed_vial_dynamic_entry_defaults();
+#if (DYNAMIC_KEYMAP_MACRO_COUNT > 0)
+    seed_vial_macro_defaults();
+#endif
+#endif
+#ifdef QMK_SETTINGS
+    seed_qmk_settings_defaults();
+#endif
+#ifdef VIA_ENABLE
+    seed_via_layout_options_default();
 #endif
     xtreemze_user_data.defaults_marker = XTREEMZE_DEFAULTS_EE_MARKER;
     save_user_data();
@@ -151,9 +183,9 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
 #ifdef VIAL_ENABLE
 #if defined(VIAL_TAP_DANCE_ENTRIES) && (VIAL_TAP_DANCE_ENTRIES > 0)
 static const vial_tap_dance_entry_t xtreemze_default_tap_dances[] = {
-    { KC_PSLS, LSFT(KC_SLASH), XM_9, KC_PSLS, 160 },
-    { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 160 },
-    { KC_COMM, LSFT(KC_SLASH), KC_SLASH, LSFT(KC_SLASH), 160 },
+    { KC_PSLS, LSFT(KC_SLASH), XM_9, KC_PSLS, 180 },
+    { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 180 },
+    { KC_COMM, LSFT(KC_SLASH), KC_SLASH, LSFT(KC_SLASH), 170 },
     { KC_DOT, KC_DOT, XM_3, KC_DOT, 180 },
     { KC_N, XM_6, XM_7, XM_6, 175 },
     { OSM(MOD_LSFT), MO(6), XM_5, MO(6), 45 },
@@ -193,7 +225,7 @@ static const vial_combo_entry_t xtreemze_default_combos[] = {
     { { KC_S, KC_D, KC_NO, KC_NO }, KC_ESC },
     { { KC_K, KC_L, KC_NO, KC_NO }, KC_ENT },
     { { KC_J, KC_L, KC_NO, KC_NO }, XM_2 },
-    { { KC_S, KC_F, KC_NO, KC_NO }, HYPR(KC_SPACE) },
+    { { KC_S, KC_F, KC_NO, KC_NO }, XM_0 },
     { { KC_DOWN, KC_RIGHT, KC_NO, KC_NO }, XM_2 },
     { { MS_RGHT, MS_UP, KC_NO, KC_NO }, KC_ENT },
     { { MS_RGHT, MS_DOWN, KC_NO, KC_NO }, XM_2 },
@@ -203,14 +235,14 @@ static const vial_combo_entry_t xtreemze_default_combos[] = {
     { { KC_R, KC_V, KC_NO, KC_NO }, QK_BOOT },
     { { KC_I, KC_COMM, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
     { { KC_E, KC_C, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
-    { { KC_UP, KC_RIGHT, KC_NO, KC_NO }, KC_ENT },
+    { { KC_DOT, KC_SPACE, KC_NO, KC_NO }, XM_1 },
     { { KC_LALT, KC_LGUI, KC_NO, KC_NO }, TD(13) },
     { { KC_W, KC_R, KC_NO, KC_NO }, RCTL(KC_B) },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
-    { { KC_NO, KC_NO, KC_NO, KC_NO }, OSM(MOD_RSFT) },
-    { { KC_NO, KC_NO, KC_NO, KC_NO }, XM_4 },
-    { { KC_NO, KC_NO, KC_NO, KC_NO }, LALT(KC_BSPC) },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
@@ -225,14 +257,14 @@ static const vial_combo_entry_t xtreemze_default_combos[] = {
 
 #if defined(VIAL_KEY_OVERRIDE_ENTRIES) && (VIAL_KEY_OVERRIDE_ENTRIES > 0)
 static const vial_key_override_entry_t xtreemze_default_key_overrides[] = {
-    { .trigger = MS_WHLU, .replacement = LSFT(KC_TAB), .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
-    { .trigger = MS_WHLD, .replacement = KC_TAB, .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 135 },
-    { .trigger = MS_WHLD, .replacement = LCTL(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
-    { .trigger = MS_WHLU, .replacement = LCTL(LSFT(KC_TAB)), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
-    { .trigger = MS_WHLU, .replacement = SGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
-    { .trigger = MS_WHLD, .replacement = LGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 135 },
-    { .trigger = MS_WHLD, .replacement = KC_VOLU, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 135 },
-    { .trigger = MS_WHLU, .replacement = KC_VOLD, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 135 },
+    { .trigger = MS_WHLU, .replacement = LSFT(KC_TAB), .layers = 3, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 7 },
+    { .trigger = MS_WHLD, .replacement = KC_TAB, .layers = 7, .trigger_mods = 68, .negative_mod_mask = 0, .suppressed_mods = 68, .options = 7 },
+    { .trigger = MS_WHLD, .replacement = LCTL(KC_TAB), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = MS_WHLU, .replacement = LCTL(LSFT(KC_TAB)), .layers = 7, .trigger_mods = 17, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = MS_WHLU, .replacement = SGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = MS_WHLD, .replacement = LGUI(KC_TAB), .layers = 7, .trigger_mods = 136, .negative_mod_mask = 0, .suppressed_mods = 0, .options = 7 },
+    { .trigger = MS_WHLD, .replacement = KC_VOLU, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 7 },
+    { .trigger = MS_WHLU, .replacement = KC_VOLD, .layers = 7, .trigger_mods = 34, .negative_mod_mask = 0, .suppressed_mods = 34, .options = 7 },
     { .trigger = KC_BRID, .replacement = LSFT(KC_TAB), .layers = 64, .trigger_mods = 136, .negative_mod_mask = 119, .suppressed_mods = 119, .options = 135 },
     { .trigger = KC_BRIU, .replacement = KC_TAB, .layers = 64, .trigger_mods = 136, .negative_mod_mask = 119, .suppressed_mods = 119, .options = 135 },
     { .trigger = KC_BRID, .replacement = KC_VOLD, .layers = 64, .trigger_mods = 34, .negative_mod_mask = 221, .suppressed_mods = 255, .options = 135 },
@@ -267,13 +299,14 @@ static const vial_alt_repeat_key_entry_t xtreemze_default_alt_repeat_keys[] = {
     { .keycode = KC_W, .alt_keycode = KC_B, .allowed_mods = 0, .options = 12 },
     { .keycode = KC_J, .alt_keycode = KC_K, .allowed_mods = 68, .options = 12 },
     { .keycode = KC_L, .alt_keycode = KC_H, .allowed_mods = 68, .options = 12 },
-    { .keycode = KC_TAB, .alt_keycode = LSFT(KC_TAB), .allowed_mods = 17, .options = 12 },
+    { .keycode = KC_TAB, .alt_keycode = LSFT(KC_TAB), .allowed_mods = 17, .options = 13 },
     { .keycode = LGUI(KC_G), .alt_keycode = SGUI(KC_G), .allowed_mods = 0, .options = 12 },
     { .keycode = KC_U, .alt_keycode = LSFT(KC_U), .allowed_mods = 0, .options = 14 },
     { .keycode = LSFT(KC_DOT), .alt_keycode = LSFT(KC_COMM), .allowed_mods = 0, .options = 12 },
     { .keycode = KC_RBRC, .alt_keycode = KC_LBRC, .allowed_mods = 119, .options = 12 },
     { .keycode = LCTL(KC_A), .alt_keycode = LCTL(KC_X), .allowed_mods = 17, .options = 12 },
     { .keycode = KC_BSPC, .alt_keycode = KC_DEL, .allowed_mods = 103, .options = 12 },
+    { .keycode = KC_RGHT, .alt_keycode = KC_LEFT, .allowed_mods = 0, .options = 4 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
@@ -337,6 +370,154 @@ static void seed_vial_dynamic_entry_defaults(void) {
         dynamic_keymap_set_alt_repeat_key(i, entry);
     }
 #endif
+}
+
+#if (DYNAMIC_KEYMAP_MACRO_COUNT > 0)
+#ifndef VIAL_MACRO_EXT_TAP
+#define VIAL_MACRO_EXT_TAP 5
+#endif
+
+static bool macro_seed_write_byte(uint16_t *offset, uint16_t max_size, uint8_t value) {
+    if (*offset >= max_size) {
+        return false;
+    }
+    dynamic_keymap_macro_set_buffer(*offset, 1, &value);
+    (*offset)++;
+    return true;
+}
+
+static bool macro_seed_write_tap(uint16_t *offset, uint16_t max_size, uint16_t keycode) {
+    return macro_seed_write_byte(offset, max_size, 1) && macro_seed_write_byte(offset, max_size, VIAL_MACRO_EXT_TAP) && macro_seed_write_byte(offset, max_size, keycode & 0xFF) && macro_seed_write_byte(offset, max_size, keycode >> 8);
+}
+
+static bool macro_seed_write_text(uint16_t *offset, uint16_t max_size, const char *text) {
+    while (*text) {
+        if (!macro_seed_write_byte(offset, max_size, (uint8_t)*text)) {
+            return false;
+        }
+        ++text;
+    }
+    return true;
+}
+
+static bool macro_seed_end_slot(uint16_t *offset, uint16_t max_size) {
+    return macro_seed_write_byte(offset, max_size, 0);
+}
+
+static void seed_vial_macro_defaults(void) {
+    dynamic_keymap_macro_reset();
+
+    uint16_t offset = 0;
+    const uint16_t macro_buffer_size = dynamic_keymap_macro_get_buffer_size();
+    bool ok = true;
+
+    // M0: tap USER13, HYPR(KC_SPACE)
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, RGB_TCHD);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, HYPR(KC_SPACE));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M1: tap KC_DOT, KC_SPACE, OSM(MOD_RSFT)
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_DOT);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_SPACE);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, OSM(MOD_RSFT));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M2: tap LCTL(KC_QUOT)
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, LCTL(KC_QUOT));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M3: text "..."
+    ok &= macro_seed_write_text(&offset, macro_buffer_size, "...");
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M4: text ".  " then tap OSM(MOD_RSFT)
+    ok &= macro_seed_write_text(&offset, macro_buffer_size, ".  ");
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, OSM(MOD_RSFT));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M5: tap KC_BSPC, KC_BSPC, LALT(KC_BSPC)
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_BSPC);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_BSPC);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, LALT(KC_BSPC));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M6: tap LALT(KC_N), KC_N
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, LALT(KC_N));
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_N);
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M7: text "nn"
+    ok &= macro_seed_write_text(&offset, macro_buffer_size, "nn");
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M8: tap TG(1), TG(4)
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, TG(1));
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, TG(4));
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M9: tap KC_SLASH, KC_SLASH
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_SLASH);
+    ok &= macro_seed_write_tap(&offset, macro_buffer_size, KC_SLASH);
+    ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+
+    // M10..M31 empty by default.
+    for (uint8_t i = 10; i < DYNAMIC_KEYMAP_MACRO_COUNT && ok; ++i) {
+        ok &= macro_seed_end_slot(&offset, macro_buffer_size);
+    }
+
+    (void)ok;
+}
+#endif
+#endif
+
+#ifdef QMK_SETTINGS
+typedef struct {
+    uint16_t id;
+    uint32_t value;
+} qmk_setting_seed_t;
+
+static const qmk_setting_seed_t xtreemze_qmk_settings_defaults[] = {
+    { 1, 0 },
+    { 2, 30 },
+    { 3, 17 },
+    { 4, 180 },
+    { 5, 2 },
+    { 6, 2000 },
+    { 7, 180 },
+    { 9, 14 },
+    { 10, 28 },
+    { 11, 8 },
+    { 12, 10 },
+    { 13, 30 },
+    { 14, 20 },
+    { 15, 48 },
+    { 16, 24 },
+    { 17, 64 },
+    { 18, 0 },
+    { 19, 80 },
+    { 20, 5 },
+    { 21, 0 },
+    { 22, 1 },
+    { 23, 0 },
+    { 24, 0 },
+    { 25, 180 },
+    { 26, 0 },
+    { 27, 0 },
+};
+
+static void seed_qmk_settings_defaults(void) {
+    for (uint8_t i = 0; i < ARRAY_SIZE(xtreemze_qmk_settings_defaults); ++i) {
+        const qmk_setting_seed_t setting = xtreemze_qmk_settings_defaults[i];
+        const uint32_t value = setting.value;
+        qmk_settings_set(setting.id, &value, sizeof(value));
+    }
+}
+#endif
+
+#ifdef VIA_ENABLE
+static void seed_via_layout_options_default(void) {
+    // final Vial profile sets layout_options=1 (right module = encoder, left module = none/TFT profile path).
+    via_set_layout_options(1U);
 }
 #endif
 
@@ -549,6 +730,19 @@ static inline bool is_macro_keycode(uint16_t keycode) {
     return keycode >= XM_0 && keycode <= XM_9;
 }
 
+static bool host_is_apple(void) {
+#ifdef OS_DETECTION_ENABLE
+    const os_variant_t os = detected_host_os();
+    return os == OS_MACOS || os == OS_IOS;
+#else
+    return false;
+#endif
+}
+
+static void tap_os_clipboard(uint16_t mac_keycode, uint16_t other_keycode) {
+    tap_code16(host_is_apple() ? mac_keycode : other_keycode);
+}
+
 static void run_macro_slot(uint8_t slot);
 
 static void tap_action_keycode(uint16_t keycode) {
@@ -623,12 +817,12 @@ static void __attribute__((unused)) release_action_keycode(uint16_t keycode) {
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [L0] = {
-        {               MO(10),                MO(9),                MO(5),                MO(4),                MO(8) },
+        {               MO(10),                MO(9),               MO(11),                MO(4),                MO(8) },
         {              RM_TOGG,              KC_LCTL,              KC_LGUI,              KC_LSFT,              KC_LALT },
-        {           SGUI(KC_Z),           LGUI(KC_V),           LGUI(KC_C),           LGUI(KC_X),           LGUI(KC_Z) },
+        {              OS_REDO,              OS_PSTE,              OS_COPY,               OS_CUT,              OS_UNDO },
         {     LT(3, KC_BSPC),                MO(6),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
-        {                KC_NO,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
+        {                KC_NO,             RGB_SLAY,             RGB_SMOD,             RGB_SCHD,                KC_NO },
         {              MS_LEFT,              MS_DOWN,                MS_UP,              MS_RGHT,                KC_NO },
         {                KC_NO,              KC_BTN3,              KC_BTN4,              KC_BTN5,                KC_NO },
         {              KC_BTN2,              KC_BTN1,                KC_NO,                KC_NO,                KC_NO },
@@ -642,7 +836,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                 KC_Y,                 KC_U,                 KC_I,                 KC_O,                 KC_P },
         {                 KC_H,                 KC_J,                 KC_K,                 KC_L,                TD(1) },
-        {                 KC_N,                 KC_M,                TD(7),                TD(3),                TD(0) },
+        {                 KC_N,                 KC_M,                TD(7),               KC_DOT,                TD(0) },
         {     LT(3, KC_BSPC),             KC_SPACE,                KC_NO,                KC_NO,                KC_NO },
         {                TO(0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
@@ -675,17 +869,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,                KC_NO,                KC_NO,                KC_NO },
-        {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
+        {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,                KC_NO,                KC_NO,                KC_NO },
-        {                TO(0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
+        {                KC_NO,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L5] = {
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
-        {              _______,              _______,              _______,              _______,              _______ },
+        {              _______,              _______,              _______,              _______,             RGB_SLAY },
         {           LGUI(KC_S),      LALT(KC_BSPC),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {              _______,         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
@@ -697,23 +891,23 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [L6] = {
         {           LGUI(KC_A),         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
         {              _______,        OSM(MOD_LCTL),        OSM(MOD_LGUI),        OSM(MOD_LSFT),        OSM(MOD_LALT) },
-        {           SGUI(KC_Z),           LGUI(KC_V),           LGUI(KC_C),           LGUI(KC_X),           LGUI(KC_Z) },
-        {       LGUI(KC_SPACE),              _______,                KC_NO,                KC_NO,                KC_NO },
+        {              OS_REDO,              OS_PSTE,              OS_COPY,               OS_CUT,              OS_UNDO },
+        {        OSM(MOD_LSFT),              _______,                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {              _______,              _______,              _______,              _______,              _______ },
         {              _______,              _______,              _______,              _______,              _______ },
-        {              _______,              _______,              _______,              _______,              _______ },
+        {              _______,              _______,              _______,              _______,             RGB_SLAY },
         {               KC_TAB,                MO(5),                KC_NO,                KC_NO,                KC_NO },
-        {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
+        {              _______,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L7] = {
         {                KC_F5,                KC_F4,                KC_F3,                KC_F2,                KC_F1 },
-        {           LSFT(KC_0),              KC_RBRC,         LSFT(KC_DOT),    LSFT(KC_RBRC),              KC_PSLS },
-        {                KC_F6,              KC_MNXT,              KC_MPLY,              KC_MSTP,              KC_MPRV },
+        {           LSFT(KC_9),              KC_LBRC,       LSFT(KC_COMMA),    LSFT(KC_LBRC),              KC_PSLS },
+        {                KC_F6,              KC_MNXT,              KC_MPLY,              KC_MSTP,             RGB_SLAY },
         {                KC_UP,              KC_LEFT,                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                KC_F8,                KC_F9,               KC_F10,               KC_F11,               KC_F12 },
-        {           LSFT(KC_9),              KC_LBRC,       LSFT(KC_COMMA),    LSFT(KC_LBRC),              KC_BSLS },
+        {           LSFT(KC_0),              KC_RBRC,         LSFT(KC_DOT),    LSFT(KC_RBRC),              KC_BSLS },
         {                KC_F7,              KC_MNXT,              KC_MPLY,              KC_MSTP,              KC_MPRV },
         {              KC_DOWN,             KC_RIGHT,                KC_NO,                KC_NO,                KC_NO },
         {           LGUI(KC_0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
@@ -795,8 +989,8 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [L8] = { ENCODER_CCW_CW(RM_SPDD, RM_SPDU) },
     [L9] = { ENCODER_CCW_CW(RM_PREV, RM_NEXT) },
     [L10] = { ENCODER_CCW_CW(RM_HUED, RM_HUEU) },
-    [L11] = { ENCODER_CCW_CW(_______, _______) },
-    [L12] = { ENCODER_CCW_CW(_______, _______) },
+    [L11] = { ENCODER_CCW_CW(RM_VALD, RM_VALU) },
+    [L12] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
 };
 #endif
 
@@ -1095,13 +1289,14 @@ static const alt_repeat_raw_entry_t alt_repeat_entries[] = {
     { KC_W, KC_B, 0, 12 },
     { KC_J, KC_K, 68, 12 },
     { KC_L, KC_H, 68, 12 },
-    { KC_TAB, LSFT(KC_TAB), 17, 12 },
+    { KC_TAB, LSFT(KC_TAB), 17, 13 },
     { LGUI(KC_G), SGUI(KC_G), 0, 12 },
     { KC_U, LSFT(KC_U), 0, 14 },
     { LSFT(KC_DOT), LSFT(KC_COMM), 0, 12 },
     { KC_RBRC, KC_LBRC, 119, 12 },
     { LCTL(KC_A), LCTL(KC_X), 17, 12 },
     { KC_BSPC, KC_DEL, 103, 12 },
+    { KC_RGHT, KC_LEFT, 0, 4 },
 };
 
 static uint8_t unpack_mods5(uint8_t mods5) {
@@ -1190,10 +1385,11 @@ uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods) {
 static void run_macro_slot(uint8_t slot) {
     switch (slot) {
         case 0:
-            tap_action_keycode(KC_ESC);
-            tap_action_keycode(TG(4));
+            tap_action_keycode(RGB_TCHD);
+            tap_action_keycode(HYPR(KC_SPACE));
             break;
         case 1:
+            tap_action_keycode(KC_DOT);
             tap_action_keycode(KC_SPACE);
             tap_action_keycode(OSM(MOD_RSFT));
             break;
@@ -1250,6 +1446,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         set_layer_profile_from_current_rgb();
         refresh_rgb_profile_state();
 #endif
+        return false;
+    }
+
+    if (keycode == OS_REDO) {
+        tap_os_clipboard(SGUI(KC_Z), LCTL(KC_Y));
+        return false;
+    }
+
+    if (keycode == OS_PSTE) {
+        tap_os_clipboard(LGUI(KC_V), LCTL(KC_V));
+        return false;
+    }
+
+    if (keycode == OS_COPY) {
+        tap_os_clipboard(LGUI(KC_C), LCTL(KC_C));
+        return false;
+    }
+
+    if (keycode == OS_CUT) {
+        tap_os_clipboard(LGUI(KC_X), LCTL(KC_X));
+        return false;
+    }
+
+    if (keycode == OS_UNDO) {
+        tap_os_clipboard(LGUI(KC_Z), LCTL(KC_Z));
         return false;
     }
 
@@ -1319,18 +1540,18 @@ const char *halcyon_display_alt_repeat_text_user(void) {
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
-        "MOUSEM",
+        "MOUSEX",
         "ALPHA1",
         "ALPHA2",
-        "NUMSYM",
+        "NUMPAD",
         "TRANSP",
         "MODNAV",
-        "MODHLD",
+        "MODRGB",
         "FUNCMD",
         "RGBSPD",
         "RGBMOD",
         "RGBHUE",
-        "SPARE1",
+        "RGBVAL",
         "SPARE2",
     };
 
