@@ -25,8 +25,10 @@ painter_device_t lcd;
 painter_device_t lcd_surface;
 
 static uint8_t last_mod_state = 0xFF;
+static uint8_t last_visible_mod_mask = 0xFF;
 static uint8_t last_display_layer = 0xFF;
 static char last_arp_text[24] = "";
+static uint32_t last_mod_seen[4] = { 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL };
 static bool life_animation_initialized = false;
 static uint32_t life_last_draw = 0;
 static uint32_t life_prev_activity_time = 0;
@@ -38,7 +40,13 @@ static uint8_t status_overlay_layer = 0xFF;
 #define STATUS_LAYER_Y 5
 #define STATUS_ARP_X   150
 #define LIFE_FRAME_MS 100
-#define STATUS_OVERLAY_MS 1200
+#define STATUS_OVERLAY_MS 3000
+#define MOD_RECENT_MS 2200
+#define MOD_TS_UNSET 0xFFFFFFFFUL
+
+static bool mod_is_recent(uint32_t ts) {
+    return ts != MOD_TS_UNSET && timer_elapsed32(ts) < MOD_RECENT_MS;
+}
 
 __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const fallback_layer_names[] = {
@@ -343,17 +351,38 @@ void update_display(void) {
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     const uint8_t active_mods = get_mods() | get_oneshot_mods();
+    const uint32_t now = timer_read32();
     const char *const arp_text = halcyon_display_alt_repeat_text_user();
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
-    const bool need_full_redraw = first_run || active_layer != last_display_layer;
+    if ((active_mods & MOD_MASK_CTRL) != 0) {
+        last_mod_seen[0] = now;
+    }
+    if ((active_mods & MOD_MASK_GUI) != 0) {
+        last_mod_seen[1] = now;
+    }
+    if ((active_mods & MOD_MASK_SHIFT) != 0) {
+        last_mod_seen[2] = now;
+    }
+    if ((active_mods & MOD_MASK_ALT) != 0) {
+        last_mod_seen[3] = now;
+    }
 
-    if (need_full_redraw) {
+    const bool ctrl_visible = (active_mods & MOD_MASK_CTRL) != 0 || mod_is_recent(last_mod_seen[0]);
+    const bool gui_visible = (active_mods & MOD_MASK_GUI) != 0 || mod_is_recent(last_mod_seen[1]);
+    const bool shift_visible = (active_mods & MOD_MASK_SHIFT) != 0 || mod_is_recent(last_mod_seen[2]);
+    const bool alt_visible = (active_mods & MOD_MASK_ALT) != 0 || mod_is_recent(last_mod_seen[3]);
+    const uint8_t visible_mod_mask = (ctrl_visible ? 1U : 0U) | (gui_visible ? 2U : 0U) | (shift_visible ? 4U : 0U) | (alt_visible ? 8U : 0U);
+
+    const bool need_full_redraw = first_run || active_layer != last_display_layer;
+    const bool force_full_redraw = need_full_redraw || (last_visible_mod_mask != 0U && visible_mod_mask == 0U);
+
+    if (force_full_redraw) {
         draw_layer_background_pattern(active_layer);
     }
 
-    if (need_full_redraw || arp_changed || active_layer != last_display_layer) {
+    if (force_full_redraw || arp_changed || active_layer != last_display_layer) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
 
         uint8_t layer_h = 0;
@@ -390,53 +419,31 @@ void update_display(void) {
         last_display_layer = active_layer;
     }
 
-    if (first_run || need_full_redraw || active_mods != last_mod_state) {
+    if (visible_mod_mask != 0U && (first_run || force_full_redraw || active_mods != last_mod_state || visible_mod_mask != last_visible_mod_mask)) {
         const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
-        const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
-        const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
-        const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
-        const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
-
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            mod_top,
-            Retron27,
-            ctrl,
-            ctrl_active ? 122 : 98, ctrl_active ? 82 : 23, ctrl_active ? 187 : 146,
-            HSV_EF_BG
-        );
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            mod_top + Retron27->line_height,
-            Retron27,
-            gui,
-            gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146,
-            HSV_EF_BG
-        );
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            mod_top + Retron27->line_height * 2,
-            Retron27,
-            shift,
-            shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146,
-            HSV_EF_BG
-        );
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            mod_top + Retron27->line_height * 3,
-            Retron27,
-            alt,
-            alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146,
-            HSV_EF_BG
-        );
+        uint8_t line = 0;
+        if (ctrl_visible) {
+            const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
+            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, ctrl, ctrl_active ? 122 : 98, ctrl_active ? 82 : 23, ctrl_active ? 187 : 146, HSV_EF_BG);
+        }
+        if (gui_visible) {
+            const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
+            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, gui, gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146, HSV_EF_BG);
+        }
+        if (shift_visible) {
+            const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
+            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, shift, shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146, HSV_EF_BG);
+        }
+        if (alt_visible) {
+            const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
+            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, alt, alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146, HSV_EF_BG);
+        }
         last_mod_state = active_mods;
     }
+
+    last_visible_mod_mask = visible_mod_mask;
 
     if (arp_changed) {
         snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);

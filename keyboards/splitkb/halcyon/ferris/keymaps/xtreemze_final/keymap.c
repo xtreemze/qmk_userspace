@@ -49,13 +49,12 @@ enum custom_keycodes {
     RGB_SMOD,
     RGB_SCHD,
     RGB_TCHD,
-    RGB_DURU,
-    RGB_DURD,
     OS_REDO,
     OS_PSTE,
     OS_COPY,
     OS_CUT,
-    OS_UNDO
+    OS_UNDO,
+    OS_SALL
 };
 
 /*
@@ -63,13 +62,12 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xAA
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xAB
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
 #define XTREEMZE_CHORD_MS_MIN 250
 #define XTREEMZE_CHORD_MS_MAX 10000
-#define XTREEMZE_CHORD_MS_STEP 250
 
 static char alt_repeat_display_text[24] = "---";
 
@@ -603,28 +601,6 @@ static void trigger_chord_profile(void) {
     chord_override_start = timer_read32();
 }
 
-static void adjust_chord_override_duration(bool increase) {
-    uint16_t duration = xtreemze_user_data.chord_override_ms;
-    if (increase) {
-        if (duration + XTREEMZE_CHORD_MS_STEP <= XTREEMZE_CHORD_MS_MAX) {
-            duration += XTREEMZE_CHORD_MS_STEP;
-        } else {
-            duration = XTREEMZE_CHORD_MS_MAX;
-        }
-    } else {
-        if (duration > XTREEMZE_CHORD_MS_MIN + XTREEMZE_CHORD_MS_STEP - 1) {
-            duration -= XTREEMZE_CHORD_MS_STEP;
-        } else {
-            duration = XTREEMZE_CHORD_MS_MIN;
-        }
-    }
-
-    if (duration != xtreemze_user_data.chord_override_ms) {
-        xtreemze_user_data.chord_override_ms = duration;
-        save_user_data();
-    }
-}
-
 static void refresh_rgb_profile_state(void) {
     if (chord_override_active && timer_elapsed32(chord_override_start) > xtreemze_user_data.chord_override_ms) {
         chord_override_active = false;
@@ -889,7 +865,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {              _______,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L6] = {
-        {           LGUI(KC_A),         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
+        {              OS_SALL,         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
         {              _______,        OSM(MOD_LCTL),        OSM(MOD_LGUI),        OSM(MOD_LSFT),        OSM(MOD_LALT) },
         {              OS_REDO,              OS_PSTE,              OS_COPY,               OS_CUT,              OS_UNDO },
         {        OSM(MOD_LSFT),              _______,                KC_NO,                KC_NO,                KC_NO },
@@ -1474,6 +1450,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
 
+    if (keycode == OS_SALL) {
+        tap_os_clipboard(LGUI(KC_A), LCTL(KC_A));
+        return false;
+    }
+
     if (keycode == RGB_SMOD) {
 #ifdef RGB_MATRIX_ENABLE
         set_mod_profiles_from_current_rgb();
@@ -1494,20 +1475,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 #ifdef RGB_MATRIX_ENABLE
         trigger_chord_profile();
         refresh_rgb_profile_state();
-#endif
-        return false;
-    }
-
-    if (keycode == RGB_DURU) {
-#ifdef RGB_MATRIX_ENABLE
-        adjust_chord_override_duration(true);
-#endif
-        return false;
-    }
-
-    if (keycode == RGB_DURD) {
-#ifdef RGB_MATRIX_ENABLE
-        adjust_chord_override_duration(false);
 #endif
         return false;
     }
