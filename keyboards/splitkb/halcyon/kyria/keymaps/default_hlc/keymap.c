@@ -33,6 +33,11 @@ enum layers {
 // The notation `mod/tap` denotes a key that activates the modifier `mod` when held down, and
 // produces the key `tap` when tapped (i.e. pressed and released).
 
+// There is an extra row added for the Halcyon modules. Currently only the Encoder module is
+// supported but we reserve 5 keys per half for future expansion. Your personal keymap will also
+// need to be updated to include this row, and the `LAYOUT` macro will need to be updated to
+// `LAYOUT_split_3x6_5_hlc` in order to compile.
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /*

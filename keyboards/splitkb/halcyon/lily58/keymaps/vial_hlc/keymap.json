@@ -1,3 +1,8 @@
+// There is an extra row added for the Halcyon modules. Currently only the Encoder module is
+// supported but we reserve 5 keys per half for future expansion. Your personal keymap will also
+// need to be updated to include this row, and the `LAYOUT` macro will need to be updated to
+// `LAYOUT_lily58_hlc` in order to compile.
+
 {
     "keyboard": "splitkb/halcyon/lily58/rev2",
     "keymap": "vial_hlc",

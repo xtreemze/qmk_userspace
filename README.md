@@ -8,7 +8,9 @@ If the keyboard has not been merged yet to the main branch of QMK you may need t
 
 ## Howto configure your build targets
 
-1. Run the normal `qmk setup` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
+1. Clone the Vial repo: `git clone --recursive https://github.com/vial-kb/vial-qmk`
+1. Run the `qmk setup -H vial-qmk` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
+1. When asked if you want to keep the repository, select option 3.
 1. Fork this repository
 1. If you have already forked the `qmk/qmk_userspace` repository before you can add this repository manually following the [steps below](#adding-splitkb-fork-to-an-existing-fork).
 1. Clone your fork to your local machine
@@ -40,7 +42,9 @@ If the keyboard has not been merged yet to the main branch of QMK you may need t
 
 ## Howto build locally
 
-1. Run the normal `qmk setup` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
+1. Clone the Vial repo: `git clone --recursive https://github.com/vial-kb/vial-qmk`
+1. Run the `qmk setup -H vial-qmk` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
+1. When asked if you want to keep the repository, select option 3.
 1. Fork this repository
 1. Clone your fork to your local machine
 1. `cd` into this repository's clone directory
@@ -58,18 +62,10 @@ If you wish to point GitHub actions to a different repository, a different branc
 To override the `build` job, you can change the following parameters to use a different QMK repository or branch, this can be useful if you want to use a the main QMK repository or a different vial branch. For example:
 ```
     with:
-      qmk_repo: qmk/qmk_firmware
-      qmk_ref: master
+      qmk_repo: vial-kb/vial-qmk
+      qmk_ref: vial
 ```
-Our halcyon module code should work fine with the main QMK repository but it may break if there are any breaking changes from QMK in the future. We will try our best to keep this repository up-to-date.
-
-If you wish to manually manage `qmk_firmware` using git within the userspace repository, you can add `qmk_firmware` as a submodule in the userspace directory instead. GitHub Actions will automatically use the submodule at the pinned revision if it exists, otherwise it will use the default latest revision of `qmk_firmware` from the main repository. This will not work when using vial.
-
-This can also be used to control which fork is used.
-
-1. (First time only) `git submodule add https://github.com/qmk/qmk_firmware.git`
-1. (To update) `git submodule update --init --recursive`
-1. Commit your changes to your userspace repository
+Our halcyon module code should work fine with the main QMK repository but it may break if there are any breaking changes from QMK in the future. We will try our best to keep this repository up-to-date. You can track this in the `halcyon-qmk` branch.
 
 
 ## Adding splitkb fork to an existing fork
