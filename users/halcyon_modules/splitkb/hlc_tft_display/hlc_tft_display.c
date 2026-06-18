@@ -3,6 +3,9 @@
 
 #include "halcyon.h"
 #include "hlc_tft_display.h"
+#ifdef CAPS_WORD_ENABLE
+#    include "caps_word.h"
+#endif
 
 #include "hardware/structs/rosc.h"
 #include <stdio.h>
@@ -11,10 +14,6 @@
 // Fonts mono2
 #include "graphics/fonts/Retron2000-27.qff.h"
 
-static const char *ctrl =  "Ctl";
-static const char *gui =   "Gui";
-static const char *shift = "Shf";
-static const char *alt =   "Alt";
 static painter_font_handle_t Retron27;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
@@ -25,7 +24,7 @@ painter_device_t lcd;
 painter_device_t lcd_surface;
 
 static uint8_t last_mod_state = 0xFF;
-static uint8_t last_visible_mod_mask = 0xFF;
+static uint16_t last_visible_mod_mask = 0xFFFF;
 static uint8_t last_display_layer = 0xFF;
 static char last_arp_text[24] = "";
 static uint32_t last_mod_seen[4] = { 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL };
@@ -45,6 +44,7 @@ static uint8_t last_background_layer = 0xFF;
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define LAYER_BACKGROUND_REDRAW_MS 100
+#define MOD_INDICATOR_COLUMNS 2
 
 typedef struct {
     uint8_t h;
@@ -53,6 +53,24 @@ typedef struct {
 } hsv_triplet_t;
 
 #define DISPLAY_LAYER_STYLE_COUNT 13
+
+enum mod_indicator {
+    MOD_IND_CTRL,
+    MOD_IND_GUI,
+    MOD_IND_SHIFT,
+    MOD_IND_ALT,
+    MOD_IND_MEH,
+    MOD_IND_SHIFT_ALT,
+    MOD_IND_SHIFT_GUI,
+    MOD_IND_ALT_GUI,
+    MOD_IND_HYPER,
+    MOD_IND_CAPS_WORD,
+    MOD_INDICATOR_COUNT,
+};
+
+static const char *const mod_indicator_labels[MOD_INDICATOR_COUNT] = {
+    "Ctl", "Gui", "Shf", "Alt", "Meh", "S+A", "S+G", "A+G", "Hypr", "Caps",
+};
 
 static const hsv_triplet_t layer_fg_hsv[DISPLAY_LAYER_STYLE_COUNT] = {
     { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 254, 115, 230 },
@@ -76,8 +94,142 @@ static inline hsv_triplet_t layer_bg(uint8_t layer) {
     return layer_bg_hsv[layer % DISPLAY_LAYER_STYLE_COUNT];
 }
 
+static inline uint16_t mod_indicator_bit(uint8_t indicator) {
+    return 1U << indicator;
+}
+
+static hsv_triplet_t mod_indicator_color(uint8_t indicator, bool active) {
+    if (!active) {
+        return (hsv_triplet_t){ 98, 23, 146 };
+    }
+
+    switch (indicator) {
+        case MOD_IND_CTRL:
+            return (hsv_triplet_t){ 122, 82, 187 };
+        case MOD_IND_GUI:
+            return (hsv_triplet_t){ 254, 115, 230 };
+        case MOD_IND_SHIFT:
+            return (hsv_triplet_t){ 28, 107, 219 };
+        case MOD_IND_ALT:
+            return (hsv_triplet_t){ 59, 85, 192 };
+        case MOD_IND_MEH:
+            return (hsv_triplet_t){ 170, 84, 182 };
+        case MOD_IND_SHIFT_ALT:
+            return (hsv_triplet_t){ 20, 104, 211 };
+        case MOD_IND_SHIFT_GUI:
+            return (hsv_triplet_t){ 224, 78, 202 };
+        case MOD_IND_ALT_GUI:
+            return (hsv_triplet_t){ 76, 82, 188 };
+        case MOD_IND_HYPER:
+            return (hsv_triplet_t){ 12, 96, 206 };
+        case MOD_IND_CAPS_WORD:
+            return (hsv_triplet_t){ 95, 88, 194 };
+        default:
+            return (hsv_triplet_t){ 29, 50, 211 };
+    }
+}
+
 static bool mod_is_recent(uint32_t ts) {
     return ts != MOD_TS_UNSET && timer_elapsed32(ts) < MOD_RECENT_MS;
+}
+
+static uint16_t build_mod_indicator_masks(uint8_t active_mods, uint16_t *active_indicator_mask) {
+    uint16_t active_mask = 0;
+    uint16_t visible_mask = 0;
+
+    const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
+    const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
+    const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
+    const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
+
+    if (ctrl_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_CTRL);
+        last_mod_seen[0] = timer_read32();
+    }
+    if (gui_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_GUI);
+        last_mod_seen[1] = timer_read32();
+    }
+    if (shift_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_SHIFT);
+        last_mod_seen[2] = timer_read32();
+    }
+    if (alt_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_ALT);
+        last_mod_seen[3] = timer_read32();
+    }
+
+    if (ctrl_active || mod_is_recent(last_mod_seen[0])) {
+        visible_mask |= mod_indicator_bit(MOD_IND_CTRL);
+    }
+    if (gui_active || mod_is_recent(last_mod_seen[1])) {
+        visible_mask |= mod_indicator_bit(MOD_IND_GUI);
+    }
+    if (shift_active || mod_is_recent(last_mod_seen[2])) {
+        visible_mask |= mod_indicator_bit(MOD_IND_SHIFT);
+    }
+    if (alt_active || mod_is_recent(last_mod_seen[3])) {
+        visible_mask |= mod_indicator_bit(MOD_IND_ALT);
+    }
+
+    if (ctrl_active && gui_active && shift_active && alt_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_HYPER);
+        visible_mask |= mod_indicator_bit(MOD_IND_HYPER);
+    } else if (ctrl_active && shift_active && alt_active && !gui_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_MEH);
+        visible_mask |= mod_indicator_bit(MOD_IND_MEH);
+    } else if (!ctrl_active && !gui_active && shift_active && alt_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_SHIFT_ALT);
+        visible_mask |= mod_indicator_bit(MOD_IND_SHIFT_ALT);
+    } else if (!ctrl_active && !alt_active && shift_active && gui_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_SHIFT_GUI);
+        visible_mask |= mod_indicator_bit(MOD_IND_SHIFT_GUI);
+    } else if (!ctrl_active && !shift_active && alt_active && gui_active) {
+        active_mask |= mod_indicator_bit(MOD_IND_ALT_GUI);
+        visible_mask |= mod_indicator_bit(MOD_IND_ALT_GUI);
+    }
+
+#ifdef CAPS_WORD_ENABLE
+    if (is_caps_word_on()) {
+        active_mask |= mod_indicator_bit(MOD_IND_CAPS_WORD);
+        visible_mask |= mod_indicator_bit(MOD_IND_CAPS_WORD);
+    }
+#endif
+
+    *active_indicator_mask = active_mask;
+    return visible_mask;
+}
+
+static void draw_mod_indicators(uint16_t visible_mod_mask, uint16_t active_mod_mask) {
+    const uint8_t rows = (MOD_INDICATOR_COUNT + MOD_INDICATOR_COLUMNS - 1) / MOD_INDICATOR_COLUMNS;
+    const uint16_t col_width = LCD_WIDTH / MOD_INDICATOR_COLUMNS;
+    const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * rows) - 8;
+
+    qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+
+    uint8_t drawn = 0;
+    for (uint8_t indicator = 0; indicator < MOD_INDICATOR_COUNT; ++indicator) {
+        const uint16_t bit = mod_indicator_bit(indicator);
+        if ((visible_mod_mask & bit) == 0) {
+            continue;
+        }
+
+        const uint8_t row = drawn / MOD_INDICATOR_COLUMNS;
+        const uint8_t col = drawn % MOD_INDICATOR_COLUMNS;
+        const bool active = (active_mod_mask & bit) != 0;
+        const hsv_triplet_t color = mod_indicator_color(indicator, active);
+
+        qp_drawtext_recolor(
+            lcd_surface,
+            STATUS_X + (col * col_width),
+            mod_top + (Retron27->line_height * row),
+            Retron27,
+            mod_indicator_labels[indicator],
+            color.h, color.s, color.v,
+            HSV_EF_BG
+        );
+        drawn++;
+    }
 }
 
 __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer) {
@@ -343,31 +495,14 @@ bool update_display(void) {
     }
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
-    const uint8_t active_mods = get_mods() | get_oneshot_mods();
+    const uint8_t active_mods = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
     const uint32_t now = timer_read32();
     const char *const arp_text_raw = halcyon_display_alt_repeat_text_user();
     const char *const arp_text = arp_text_raw != NULL ? arp_text_raw : "---";
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
-
-    if ((active_mods & MOD_MASK_CTRL) != 0) {
-        last_mod_seen[0] = now;
-    }
-    if ((active_mods & MOD_MASK_GUI) != 0) {
-        last_mod_seen[1] = now;
-    }
-    if ((active_mods & MOD_MASK_SHIFT) != 0) {
-        last_mod_seen[2] = now;
-    }
-    if ((active_mods & MOD_MASK_ALT) != 0) {
-        last_mod_seen[3] = now;
-    }
-
-    const bool ctrl_visible = (active_mods & MOD_MASK_CTRL) != 0 || mod_is_recent(last_mod_seen[0]);
-    const bool gui_visible = (active_mods & MOD_MASK_GUI) != 0 || mod_is_recent(last_mod_seen[1]);
-    const bool shift_visible = (active_mods & MOD_MASK_SHIFT) != 0 || mod_is_recent(last_mod_seen[2]);
-    const bool alt_visible = (active_mods & MOD_MASK_ALT) != 0 || mod_is_recent(last_mod_seen[3]);
-    const uint8_t visible_mod_mask = (ctrl_visible ? 1U : 0U) | (gui_visible ? 2U : 0U) | (shift_visible ? 4U : 0U) | (alt_visible ? 8U : 0U);
+    uint16_t active_mod_indicator_mask = 0;
+    const uint16_t visible_mod_mask = build_mod_indicator_masks(active_mods, &active_mod_indicator_mask);
 
     const bool need_full_redraw = first_run || active_layer != last_display_layer;
     const bool mod_overlay_expired = last_visible_mod_mask != 0U && visible_mod_mask == 0U;
@@ -409,32 +544,14 @@ bool update_display(void) {
     }
 
     if (mod_overlay_expired) {
-        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
+        const uint8_t rows = (MOD_INDICATOR_COUNT + MOD_INDICATOR_COLUMNS - 1) / MOD_INDICATOR_COLUMNS;
+        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * rows) - 8;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
         display_dirty = true;
     }
 
     if (visible_mod_mask != 0U && (first_run || background_redrawn || active_mods != last_mod_state || visible_mod_mask != last_visible_mod_mask)) {
-        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
-        qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
-
-        uint8_t line = 0;
-        if (ctrl_visible) {
-            const bool ctrl_active = (active_mods & MOD_MASK_CTRL) != 0;
-            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, ctrl, ctrl_active ? 122 : 98, ctrl_active ? 82 : 23, ctrl_active ? 187 : 146, HSV_EF_BG);
-        }
-        if (gui_visible) {
-            const bool gui_active = (active_mods & MOD_MASK_GUI) != 0;
-            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, gui, gui_active ? 254 : 98, gui_active ? 115 : 23, gui_active ? 230 : 146, HSV_EF_BG);
-        }
-        if (shift_visible) {
-            const bool shift_active = (active_mods & MOD_MASK_SHIFT) != 0;
-            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, shift, shift_active ? 28 : 98, shift_active ? 107 : 23, shift_active ? 219 : 146, HSV_EF_BG);
-        }
-        if (alt_visible) {
-            const bool alt_active = (active_mods & MOD_MASK_ALT) != 0;
-            qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, alt, alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146, HSV_EF_BG);
-        }
+        draw_mod_indicators(visible_mod_mask, active_mod_indicator_mask);
         last_mod_state = active_mods;
         display_dirty = true;
     }
