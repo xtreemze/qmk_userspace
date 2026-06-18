@@ -7,7 +7,6 @@
 #    include "caps_word.h"
 #endif
 
-#include "hardware/structs/rosc.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -18,8 +17,6 @@ static painter_font_handle_t Retron27;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
-static uint8_t color_value = 0;
-
 painter_device_t lcd;
 painter_device_t lcd_surface;
 
@@ -28,23 +25,15 @@ static uint16_t last_visible_mod_mask = 0xFFFF;
 static uint8_t last_display_layer = 0xFF;
 static char last_arp_text[24] = "";
 static uint32_t last_mod_seen[4] = { 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL };
-static bool life_animation_initialized = false;
-static uint32_t life_last_draw = 0;
-static uint32_t life_prev_activity_time = 0;
-static bool status_overlay_active = true;
-static uint32_t status_overlay_start = 0;
-static uint8_t status_overlay_layer = 0xFF;
 static uint32_t last_background_redraw = 0;
 static uint8_t last_background_layer = 0xFF;
+static uint8_t pattern_animation_frame = 0;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
-#define LIFE_FRAME_MS 200
-#define STATUS_OVERLAY_MS 3000
-#define IDLE_ANIMATION_ACTIVE_GRACE_MS 1000
+#define PATTERN_ANIMATION_FRAME_MS 200
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
-#define LAYER_BACKGROUND_REDRAW_MS 100
 #define MOD_INDICATOR_COLUMNS 2
 
 typedef struct {
@@ -250,119 +239,6 @@ __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
     return "---";
 }
 
-#define GRID_WIDTH 27
-#define GRID_HEIGHT 48
-#define CELL_SIZE 4  // Cell size excluding outline
-#define OUTLINE_SIZE 1
-
-// Define the probability factor for initial alive cells
-#define INITIAL_ALIVE_PROBABILITY 0.2  // 20% chance of being alive
-
-static bool grid[GRID_HEIGHT][GRID_WIDTH];  // Current state
-static bool new_grid[GRID_HEIGHT][GRID_WIDTH];  // Next state
-static bool changed_grid[GRID_HEIGHT][GRID_WIDTH]; // Tracks changed cells
-
-static uint32_t get_random_32bit(void) {
-    uint32_t random_value = timer_read32() ^ last_matrix_activity_time();
-    for (int i = 0; i < 32; i++) {
-        random_value = (random_value << 5) | (random_value >> 27);
-        random_value ^= ((uint32_t)(rosc_hw->randombit & 1U) << (i & 31));
-        random_value ^= 0x9E3779B9UL + (uint32_t)i + timer_read32();
-    }
-    return random_value != 0 ? random_value : 0xA5A5A5A5UL;
-}
-
-void init_grid() {
-    // Initialize grid with alive cells
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            grid[y][x] = (rand() < INITIAL_ALIVE_PROBABILITY * RAND_MAX);  // Use probability factor
-            changed_grid[y][x] = true;      // Mark all as changed initially
-        }
-    }
-}
-
-bool draw_grid(void) {
-    bool drew_cell = false;
-
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            if (changed_grid[y][x]) { // Only update changed cells
-                drew_cell = true;
-                uint16_t left = x * (CELL_SIZE + OUTLINE_SIZE);
-                uint16_t top = y * (CELL_SIZE + OUTLINE_SIZE);
-                uint16_t right = left + CELL_SIZE + OUTLINE_SIZE;
-                uint16_t bottom = top + CELL_SIZE + OUTLINE_SIZE;
-
-                // Draw the outline
-                qp_rect(lcd_surface, left, top, right, bottom, HSV_EF_BG, true);
-
-                // Draw the filled cell inside the outline if it's alive
-                if (grid[y][x]) {
-                    const hsv_triplet_t cell = layer_fg(color_value);
-                    qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, cell.h, cell.s, cell.v, true);
-                }
-            }
-        }
-    }
-
-    return drew_cell;
-}
-
-void update_grid() {
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            int alive_neighbors = 0;
-
-            // Count alive neighbors
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    if (dy == 0 && dx == 0) continue;  // Skip the current cell
-                    int ny = y + dy;
-                    int nx = x + dx;
-                    if (ny >= 0 && ny < GRID_HEIGHT && nx >= 0 && nx < GRID_WIDTH) {
-                        alive_neighbors += grid[ny][nx];
-                    }
-                }
-            }
-
-            // Apply the rules of the Game of Life
-            if (grid[y][x]) {
-                // Any live cell with two or three live neighbours survives.
-                new_grid[y][x] = (alive_neighbors == 2 || alive_neighbors == 3);
-            } else {
-                // Any dead cell with exactly three live neighbours becomes a live cell.
-                new_grid[y][x] = (alive_neighbors == 3);
-            }
-
-            // Track changed cells
-            changed_grid[y][x] = (grid[y][x] != new_grid[y][x]);
-        }
-    }
-
-    // Copy new grid state to current grid
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            grid[y][x] = new_grid[y][x];
-        }
-    }
-}
-
-// Function to add a cluster of cells at a random position
-void add_cell_cluster() {
-    int cluster_size = 3;  // Size of the cluster (3x3)
-    int x = rand() % (GRID_WIDTH - cluster_size);
-    int y = rand() % (GRID_HEIGHT - cluster_size);
-
-    for (int dy = 0; dy < cluster_size; dy++) {
-        for (int dx = 0; dx < cluster_size; dx++) {
-            bool is_alive = rand() % 2; // Randomly choose between 0 and 1
-            grid[y + dy][x + dx] = is_alive;  // Set the cell to be alive
-            changed_grid[y + dy][x + dx] = true; // Mark the cell as changed
-        }
-    }
-}
-
 static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, uint8_t s, uint8_t v) {
     for (int8_t dy = -(int8_t)radius; dy <= (int8_t)radius; ++dy) {
         int8_t span = (int8_t)radius - (dy < 0 ? -dy : dy);
@@ -385,7 +261,19 @@ static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, ui
     }
 }
 
-static void draw_layer_background_pattern(uint8_t layer) {
+static int8_t pattern_motion_offset(uint8_t frame, uint16_t tile_index, uint8_t layer, bool vertical) {
+    const uint8_t step = (uint8_t)((frame + tile_index + (vertical ? layer : layer * 2U)) & 0x03U);
+    switch (step) {
+        case 1:
+            return 1;
+        case 3:
+            return -1;
+        default:
+            return 0;
+    }
+}
+
+static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
     const uint8_t tile_w = 24;
     const uint8_t tile_h = 24;
     const uint8_t variant = layer % DISPLAY_LAYER_STYLE_COUNT;
@@ -396,9 +284,13 @@ static void draw_layer_background_pattern(uint8_t layer) {
 
     for (uint16_t y = 0; y + tile_h <= LCD_HEIGHT; y += tile_h) {
         for (uint16_t x = 0; x + tile_w <= LCD_WIDTH; x += tile_w) {
-            const bool phase = (((x / tile_w) + (y / tile_h) + layer) & 1U) != 0U;
-            const uint16_t cx = x + tile_w / 2;
-            const uint16_t cy = y + tile_h / 2;
+            const uint16_t tile_index = (x / tile_w) + (y / tile_h);
+            const bool phase = ((tile_index + layer + (frame >> 1)) & 1U) != 0U;
+            const int8_t dx = pattern_motion_offset(frame, tile_index, layer, false);
+            const int8_t dy = pattern_motion_offset(frame, tile_index, layer, true);
+            const uint16_t cx = (uint16_t)((int16_t)x + tile_w / 2 + dx);
+            const uint16_t cy = (uint16_t)((int16_t)y + tile_h / 2 + dy);
+            const int8_t pulse = ((frame + tile_index + layer) & 0x03U) == 0 ? 1 : 0;
             const uint8_t ah = phase ? fg.h : bg.h;
             const uint8_t as = phase ? fg.s : bg.s;
             const uint8_t av = phase ? fg.v : bg.v;
@@ -409,7 +301,7 @@ static void draw_layer_background_pattern(uint8_t layer) {
             // All variants are tiled diamond motifs and remain four-way symmetric.
             switch (variant) {
                 case 0:
-                    draw_diamond(cx, cy, 6, ah, as, av);
+                    draw_diamond(cx, cy, 6 + pulse, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
                 case 1:
@@ -420,7 +312,7 @@ static void draw_layer_background_pattern(uint8_t layer) {
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
                 case 2:
-                    draw_diamond(cx, cy, 7, ah, as, av);
+                    draw_diamond(cx, cy, 7 + pulse, ah, as, av);
                     draw_diamond(cx, cy, 5, HSV_EF_BG);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
@@ -465,7 +357,7 @@ static void draw_layer_background_pattern(uint8_t layer) {
                     draw_diamond(cx, cy + 6, 2, bh, bs, bv);
                     break;
                 case 10:
-                    draw_diamond(cx, cy, 6, ah, as, av);
+                    draw_diamond(cx, cy, 6 + pulse, ah, as, av);
                     draw_diamond(cx - 8, cy, 2, bh, bs, bv);
                     draw_diamond(cx + 8, cy, 2, bh, bs, bv);
                     break;
@@ -506,13 +398,20 @@ bool update_display(void) {
     uint16_t active_mod_indicator_mask = 0;
     const uint16_t visible_mod_mask = build_mod_indicator_masks(active_mods, &active_mod_indicator_mask);
 
-    const bool need_full_redraw = first_run || active_layer != last_display_layer;
+    const bool layer_changed = active_layer != last_display_layer;
+    const bool need_full_redraw = first_run || layer_changed;
     const bool mod_overlay_expired = last_visible_mod_mask != 0U && visible_mod_mask == 0U;
-    const bool need_background_redraw = first_run || active_layer != last_background_layer;
+    const bool animation_due = timer_elapsed32(last_background_redraw) >= PATTERN_ANIMATION_FRAME_MS;
+    const bool need_background_redraw = first_run || active_layer != last_background_layer || animation_due;
     bool background_redrawn = false;
 
-    if (need_background_redraw && (first_run || timer_elapsed32(last_background_redraw) >= LAYER_BACKGROUND_REDRAW_MS)) {
-        draw_layer_background_pattern(active_layer);
+    if (need_background_redraw) {
+        if (first_run || layer_changed) {
+            pattern_animation_frame = active_layer;
+        } else {
+            pattern_animation_frame++;
+        }
+        draw_layer_background_pattern(active_layer, pattern_animation_frame);
         last_background_layer = active_layer;
         last_background_redraw = now;
         background_redrawn = true;
@@ -601,7 +500,7 @@ bool module_post_init_kb(void) {
     // Initialise the LCD surface
     qp_init(lcd_surface, LCD_ROTATION);
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
-    qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
+    qp_surface_draw(lcd_surface, lcd, 0, 0, false);
     qp_flush(lcd);
 
     if(!module_post_init_user()) { return false; }
@@ -613,50 +512,13 @@ bool module_post_init_kb(void) {
 bool display_module_housekeeping_task_kb(bool second_display) {
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
-    const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     bool display_dirty = false;
 
-    if (!life_animation_initialized) {
-        srand(get_random_32bit());
-        init_grid();
-        color_value = rand() % DISPLAY_LAYER_STYLE_COUNT;
-        life_prev_activity_time = last_matrix_activity_time();
-        life_last_draw = timer_read32();
-        status_overlay_layer = active_layer;
-        status_overlay_start = timer_read32();
-        status_overlay_active = true;
-        life_animation_initialized = true;
+    if (last_input_activity_elapsed() >= HLC_BACKLIGHT_TIMEOUT) {
+        return true;
     }
 
-    if (active_layer != status_overlay_layer) {
-        status_overlay_layer = active_layer;
-        status_overlay_start = timer_read32();
-        status_overlay_active = true;
-    }
-
-    if (status_overlay_active) {
-        display_dirty = update_display();
-
-        if (timer_elapsed32(status_overlay_start) >= STATUS_OVERLAY_MS) {
-            status_overlay_active = false;
-        }
-    } else {
-        if (last_input_activity_elapsed() < IDLE_ANIMATION_ACTIVE_GRACE_MS) {
-            life_last_draw = timer_read32();
-            life_prev_activity_time = last_matrix_activity_time();
-        } else if (timer_elapsed32(life_last_draw) >= LIFE_FRAME_MS) {
-            display_dirty = draw_grid();
-            update_grid();
-
-            if (life_prev_activity_time != last_matrix_activity_time()) {
-                color_value = rand() % DISPLAY_LAYER_STYLE_COUNT;
-                add_cell_cluster();
-                life_prev_activity_time = last_matrix_activity_time();
-            }
-
-            life_last_draw = timer_read32();
-        }
-    }
+    display_dirty = update_display();
 
     if (display_dirty) {
         qp_surface_draw(lcd_surface, lcd, 0, 0, false);
