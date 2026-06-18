@@ -62,7 +62,7 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xAC
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xAD
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
@@ -499,7 +499,7 @@ static const qmk_setting_seed_t xtreemze_qmk_settings_defaults[] = {
     { 22, 0 },
     { 23, 1 },
     { 24, 0 },
-    { 25, 170 },
+    { 25, 120 },
     { 26, 0 },
     { 27, 0 },
 };

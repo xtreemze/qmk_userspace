@@ -50,16 +50,20 @@ bool backlight_off = false;
 // Timeout handling
 void backlight_wakeup(void) {
     backlight_off = false;
+#ifdef BACKLIGHT_ENABLE
     backlight_enable();
     if (get_backlight_level() == 0) {
         backlight_level(BACKLIGHT_LEVELS);
     }
+#endif
 }
 
 // Timeout handling
 void backlight_suspend(void) {
     backlight_off = true;
+#ifdef BACKLIGHT_ENABLE
     backlight_disable();
+#endif
 }
 
 void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void* initiator2target_buffer, uint8_t target2initiator_buffer_size, void* target2initiator_buffer) {
@@ -112,6 +116,7 @@ void housekeeping_task_kb(void) {
         display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
+#ifdef BACKLIGHT_ENABLE
     // Backlight feature
     if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
         if (backlight_off) {
@@ -122,12 +127,14 @@ void housekeeping_task_kb(void) {
             backlight_suspend();
         }
     }
+#endif
 
     module_housekeeping_task_kb();
 
     housekeeping_task_user();
 }
 
+#ifdef POINTING_DEVICE_ENABLE
 report_mouse_t pointing_device_task_combined_kb(report_mouse_t left_report, report_mouse_t right_report) {
     // Only runs on master
     // Fixes the following bug: If master is right and master is NOT a cirque trackpad, the inputs would be inverted.
@@ -139,6 +146,7 @@ report_mouse_t pointing_device_task_combined_kb(report_mouse_t left_report, repo
     }
     return pointing_device_task_combined_user(left_report, right_report);
 }
+#endif
 
 // Kyria
 #if defined(KEYBOARD_splitkb_halcyon_kyria_rev4)

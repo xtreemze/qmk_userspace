@@ -39,8 +39,9 @@ static uint8_t last_background_layer = 0xFF;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
-#define LIFE_FRAME_MS 100
+#define LIFE_FRAME_MS 200
 #define STATUS_OVERLAY_MS 3000
+#define IDLE_ANIMATION_ACTIVE_GRACE_MS 1000
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define LAYER_BACKGROUND_REDRAW_MS 100
@@ -580,8 +581,10 @@ void module_suspend_wakeup_init_kb(void) {
 
 // Called from halcyon.c
 bool module_post_init_kb(void) {
+#ifdef BACKLIGHT_ENABLE
     // Turn on backlight
     backlight_enable();
+#endif
 
     // Make the devices
     lcd = qp_st7789_make_spi_device(LCD_WIDTH, LCD_HEIGHT, LCD_CS_PIN, LCD_DC_PIN, LCD_RST_PIN, LCD_SPI_DIVISOR, LCD_SPI_MODE);
@@ -638,7 +641,10 @@ bool display_module_housekeeping_task_kb(bool second_display) {
             status_overlay_active = false;
         }
     } else {
-        if (timer_elapsed32(life_last_draw) >= LIFE_FRAME_MS) { // Throttle to 10 fps
+        if (last_input_activity_elapsed() < IDLE_ANIMATION_ACTIVE_GRACE_MS) {
+            life_last_draw = timer_read32();
+            life_prev_activity_time = last_matrix_activity_time();
+        } else if (timer_elapsed32(life_last_draw) >= LIFE_FRAME_MS) {
             display_dirty = draw_grid();
             update_grid();
 
@@ -653,7 +659,7 @@ bool display_module_housekeeping_task_kb(bool second_display) {
     }
 
     if (display_dirty) {
-        qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
+        qp_surface_draw(lcd_surface, lcd, 0, 0, false);
     }
 
     return true;

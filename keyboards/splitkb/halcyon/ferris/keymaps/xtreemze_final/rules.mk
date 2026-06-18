@@ -4,6 +4,7 @@ VIAL_ENABLE = yes
 VIALRGB_ENABLE = yes
 QMK_SETTINGS = yes
 
+RGB_MATRIX_ENABLE = yes
 ENCODER_ENABLE = yes
 ENCODER_MAP_ENABLE = yes
 COMBO_ENABLE = yes
@@ -19,4 +20,4 @@ OS_DETECTION_ENABLE = yes
 # This adds module functionality to your keyboard (files found in users/halcyon_modules)
 USER_NAME := halcyon_modules
 
-LTO_ENABLE = no
+LTO_ENABLE = yes
