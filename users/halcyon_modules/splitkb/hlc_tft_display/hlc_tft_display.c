@@ -19,7 +19,7 @@ static painter_font_handle_t Retron27;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
-int color_value = 0;
+static uint8_t color_value = 0;
 
 painter_device_t lcd;
 painter_device_t lcd_surface;
@@ -35,14 +35,46 @@ static uint32_t life_prev_activity_time = 0;
 static bool status_overlay_active = true;
 static uint32_t status_overlay_start = 0;
 static uint8_t status_overlay_layer = 0xFF;
+static uint32_t last_background_redraw = 0;
+static uint8_t last_background_layer = 0xFF;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
-#define STATUS_ARP_X   150
 #define LIFE_FRAME_MS 100
 #define STATUS_OVERLAY_MS 3000
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
+#define LAYER_BACKGROUND_REDRAW_MS 100
+
+typedef struct {
+    uint8_t h;
+    uint8_t s;
+    uint8_t v;
+} hsv_triplet_t;
+
+#define DISPLAY_LAYER_STYLE_COUNT 13
+
+static const hsv_triplet_t layer_fg_hsv[DISPLAY_LAYER_STYLE_COUNT] = {
+    { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 254, 115, 230 },
+    { 95, 88, 194 },  { 170, 84, 182 }, { 12, 96, 206 },  { 210, 80, 186 },
+    { 76, 82, 188 },  { 140, 76, 184 }, { 20, 104, 211 }, { 224, 78, 202 },
+    { 29, 50, 211 },
+};
+
+static const hsv_triplet_t layer_bg_hsv[DISPLAY_LAYER_STYLE_COUNT] = {
+    { 122, 36, 82 }, { 28, 34, 82 },  { 254, 34, 80 }, { 59, 32, 78 },
+    { 210, 30, 78 }, { 95, 32, 78 },  { 170, 30, 78 }, { 12, 34, 80 },
+    { 132, 30, 78 }, { 20, 34, 80 },  { 224, 30, 78 }, { 76, 32, 78 },
+    { 146, 24, 66 },
+};
+
+static inline hsv_triplet_t layer_fg(uint8_t layer) {
+    return layer_fg_hsv[layer % DISPLAY_LAYER_STYLE_COUNT];
+}
+
+static inline hsv_triplet_t layer_bg(uint8_t layer) {
+    return layer_bg_hsv[layer % DISPLAY_LAYER_STYLE_COUNT];
+}
 
 static bool mod_is_recent(uint32_t ts) {
     return ts != MOD_TS_UNSET && timer_elapsed32(ts) < MOD_RECENT_MS;
@@ -73,17 +105,18 @@ __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
 // Define the probability factor for initial alive cells
 #define INITIAL_ALIVE_PROBABILITY 0.2  // 20% chance of being alive
 
-bool grid[GRID_HEIGHT][GRID_WIDTH];  // Current state
-bool new_grid[GRID_HEIGHT][GRID_WIDTH];  // Next state
-bool changed_grid[GRID_HEIGHT][GRID_WIDTH]; // Tracks changed cells
+static bool grid[GRID_HEIGHT][GRID_WIDTH];  // Current state
+static bool new_grid[GRID_HEIGHT][GRID_WIDTH];  // Next state
+static bool changed_grid[GRID_HEIGHT][GRID_WIDTH]; // Tracks changed cells
 
-uint32_t get_random_32bit(void) {
-    uint32_t random_value = 0;
+static uint32_t get_random_32bit(void) {
+    uint32_t random_value = timer_read32() ^ last_matrix_activity_time();
     for (int i = 0; i < 32; i++) {
-        wait_ms(1);
-        random_value = (random_value << 1) | (rosc_hw->randombit & 1);
+        random_value = (random_value << 5) | (random_value >> 27);
+        random_value ^= ((uint32_t)(rosc_hw->randombit & 1U) << (i & 31));
+        random_value ^= 0x9E3779B9UL + (uint32_t)i + timer_read32();
     }
-    return random_value;
+    return random_value != 0 ? random_value : 0xA5A5A5A5UL;
 }
 
 void init_grid() {
@@ -96,10 +129,13 @@ void init_grid() {
     }
 }
 
-void draw_grid() {
+bool draw_grid(void) {
+    bool drew_cell = false;
+
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
             if (changed_grid[y][x]) { // Only update changed cells
+                drew_cell = true;
                 uint16_t left = x * (CELL_SIZE + OUTLINE_SIZE);
                 uint16_t top = y * (CELL_SIZE + OUTLINE_SIZE);
                 uint16_t right = left + CELL_SIZE + OUTLINE_SIZE;
@@ -110,38 +146,14 @@ void draw_grid() {
 
                 // Draw the filled cell inside the outline if it's alive
                 if (grid[y][x]) {
-                    switch (color_value) {
-                    case 0:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_0, true);
-                        break;
-                    case 1:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_1, true);
-                        break;
-                    case 2:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_2, true);
-                        break;
-                    case 3:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_3, true);
-                        break;
-                    case 4:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_4, true);
-                        break;
-                    case 5:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_5, true);
-                        break;
-                    case 6:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_6, true);
-                        break;
-                    case 7:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_7, true);
-                        break;
-                    default:
-                        qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_UNDEF, true);
-                    }
+                    const hsv_triplet_t cell = layer_fg(color_value);
+                    qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, cell.h, cell.s, cell.v, true);
                 }
             }
         }
     }
+
+    return drew_cell;
 }
 
 void update_grid() {
@@ -198,26 +210,6 @@ void add_cell_cluster() {
     }
 }
 
-typedef struct {
-    uint8_t h;
-    uint8_t s;
-    uint8_t v;
-} hsv_triplet_t;
-
-static const hsv_triplet_t layer_fg_hsv[13] = {
-    { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 254, 115, 230 },
-    { 170, 84, 182 }, { 12, 96, 206 },  { 95, 88, 194 },  { 210, 80, 186 },
-    { 59, 85, 192 },  { 122, 82, 187 }, { 28, 107, 219 }, { 95, 88, 194 },
-    { 170, 84, 182 },
-};
-
-static const hsv_triplet_t layer_bg_hsv[13] = {
-    { 122, 36, 82 }, { 28, 34, 82 },  { 254, 34, 80 }, { 59, 32, 78 },
-    { 95, 32, 78 },  { 170, 30, 78 }, { 12, 34, 80 },  { 210, 30, 78 },
-    { 122, 36, 82 }, { 28, 34, 82 },  { 254, 34, 80 }, { 210, 30, 78 },
-    { 95, 32, 78 },
-};
-
 static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, uint8_t s, uint8_t v) {
     for (int8_t dy = -(int8_t)radius; dy <= (int8_t)radius; ++dy) {
         int8_t span = (int8_t)radius - (dy < 0 ? -dy : dy);
@@ -243,9 +235,9 @@ static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, ui
 static void draw_layer_background_pattern(uint8_t layer) {
     const uint8_t tile_w = 24;
     const uint8_t tile_h = 24;
-    const uint8_t variant = layer % 13;
-    const hsv_triplet_t fg = layer_fg_hsv[variant];
-    const hsv_triplet_t bg = layer_bg_hsv[variant];
+    const uint8_t variant = layer % DISPLAY_LAYER_STYLE_COUNT;
+    const hsv_triplet_t fg = layer_fg(layer);
+    const hsv_triplet_t bg = layer_bg(layer);
 
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
@@ -341,8 +333,9 @@ static void draw_layer_background_pattern(uint8_t layer) {
     }
 }
 
-void update_display(void) {
+bool update_display(void) {
     static bool fonts_loaded = false;
+    bool display_dirty = false;
 
     if (!fonts_loaded) {
         Retron27 = qp_load_font_mem(font_Retron2000_27);
@@ -352,7 +345,8 @@ void update_display(void) {
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     const uint8_t active_mods = get_mods() | get_oneshot_mods();
     const uint32_t now = timer_read32();
-    const char *const arp_text = halcyon_display_alt_repeat_text_user();
+    const char *const arp_text_raw = halcyon_display_alt_repeat_text_user();
+    const char *const arp_text = arp_text_raw != NULL ? arp_text_raw : "---";
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
 
@@ -376,34 +370,22 @@ void update_display(void) {
     const uint8_t visible_mod_mask = (ctrl_visible ? 1U : 0U) | (gui_visible ? 2U : 0U) | (shift_visible ? 4U : 0U) | (alt_visible ? 8U : 0U);
 
     const bool need_full_redraw = first_run || active_layer != last_display_layer;
-    const bool force_full_redraw = need_full_redraw || (last_visible_mod_mask != 0U && visible_mod_mask == 0U);
+    const bool mod_overlay_expired = last_visible_mod_mask != 0U && visible_mod_mask == 0U;
+    const bool need_background_redraw = first_run || active_layer != last_background_layer;
+    bool background_redrawn = false;
 
-    if (force_full_redraw) {
+    if (need_background_redraw && (first_run || timer_elapsed32(last_background_redraw) >= LAYER_BACKGROUND_REDRAW_MS)) {
         draw_layer_background_pattern(active_layer);
+        last_background_layer = active_layer;
+        last_background_redraw = now;
+        background_redrawn = true;
+        display_dirty = true;
     }
 
-    if (force_full_redraw || arp_changed || active_layer != last_display_layer) {
+    if (background_redrawn || arp_changed || need_full_redraw) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
 
-        uint8_t layer_h = 0;
-        uint8_t layer_s = 0;
-        uint8_t layer_v = 0;
-        switch (active_layer) {
-            case 0: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
-            case 1: layer_h = 122; layer_s = 82;  layer_v = 187; break;
-            case 2: layer_h = 28;  layer_s = 107; layer_v = 219; break;
-            case 3: layer_h = 254; layer_s = 115; layer_v = 230; break;
-            case 4: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
-            case 5: layer_h = 122; layer_s = 82;  layer_v = 187; break;
-            case 6: layer_h = 28;  layer_s = 107; layer_v = 219; break;
-            case 7: layer_h = 254; layer_s = 115; layer_v = 230; break;
-            case 8: layer_h = 59;  layer_s = 85;  layer_v = 192; break;
-            case 9: layer_h = 122; layer_s = 82;  layer_v = 187; break;
-            case 10: layer_h = 28; layer_s = 107; layer_v = 219; break;
-            case 11: layer_h = 254; layer_s = 115; layer_v = 230; break;
-            case 12: layer_h = 59; layer_s = 85;  layer_v = 192; break;
-            default: layer_h = 29; layer_s = 50; layer_v = 211; break;
-        }
+        const hsv_triplet_t layer_color = layer_fg(active_layer);
 
         qp_drawtext_recolor(
             lcd_surface,
@@ -411,15 +393,28 @@ void update_display(void) {
             STATUS_LAYER_Y,
             Retron27,
             halcyon_display_layer_name_user(active_layer),
-            layer_h, layer_s, layer_v,
+            layer_color.h, layer_color.s, layer_color.v,
             HSV_EF_BG
         );
-        qp_drawtext_recolor(lcd_surface, STATUS_ARP_X, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
+
+        const int16_t arp_width = qp_textwidth(Retron27, arp_text);
+        int16_t arp_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - arp_width;
+        if (arp_x < STATUS_X) {
+            arp_x = STATUS_X;
+        }
+        qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
 
         last_display_layer = active_layer;
+        display_dirty = true;
     }
 
-    if (visible_mod_mask != 0U && (first_run || force_full_redraw || active_mods != last_mod_state || visible_mod_mask != last_visible_mod_mask)) {
+    if (mod_overlay_expired) {
+        const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
+        qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+        display_dirty = true;
+    }
+
+    if (visible_mod_mask != 0U && (first_run || background_redrawn || active_mods != last_mod_state || visible_mod_mask != last_visible_mod_mask)) {
         const uint16_t mod_top = LCD_HEIGHT - (Retron27->line_height * 4) - 8;
         qp_rect(lcd_surface, 0, mod_top - 4, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
@@ -441,6 +436,7 @@ void update_display(void) {
             qp_drawtext_recolor(lcd_surface, STATUS_X, mod_top + (Retron27->line_height * line++), Retron27, alt, alt_active ? 59 : 98, alt_active ? 85 : 23, alt_active ? 192 : 146, HSV_EF_BG);
         }
         last_mod_state = active_mods;
+        display_dirty = true;
     }
 
     last_visible_mod_mask = visible_mod_mask;
@@ -448,6 +444,8 @@ void update_display(void) {
     if (arp_changed) {
         snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
     }
+
+    return display_dirty;
 }
 
 // Called from halcyon.c
@@ -493,11 +491,12 @@ bool display_module_housekeeping_task_kb(bool second_display) {
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
+    bool display_dirty = false;
 
     if (!life_animation_initialized) {
         srand(get_random_32bit());
         init_grid();
-        color_value = rand() % 8;
+        color_value = rand() % DISPLAY_LAYER_STYLE_COUNT;
         life_prev_activity_time = last_matrix_activity_time();
         life_last_draw = timer_read32();
         status_overlay_layer = active_layer;
@@ -513,18 +512,18 @@ bool display_module_housekeeping_task_kb(bool second_display) {
     }
 
     if (status_overlay_active) {
-        update_display();
+        display_dirty = update_display();
 
         if (timer_elapsed32(status_overlay_start) >= STATUS_OVERLAY_MS) {
             status_overlay_active = false;
         }
     } else {
         if (timer_elapsed32(life_last_draw) >= LIFE_FRAME_MS) { // Throttle to 10 fps
-            draw_grid();
+            display_dirty = draw_grid();
             update_grid();
 
             if (life_prev_activity_time != last_matrix_activity_time()) {
-                color_value = rand() % 8;
+                color_value = rand() % DISPLAY_LAYER_STYLE_COUNT;
                 add_cell_cluster();
                 life_prev_activity_time = last_matrix_activity_time();
             }
@@ -533,9 +532,9 @@ bool display_module_housekeeping_task_kb(bool second_display) {
         }
     }
 
-    // Move surface to lcd
-    qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
-    qp_flush(lcd);
+    if (display_dirty) {
+        qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
+    }
 
     return true;
 }

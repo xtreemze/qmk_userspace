@@ -31,6 +31,11 @@
 #define HSV_LAYER_5 HSV_EF_BLUE
 #define HSV_LAYER_6 HSV_EF_YELLOW
 #define HSV_LAYER_7 HSV_EF_RED
+#define HSV_LAYER_8  95, 88, 194
+#define HSV_LAYER_9  170, 84, 182
+#define HSV_LAYER_10 12, 96, 206
+#define HSV_LAYER_11 210, 80, 186
+#define HSV_LAYER_12 HSV_EF_FG
 #define HSV_LAYER_UNDEF HSV_EF_FG
 
 extern painter_device_t lcd;
@@ -38,11 +43,11 @@ extern painter_device_t lcd_surface;
 const char *halcyon_display_layer_name_user(uint8_t layer);
 const char *halcyon_display_alt_repeat_text_user(void);
 
-void draw_grid(void);
+bool draw_grid(void);
 void update_grid(void);
 void init_grid(void);
 void add_cell_cluster(void);
 uint8_t get_random_color_index(void);
-void update_display(void);
+bool update_display(void);
 void backlight_wakeup(void);
 void backlight_suspend(void);

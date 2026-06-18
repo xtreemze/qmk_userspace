@@ -524,6 +524,7 @@ static uint32_t chord_override_start = 0;
 static bool chord_override_active = false;
 static rgb_profile_t last_applied_profile;
 static bool has_last_applied_profile = false;
+static uint32_t rgb_profile_generation = 0;
 
 static inline bool is_profile_assigned(const rgb_profile_t *profile) {
     return profile->mode != RGB_PROFILE_UNASSIGNED;
@@ -553,6 +554,11 @@ static void apply_rgb_profile(const rgb_profile_t *profile) {
     rgb_matrix_set_speed_noeeprom(profile->speed);
 }
 
+static void invalidate_rgb_profile_cache(void) {
+    rgb_profile_generation++;
+    has_last_applied_profile = false;
+}
+
 static void set_layer_profile_from_current_rgb(void) {
     const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
     if (layer >= ARRAY_SIZE(xtreemze_user_data.layer_profiles)) {
@@ -561,6 +567,7 @@ static void set_layer_profile_from_current_rgb(void) {
 
     xtreemze_user_data.layer_profiles[layer] = capture_current_rgb_profile();
     save_user_data();
+    invalidate_rgb_profile_cache();
 }
 
 static void set_mod_profiles_from_current_rgb(void) {
@@ -585,11 +592,13 @@ static void set_mod_profiles_from_current_rgb(void) {
     }
 
     save_user_data();
+    invalidate_rgb_profile_cache();
 }
 
 static void set_chord_profile_from_current_rgb(void) {
     xtreemze_user_data.chord_profile = capture_current_rgb_profile();
     save_user_data();
+    invalidate_rgb_profile_cache();
 }
 
 static void trigger_chord_profile(void) {
@@ -602,15 +611,33 @@ static void trigger_chord_profile(void) {
 }
 
 static void refresh_rgb_profile_state(void) {
+    static uint32_t last_rgb_refresh_generation = 0xFFFFFFFFUL;
+    static uint8_t last_rgb_refresh_mods = 0xFF;
+    static uint8_t last_rgb_refresh_layer = 0xFF;
+    static bool last_rgb_refresh_chord_active = false;
+    static bool last_rgb_refresh_chord_assigned = false;
+
+    const uint8_t mods = get_mods() | get_oneshot_mods();
+    const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+
     if (chord_override_active && timer_elapsed32(chord_override_start) > xtreemze_user_data.chord_override_ms) {
         chord_override_active = false;
     }
 
+    const bool chord_assigned = is_profile_assigned(&xtreemze_user_data.chord_profile);
+    if (!chord_override_active &&
+        last_rgb_refresh_generation == rgb_profile_generation &&
+        last_rgb_refresh_mods == mods &&
+        last_rgb_refresh_layer == layer &&
+        !last_rgb_refresh_chord_active &&
+        last_rgb_refresh_chord_assigned == chord_assigned) {
+        return;
+    }
+
     const rgb_profile_t *target = NULL;
-    if (chord_override_active && is_profile_assigned(&xtreemze_user_data.chord_profile)) {
+    if (chord_override_active && chord_assigned) {
         target = &xtreemze_user_data.chord_profile;
     } else {
-        const uint8_t mods = get_mods() | get_oneshot_mods();
         if ((mods & MOD_MASK_CTRL) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[0])) {
             target = &xtreemze_user_data.mod_profiles[0];
         } else if ((mods & MOD_MASK_GUI) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[1])) {
@@ -620,12 +647,17 @@ static void refresh_rgb_profile_state(void) {
         } else if ((mods & MOD_MASK_ALT) != 0U && is_profile_assigned(&xtreemze_user_data.mod_profiles[3])) {
             target = &xtreemze_user_data.mod_profiles[3];
         } else {
-            const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
             if (layer < ARRAY_SIZE(xtreemze_user_data.layer_profiles) && is_profile_assigned(&xtreemze_user_data.layer_profiles[layer])) {
                 target = &xtreemze_user_data.layer_profiles[layer];
             }
         }
     }
+
+    last_rgb_refresh_generation = rgb_profile_generation;
+    last_rgb_refresh_mods = mods;
+    last_rgb_refresh_layer = layer;
+    last_rgb_refresh_chord_active = chord_override_active;
+    last_rgb_refresh_chord_assigned = chord_assigned;
 
     if (target == NULL) {
         has_last_applied_profile = false;
@@ -1507,19 +1539,19 @@ const char *halcyon_display_alt_repeat_text_user(void) {
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
-        "MOUSEX",
-        "ALPHA1",
-        "ALPHA2",
-        "NUMPAD",
-        "TRANSP",
-        "MODNAV",
-        "MODRGB",
-        "FUNCMD",
-        "RGBSPD",
-        "RGBMOD",
-        "RGBHUE",
-        "RGBVAL",
-        "SPARE2",
+        "MOUSE",
+        "QWRTY",
+        "COLMK",
+        "NUMS",
+        "NUMRW",
+        "OSMOD",
+        "EDIT",
+        "FUNC",
+        "FKEYS",
+        "FXMOD",
+        "HUE",
+        "VALUE",
+        "SPARE",
     };
 
     if (layer < ARRAY_SIZE(layer_names)) {
