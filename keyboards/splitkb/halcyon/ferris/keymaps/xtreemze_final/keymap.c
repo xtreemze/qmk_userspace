@@ -69,7 +69,7 @@ enum custom_keycodes {
 #define XTREEMZE_CHORD_MS_MIN 250
 #define XTREEMZE_CHORD_MS_MAX 10000
 
-static char alt_repeat_display_text[24] = "---";
+static char alt_repeat_display_text[24] = "";
 
 #ifdef RGB_MATRIX_ENABLE
 typedef struct {
@@ -720,7 +720,7 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
     const uint16_t alt_keycode = get_alt_repeat_key_keycode_user(keycode, mods);
 
     if (alt_keycode == KC_TRNS || alt_keycode == KC_NO) {
-        snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "---");
+        alt_repeat_display_text[0] = '\0';
         return;
     }
 
@@ -731,7 +731,7 @@ static void update_alt_repeat_display_text(uint16_t keycode) {
     snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s", key_name);
 #else
     (void)keycode;
-    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "---");
+    alt_repeat_display_text[0] = '\0';
 #endif
 }
 

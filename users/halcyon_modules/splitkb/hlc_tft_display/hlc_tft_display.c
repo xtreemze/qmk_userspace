@@ -498,7 +498,8 @@ bool update_display(void) {
     const uint8_t active_mods = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
     const uint32_t now = timer_read32();
     const char *const arp_text_raw = halcyon_display_alt_repeat_text_user();
-    const char *const arp_text = arp_text_raw != NULL ? arp_text_raw : "---";
+    const char *const arp_text = arp_text_raw != NULL ? arp_text_raw : "";
+    const bool has_arp_text = arp_text[0] != '\0';
     const bool first_run = (last_display_layer == 0xFF);
     const bool arp_changed = strcmp(last_arp_text, arp_text) != 0;
     uint16_t active_mod_indicator_mask = 0;
@@ -532,12 +533,14 @@ bool update_display(void) {
             HSV_EF_BG
         );
 
-        const int16_t arp_width = qp_textwidth(Retron27, arp_text);
-        int16_t arp_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - arp_width;
-        if (arp_x < STATUS_X) {
-            arp_x = STATUS_X;
+        if (has_arp_text) {
+            const int16_t arp_width = qp_textwidth(Retron27, arp_text);
+            int16_t arp_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - arp_width;
+            if (arp_x < STATUS_X) {
+                arp_x = STATUS_X;
+            }
+            qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
         }
-        qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
 
         last_display_layer = active_layer;
         display_dirty = true;
