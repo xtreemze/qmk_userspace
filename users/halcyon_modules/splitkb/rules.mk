@@ -15,8 +15,6 @@ ifneq ($(HLC_ENCODER_ENABLED),)
 endif
 
 ifneq ($(HLC_TFT_DISPLAY_ENABLED),)
-  BACKLIGHT_ENABLE = yes
-  BACKLIGHT_DRIVER = pwm
   QUANTUM_PAINTER_ENABLE = yes
   QUANTUM_PAINTER_DRIVERS += st7789_spi surface
   include $(USER_PATH)/splitkb/hlc_tft_display/rules.mk

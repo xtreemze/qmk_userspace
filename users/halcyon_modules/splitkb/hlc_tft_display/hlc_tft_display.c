@@ -480,10 +480,7 @@ void module_suspend_wakeup_init_kb(void) {
 
 // Called from halcyon.c
 bool module_post_init_kb(void) {
-#ifdef BACKLIGHT_ENABLE
-    // Turn on backlight
-    backlight_enable();
-#endif
+    backlight_wakeup();
 
     // Make the devices
     lcd = qp_st7789_make_spi_device(LCD_WIDTH, LCD_HEIGHT, LCD_CS_PIN, LCD_DC_PIN, LCD_RST_PIN, LCD_SPI_DIVISOR, LCD_SPI_MODE);

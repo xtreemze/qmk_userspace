@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "gpio.h"
 #include "halcyon.h"
 #include "transactions.h"
 #include "split_util.h"
@@ -47,23 +48,36 @@ module_t module;
 
 bool backlight_off = false;
 
+#ifndef BACKLIGHT_ON_STATE
+#    define BACKLIGHT_ON_STATE 1
+#endif
+
+static void halcyon_backlight_set(bool enabled) {
+#ifdef BACKLIGHT_ENABLE
+    if (enabled) {
+        backlight_enable();
+        if (get_backlight_level() == 0) {
+            backlight_level(BACKLIGHT_LEVELS);
+        }
+    } else {
+        backlight_disable();
+    }
+#elif defined(HLC_TFT_DISPLAY) && defined(BACKLIGHT_PIN)
+    gpio_set_pin_output(BACKLIGHT_PIN);
+    gpio_write_pin(BACKLIGHT_PIN, enabled ? BACKLIGHT_ON_STATE : !BACKLIGHT_ON_STATE);
+#endif
+}
+
 // Timeout handling
 void backlight_wakeup(void) {
     backlight_off = false;
-#ifdef BACKLIGHT_ENABLE
-    backlight_enable();
-    if (get_backlight_level() == 0) {
-        backlight_level(BACKLIGHT_LEVELS);
-    }
-#endif
+    halcyon_backlight_set(true);
 }
 
 // Timeout handling
 void backlight_suspend(void) {
     backlight_off = true;
-#ifdef BACKLIGHT_ENABLE
-    backlight_disable();
-#endif
+    halcyon_backlight_set(false);
 }
 
 void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void* initiator2target_buffer, uint8_t target2initiator_buffer_size, void* target2initiator_buffer) {
@@ -116,7 +130,6 @@ void housekeeping_task_kb(void) {
         display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
-#ifdef BACKLIGHT_ENABLE
     // Backlight feature
     if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
         if (backlight_off) {
@@ -127,7 +140,6 @@ void housekeeping_task_kb(void) {
             backlight_suspend();
         }
     }
-#endif
 
     module_housekeeping_task_kb();
 
