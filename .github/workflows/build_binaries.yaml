@@ -11,10 +11,12 @@ jobs:
     uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@main
     with:
       qmk_repo: qmk/qmk_firmware
-      qmk_ref: 0.32.2
-
+      qmk_ref: master
+      preparation_command: 'ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/'
   publish:
     name: 'QMK Userspace Publish'
     uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@main
     if: always() && !cancelled()
     needs: build
+    with:
+      release_name: "latest-halcyon-qmk"
