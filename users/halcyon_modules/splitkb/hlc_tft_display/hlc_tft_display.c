@@ -283,7 +283,7 @@ static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
     for (uint16_t y = 0; y + tile_h <= LCD_HEIGHT; y += tile_h) {
-        for (uint16_t x = 0; x + tile_w <= LCD_WIDTH; x += tile_w) {
+        for (uint16_t x = 0; x < LCD_WIDTH; x += tile_w) {
             const uint16_t tile_index = (x / tile_w) + (y / tile_h);
             const bool phase = ((tile_index + layer + (frame >> 1)) & 1U) != 0U;
             const int8_t dx = pattern_motion_offset(frame, tile_index, layer, false);

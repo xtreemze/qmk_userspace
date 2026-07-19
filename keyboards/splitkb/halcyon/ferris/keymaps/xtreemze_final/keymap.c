@@ -71,6 +71,22 @@ enum custom_keycodes {
 
 static char alt_repeat_display_text[24] = "";
 
+#ifdef OS_DETECTION_ENABLE
+/*
+ * OS detection is based on USB setup traffic, which can change after macOS
+ * sleep/resume or delayed descriptor requests. Keep the first confident
+ * result for this keyboard boot; changing hosts normally power-cycles it.
+ */
+static os_variant_t cached_host_os = OS_UNSURE;
+
+bool process_detected_host_os_user(os_variant_t detected_os) {
+    if (cached_host_os == OS_UNSURE && detected_os != OS_UNSURE) {
+        cached_host_os = detected_os;
+    }
+    return true;
+}
+#endif
+
 #ifdef RGB_MATRIX_ENABLE
 typedef struct {
     uint8_t mode;
@@ -741,8 +757,7 @@ static inline bool is_macro_keycode(uint16_t keycode) {
 
 static bool host_is_apple(void) {
 #ifdef OS_DETECTION_ENABLE
-    const os_variant_t os = detected_host_os();
-    return os == OS_MACOS || os == OS_IOS;
+    return cached_host_os == OS_MACOS || cached_host_os == OS_IOS;
 #else
     return false;
 #endif
@@ -1552,19 +1567,19 @@ const char *halcyon_display_alt_repeat_text_user(void) {
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
-        "MOUSEPAD",
-        "QWERTY-A",
-        "COLEMKDH",
-        "NUM-SYMS",
-        "SATURATE",
-        "ONESHOTS",
-        "EDITMODE",
-        "FN-MEDIA",
-        "RGBSPEED",
-        "RGBMODES",
-        "RGB-HUES",
-        "RGBVALUE",
-        "RESERVED",
+        "MOUSE",
+        "QWERTY",
+        "COLEMAK",
+        "NUMSYMS",
+        "RGBSAT",
+        "ONESHOT",
+        "EDITING",
+        "FNMEDIA",
+        "RGBSPD",
+        "RGBMODE",
+        "RGBHUE",
+        "RGBVAL",
+        "RESERVE",
     };
 
     if (layer < ARRAY_SIZE(layer_names)) {
