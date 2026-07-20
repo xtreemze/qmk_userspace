@@ -28,6 +28,7 @@ static uint32_t last_mod_seen[4] = { 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0
 static uint32_t last_background_redraw = 0;
 static uint8_t last_background_layer = 0xFF;
 static uint8_t pattern_animation_frame = 0;
+static volatile bool display_wakeup_pending = false;
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
@@ -470,12 +471,15 @@ bool update_display(void) {
 
 // Called from halcyon.c
 void module_suspend_power_down_kb(void) {
+    backlight_suspend();
     qp_power(lcd, false);
 }
 
 // Called from halcyon.c
 void module_suspend_wakeup_init_kb(void) {
-    qp_power(lcd, true);
+    // QMK invokes this callback from the USB wake ISR on ChibiOS. Defer the
+    // SPI transaction until housekeeping runs in normal thread context.
+    display_wakeup_pending = true;
 }
 
 // Called from halcyon.c
@@ -507,6 +511,17 @@ bool module_post_init_kb(void) {
 
 // Called from halcyon.c
 bool display_module_housekeeping_task_kb(bool second_display) {
+    if (display_wakeup_pending) {
+        display_wakeup_pending = false;
+
+        if (!qp_power(lcd, true)) {
+            display_wakeup_pending = true;
+            return true;
+        }
+
+        qp_surface_draw(lcd_surface, lcd, 0, 0, false);
+    }
+
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
     bool display_dirty = false;

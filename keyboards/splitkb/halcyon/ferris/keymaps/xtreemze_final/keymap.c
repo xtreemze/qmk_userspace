@@ -62,7 +62,7 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xAD
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xAE
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
@@ -197,20 +197,20 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
 #ifdef VIAL_ENABLE
 #if defined(VIAL_TAP_DANCE_ENTRIES) && (VIAL_TAP_DANCE_ENTRIES > 0)
 static const vial_tap_dance_entry_t xtreemze_default_tap_dances[] = {
-    { KC_PSLS, LSFT(KC_SLASH), XM_9, KC_PSLS, 150 },
-    { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 150 },
+    { KC_SLASH, LSFT(KC_SLASH), QK_MACRO_9, KC_PSLS, 140 },
+    { LSFT(KC_SCLN), KC_QUOT, KC_MINS, KC_QUOT, 160 },
     { KC_COMM, LSFT(KC_SLASH), KC_SLASH, LSFT(KC_SLASH), 175 },
-    { KC_DOT, KC_DOT, XM_3, KC_DOT, 175 },
-    { KC_N, XM_6, XM_7, XM_6, 175 },
-    { OSM(MOD_LSFT), MO(6), XM_5, MO(6), 45 },
+    { KC_DOT, KC_DOT, QK_MACRO_3, KC_DOT, 175 },
+    { KC_N, QK_MACRO_6, QK_MACRO_7, QK_MACRO_6, 175 },
+    { OSM(MOD_LSFT), MO(6), QK_MACRO_5, MO(6), 45 },
     { KC_Q, LSFT(KC_1), KC_GRV, KC_Q, 180 },
     { KC_COMM, KC_SCLN, KC_COMM, KC_SCLN, 175 },
     { KC_O, KC_MINS, KC_O, KC_O, 200 },
-    { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
-    { KC_NO, KC_NO, KC_NO, KC_NO, 120 },
-    { KC_NO, KC_NO, KC_NO, KC_NO, 1 },
-    { KC_NO, KC_NO, KC_NO, KC_NO, 1 },
-    { KC_ESC, KC_GRV, XM_0, KC_NO, 220 },
+    { KC_UP, KC_UP, KC_PGUP, KC_UP, 90 },
+    { KC_LEFT, KC_LEFT, LALT(KC_LEFT), LALT(KC_LEFT), 175 },
+    { KC_RGHT, KC_RGHT, RALT(KC_RGHT), RALT(KC_RGHT), 175 },
+    { KC_DOWN, KC_DOWN, KC_PGDN, KC_DOWN, 90 },
+    { KC_ESC, KC_GRV, QK_MACRO_0, KC_NO, 220 },
     { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
     { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
     { KC_NO, KC_NO, KC_NO, KC_NO, 200 },
@@ -238,18 +238,18 @@ static const vial_combo_entry_t xtreemze_default_combos[] = {
     { { KC_J, KC_K, KC_NO, KC_NO }, MO(7) },
     { { KC_S, KC_D, KC_NO, KC_NO }, KC_ESC },
     { { KC_K, KC_L, KC_NO, KC_NO }, KC_ENT },
-    { { KC_J, KC_L, KC_NO, KC_NO }, XM_2 },
-    { { KC_S, KC_F, KC_NO, KC_NO }, XM_0 },
-    { { KC_DOWN, KC_RIGHT, KC_NO, KC_NO }, XM_2 },
+    { { KC_J, KC_L, KC_NO, KC_NO }, QK_MACRO_2 },
+    { { KC_S, KC_F, KC_NO, KC_NO }, QK_MACRO_0 },
+    { { KC_DOWN, KC_RGHT, KC_NO, KC_NO }, QK_MACRO_2 },
     { { MS_RGHT, MS_UP, KC_NO, KC_NO }, KC_ENT },
-    { { MS_RGHT, MS_DOWN, KC_NO, KC_NO }, XM_2 },
+    { { MS_RGHT, MS_DOWN, KC_NO, KC_NO }, QK_MACRO_2 },
     { { KC_Y, KC_N, KC_NO, KC_NO }, QK_REBOOT },
     { { KC_T, KC_B, KC_NO, KC_NO }, QK_REBOOT },
-    { { KC_U, KC_M, KC_NO, KC_NO }, QK_BOOT },
-    { { KC_R, KC_V, KC_NO, KC_NO }, QK_BOOT },
-    { { KC_I, KC_COMM, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
-    { { KC_E, KC_C, KC_NO, KC_NO }, QK_CLEAR_EEPROM },
-    { { KC_DOT, KC_SPACE, KC_NO, KC_NO }, XM_1 },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
+    { { KC_DOT, KC_SPACE, KC_NO, KC_NO }, QK_MACRO_1 },
     { { KC_LALT, KC_LGUI, KC_NO, KC_NO }, TD(13) },
     { { KC_W, KC_R, KC_NO, KC_NO }, RCTL(KC_B) },
     { { KC_NO, KC_NO, KC_NO, KC_NO }, KC_NO },
@@ -317,12 +317,12 @@ static const vial_alt_repeat_key_entry_t xtreemze_default_alt_repeat_keys[] = {
     { .keycode = LGUI(KC_G), .alt_keycode = SGUI(KC_G), .allowed_mods = 0, .options = 12 },
     { .keycode = KC_U, .alt_keycode = LSFT(KC_U), .allowed_mods = 0, .options = 14 },
     { .keycode = LSFT(KC_DOT), .alt_keycode = LSFT(KC_COMM), .allowed_mods = 0, .options = 12 },
-    { .keycode = KC_RBRC, .alt_keycode = KC_LBRC, .allowed_mods = 119, .options = 12 },
+    { .keycode = KC_RBRC, .alt_keycode = KC_LBRC, .allowed_mods = 119, .options = 14 },
     { .keycode = LCTL(KC_A), .alt_keycode = LCTL(KC_X), .allowed_mods = 17, .options = 12 },
     { .keycode = KC_BSPC, .alt_keycode = KC_DEL, .allowed_mods = 103, .options = 12 },
-    { .keycode = KC_RGHT, .alt_keycode = KC_LEFT, .allowed_mods = 0, .options = 12 },
-    { .keycode = KC_UP, .alt_keycode = KC_DOWN, .allowed_mods = 0, .options = 12 },
-    { .keycode = KC_DOWN, .alt_keycode = KC_UP, .allowed_mods = 0, .options = 12 },
+    { .keycode = KC_RGHT, .alt_keycode = KC_LEFT, .allowed_mods = 0, .options = 14 },
+    { .keycode = KC_UP, .alt_keycode = KC_DOWN, .allowed_mods = 0, .options = 14 },
+    { .keycode = TD(12), .alt_keycode = KC_UP, .allowed_mods = 0, .options = 14 },
     { .keycode = KC_1, .alt_keycode = KC_2, .allowed_mods = 0, .options = 8 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
@@ -493,12 +493,12 @@ typedef struct {
 
 static const qmk_setting_seed_t xtreemze_qmk_settings_defaults[] = {
     { 1, 0 },
-    { 2, 30 },
+    { 2, 25 },
     { 3, 33 },
-    { 4, 180 },
+    { 4, 170 },
     { 5, 2 },
-    { 6, 1600 },
-    { 7, 170 },
+    { 6, 1100 },
+    { 7, 160 },
     { 9, 14 },
     { 10, 28 },
     { 11, 8 },
@@ -512,8 +512,8 @@ static const qmk_setting_seed_t xtreemze_qmk_settings_defaults[] = {
     { 19, 80 },
     { 20, 5 },
     { 21, 0 },
-    { 22, 0 },
-    { 23, 1 },
+    { 22, 1 },
+    { 23, 0 },
     { 24, 0 },
     { 25, 120 },
     { 26, 0 },
@@ -878,9 +878,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     },
     [L3] = {
         {                 KC_5,                 KC_4,                 KC_3,                 KC_2,                 KC_1 },
-        {              KC_LSFT,              KC_PPLS,              KC_PAST,              KC_BSLS,               KC_TAB },
-        {              KC_LCTL,              KC_PMNS,              KC_PSLS,              KC_LALT,               KC_GRV },
-        {              KC_HOME,        LT(4, KC_PGUP),                KC_NO,                KC_NO,                KC_NO },
+        {              KC_PPLS,      LCTL_T(KC_SPC),      LGUI_T(KC_TAB),     LSFT_T(KC_BSLS),     LALT_T(KC_PAST) },
+        {              KC_PMNS,                TG(4),        LSFT(KC_TAB),               KC_ESC,        QK_LAYER_LOCK },
+        {              KC_BTN1,              KC_BTN2,                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                 KC_6,                 KC_7,                 KC_8,                 KC_9,                 KC_0 },
         {              KC_PCMM,                 KC_4,                 KC_5,                 KC_6,              KC_MINS },
@@ -913,10 +913,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         {              _______,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L6] = {
-        {              OS_SALL,             KC_SPACE, OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE,             KC_SPACE },
+        {              OS_SALL,         OSM(MOD_MEH), OSM(MOD_LSFT|MOD_LALT),  QK_CAPS_WORD_TOGGLE, OSM(MOD_LSFT|MOD_LGUI) },
         { OSM(MOD_LCTL|MOD_LSFT),        OSM(MOD_LCTL),        OSM(MOD_LGUI),        OSM(MOD_LSFT),        OSM(MOD_LALT) },
         {              OS_REDO,              OS_PSTE,              OS_COPY,               OS_CUT,              OS_UNDO },
-        {        OSM(MOD_LSFT),              _______,                KC_NO,                KC_NO,                KC_NO },
+        {              _______,              _______,                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {              _______,              _______,              _______,              AS_TOGG,              _______ },
         {              _______,              _______,              _______,        OSM(MOD_RSFT),              _______ },
@@ -926,25 +926,25 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     },
     [L7] = {
         {                KC_F5,                KC_F4,                KC_F3,                KC_F2,                KC_F1 },
-        {              SC_LSPO,              KC_LBRC,       LSFT(KC_COMMA),    LSFT(KC_LBRC),              KC_PSLS },
+        {              SC_LSPO,              KC_LBRC,         LSFT(KC_COMM),    LSFT(KC_LBRC),              KC_PSLS },
         {                KC_F6,              KC_MNXT,              KC_MPLY,        LT(8, KC_SPC),               KC_GRV },
-        {                KC_UP,              KC_LEFT,                KC_NO,                KC_NO,                KC_NO },
+        {                TD(9),               TD(10),                KC_NO,                KC_NO,                KC_NO },
         {              KC_MUTE,                KC_NO,                KC_NO,                KC_NO,                KC_NO },
         {                KC_F8,                KC_F9,               KC_F10,               KC_F11,               KC_F12 },
         {              SC_RSPC,              KC_RBRC,         LSFT(KC_DOT),    LSFT(KC_RBRC),              KC_BSLS },
         {                KC_F7,              KC_MNXT,              KC_MPLY,              KC_MSTP,              KC_MPRV },
-        {              KC_DOWN,             KC_RIGHT,                KC_NO,                KC_NO,                KC_NO },
+        {               TD(12),               TD(11),                KC_NO,                KC_NO,                KC_NO },
         {           LGUI(KC_0),                KC_NO,                KC_NO,                KC_NO,                KC_NO },
     },
     [L8] = {
         {                KC_F8,                KC_F9,               KC_F10,               KC_F11,               KC_F12 },
         {              _______,              _______,              _______,              _______,              _______ },
-        {              _______,              _______,              _______,              _______,              _______ },
+        {                KC_F7,              _______,              _______,              _______,              _______ },
         {              _______,              _______,                KC_NO,                KC_NO,                KC_NO },
         {              _______,              _______,              _______,              _______,              _______ },
+        {                KC_F5,                KC_F4,                KC_F3,                KC_F2,                KC_F1 },
         {              _______,              _______,              _______,              _______,              _______ },
-        {              _______,              _______,              _______,              _______,              _______ },
-        {              _______,              _______,              _______,              _______,              _______ },
+        {                KC_F6,              _______,              _______,              _______,              _______ },
         {              _______,              _______,                KC_NO,                KC_NO,                KC_NO },
         {              _______,              _______,              _______,              _______,              _______ },
     },
@@ -999,22 +999,21 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 #if defined(ENCODER_MAP_ENABLE)
-// finalVial.vil stores two module encoder slots (left/right). This build has one physical encoder
-// on the right module, so we map only the right slot into NUM_ENCODERS=1.
+// Preserve both split Halcyon module encoder slots from xtreemzeVial.vil.
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    [L0] = { ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
-    [L1] = { ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
-    [L2] = { ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
-    [L3] = { ENCODER_CCW_CW(QK_ALT_REPEAT_KEY, QK_REPEAT_KEY) },
-    [L4] = { ENCODER_CCW_CW(RM_SATD, RM_SATU) },
-    [L5] = { ENCODER_CCW_CW(RM_VALD, RM_VALU) },
-    [L6] = { ENCODER_CCW_CW(KC_BRID, KC_BRIU) },
-    [L7] = { ENCODER_CCW_CW(LGUI(KC_PMNS), LGUI(KC_PPLS)) },
-    [L8] = { ENCODER_CCW_CW(RM_SPDD, RM_SPDU) },
-    [L9] = { ENCODER_CCW_CW(RM_PREV, RM_NEXT) },
-    [L10] = { ENCODER_CCW_CW(RM_HUED, RM_HUEU) },
-    [L11] = { ENCODER_CCW_CW(RM_VALD, RM_VALU) },
-    [L12] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+    [L0] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
+    [L1] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
+    [L2] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(MS_WHLU, MS_WHLD) },
+    [L3] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(QK_ALT_REPEAT_KEY, QK_REPEAT_KEY) },
+    [L4] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(RM_SATD, RM_SATU) },
+    [L5] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(RM_VALD, RM_VALU) },
+    [L6] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_BRID, KC_BRIU) },
+    [L7] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(LGUI(KC_PMNS), LGUI(KC_PPLS)) },
+    [L8] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(RM_SPDD, RM_SPDU) },
+    [L9] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(RM_PREV, RM_NEXT) },
+    [L10] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(RM_HUED, RM_HUEU) },
+    [L11] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(RM_VALD, RM_VALU) },
+    [L12] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
 };
 #endif
 
@@ -1440,6 +1439,7 @@ static void run_macro_slot(uint8_t slot) {
             tap_action_keycode(OSM(MOD_RSFT));
             break;
         case 5:
+            tap_action_keycode(KC_BSPC);
             tap_action_keycode(KC_BSPC);
             tap_action_keycode(KC_BSPC);
             tap_action_keycode(LALT(KC_BSPC));

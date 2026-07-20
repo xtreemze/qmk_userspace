@@ -1,5 +1,11 @@
 {
     "lighting": "vialrgb",
+    "keycodes": [
+        "qmk_lighting"
+    ],
+    "menus": [
+        "qmk_rgb_matrix"
+    ],
     "customKeycodes": [
         {"name": "XM_0", "title": "Macro 0", "shortName": "MC0"},
         {"name": "XM_1", "title": "Macro 1", "shortName": "MC1"},
