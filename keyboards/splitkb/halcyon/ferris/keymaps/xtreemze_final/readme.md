@@ -15,6 +15,12 @@ Vial enabled.
 - `TCHD`: Trigger the chord override profile.
 - `DUR+` / `DUR-`: Increase/decrease chord override duration (default `2000ms`, persistent).
 
+## OS fingerprint diagnostics
+
+- Vial `USER20` (`OS_TRACE_VIEW`, shown as `Trace`) toggles the manual H1F TRACE VIEW.
+- TRACE VIEW is intentionally unassigned in the compiled physical keymap; assign it temporarily through Vial when reviewing a RAM capture.
+- Automatic HOST LINK telemetry always returns to the normal TFT UI after at most `2000ms`.
+
 ## Module builds
 
 Build left-half firmware (TFT module):

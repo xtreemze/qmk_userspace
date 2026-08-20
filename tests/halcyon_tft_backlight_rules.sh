@@ -81,8 +81,8 @@ tft_wakeup_body="$(
     ' "$tft_file"
 )"
 
-if grep -q 'qp_power' <<<"$tft_wakeup_body"; then
-    echo "Expected the interrupt-context wake callback to avoid TFT SPI operations." >&2
+if grep -Eq '\bqp_|\bwait_(ms|us)[[:space:]]*\(' <<<"$tft_wakeup_body"; then
+    echo "Expected the interrupt-context wake callback to avoid TFT/SPI operations and blocking waits." >&2
     exit 1
 fi
 

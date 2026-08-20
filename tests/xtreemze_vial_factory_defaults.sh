@@ -75,7 +75,7 @@ function normalizeKeycode(value) {
     };
     if (direct[value]) return direct[value];
 
-    const customNames = ['XM_0', 'XM_1', 'XM_2', 'XM_3', 'XM_4', 'XM_5', 'XM_6', 'XM_7', 'XM_8', 'XM_9', 'RGB_SLAY', 'RGB_SMOD', 'RGB_SCHD', 'RGB_TCHD', 'OS_REDO', 'OS_PSTE', 'OS_COPY', 'OS_CUT', 'OS_UNDO', 'OS_SALL'];
+    const customNames = ['XM_0', 'XM_1', 'XM_2', 'XM_3', 'XM_4', 'XM_5', 'XM_6', 'XM_7', 'XM_8', 'XM_9', 'RGB_SLAY', 'RGB_SMOD', 'RGB_SCHD', 'RGB_TCHD', 'OS_REDO', 'OS_PSTE', 'OS_COPY', 'OS_CUT', 'OS_UNDO', 'OS_SALL', 'OS_TRACE_VIEW'];
     let match = /^USER(\d+)$/.exec(value);
     if (match) return customNames[Number(match[1])];
 

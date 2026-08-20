@@ -32,6 +32,13 @@
 #define VIAL_ALT_REPEAT_KEY_ENTRIES 32
 
 /*
+ * Reset detection only after genuine USB re-enumeration. Userspace stabilizes
+ * each session because upstream single-report can finalize on OS_UNSURE.
+ */
+#define OS_DETECTION_KEYBOARD_RESET
+#define SPLIT_DETECTED_OS_ENABLE
+
+/*
  * Persistent user datablock used for RGB profile engine state.
  * Note: with EECONFIG_USER_DATA_SIZE > 0, eeconfig_read_user()/update_user()
  * are replaced by eeconfig_*_user_datablock() APIs.

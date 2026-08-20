@@ -38,10 +38,48 @@
 #define HSV_LAYER_12 HSV_EF_FG
 #define HSV_LAYER_UNDEF HSV_EF_FG
 
+typedef enum {
+    HALCYON_DISPLAY_OS_UNKNOWN = 0,
+    HALCYON_DISPLAY_OS_MACOS,
+    HALCYON_DISPLAY_OS_IOS,
+    HALCYON_DISPLAY_OS_WINDOWS,
+    HALCYON_DISPLAY_OS_LINUX,
+} halcyon_display_os_t;
+
+typedef enum {
+    HALCYON_SHORTCUT_UNKNOWN = 0,
+    HALCYON_SHORTCUT_APPLE,
+    HALCYON_SHORTCUT_CTRL,
+} halcyon_shortcut_family_t;
+
+typedef enum {
+    HALCYON_HOST_SOURCE_DEFAULT = 0,
+    HALCYON_HOST_SOURCE_STORED,
+    HALCYON_HOST_SOURCE_LIVE,
+} halcyon_host_source_t;
+
+typedef enum {
+    HALCYON_HOST_EVENT_BOOT = 0,
+    HALCYON_HOST_EVENT_RESUME,
+    HALCYON_HOST_EVENT_CHANGE,
+} halcyon_host_event_t;
+
+typedef struct {
+    halcyon_display_os_t os;
+    halcyon_shortcut_family_t shortcut_family;
+    halcyon_host_source_t source;
+    halcyon_host_event_t event;
+    bool is_master;
+} halcyon_host_telemetry_t;
+
 extern painter_device_t lcd;
 extern painter_device_t lcd_surface;
 const char *halcyon_display_layer_name_user(uint8_t layer);
 const char *halcyon_display_alt_repeat_text_user(void);
+bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry);
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+void halcyon_display_toggle_trace_view(void);
+#endif
 
 bool draw_grid(void);
 void update_grid(void);

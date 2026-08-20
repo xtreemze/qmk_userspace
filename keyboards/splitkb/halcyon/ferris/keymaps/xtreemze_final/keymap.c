@@ -17,6 +17,9 @@
 #ifdef RGB_MATRIX_ENABLE
 #include "rgb_matrix.h"
 #endif
+#ifdef HLC_TFT_DISPLAY
+#include "hlc_tft_display/hlc_tft_display.h"
+#endif
 
 enum layers {
     L0 = 0,
@@ -54,7 +57,8 @@ enum custom_keycodes {
     OS_COPY,
     OS_CUT,
     OS_UNDO,
-    OS_SALL
+    OS_SALL,
+    OS_TRACE_VIEW
 };
 
 /*
@@ -68,22 +72,41 @@ enum custom_keycodes {
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
 #define XTREEMZE_CHORD_MS_MIN 250
 #define XTREEMZE_CHORD_MS_MAX 10000
+#define HOST_DISPLAY_DETECTION_SETTLE_MS 250
+
+typedef enum {
+    HOST_FAMILY_UNKNOWN = 0,
+    HOST_FAMILY_APPLE,
+    HOST_FAMILY_CTRL,
+} host_family_t;
+
+typedef enum {
+    HOST_SOURCE_DEFAULT = 0,
+    HOST_SOURCE_STORED,
+    HOST_SOURCE_LIVE,
+} host_source_t;
 
 static char alt_repeat_display_text[24] = "";
 
 #ifdef OS_DETECTION_ENABLE
-/*
- * OS detection is based on USB setup traffic, which can change after macOS
- * sleep/resume or delayed descriptor requests. Keep the first confident
- * result for this keyboard boot; changing hosts normally power-cycles it.
- */
-static os_variant_t cached_host_os = OS_UNSURE;
+static host_family_t session_host_family   = HOST_FAMILY_UNKNOWN;
+static host_family_t effective_host_family = HOST_FAMILY_UNKNOWN;
+static host_source_t effective_host_source = HOST_SOURCE_DEFAULT;
+static os_variant_t exact_detected_os      = OS_UNSURE;
+#ifdef HLC_TFT_DISPLAY
+static os_variant_t split_display_candidate_os = OS_UNSURE;
+static uint32_t split_display_candidate_since  = 0;
+#endif
 
-bool process_detected_host_os_user(os_variant_t detected_os) {
-    if (cached_host_os == OS_UNSURE && detected_os != OS_UNSURE) {
-        cached_host_os = detected_os;
+static host_family_t validated_host_family(uint8_t value) {
+    switch (value) {
+        case HOST_FAMILY_APPLE:
+            return HOST_FAMILY_APPLE;
+        case HOST_FAMILY_CTRL:
+            return HOST_FAMILY_CTRL;
+        default:
+            return HOST_FAMILY_UNKNOWN;
     }
-    return true;
 }
 #endif
 
@@ -103,7 +126,7 @@ typedef struct {
     uint8_t magic;
     uint8_t version;
     uint8_t defaults_marker;
-    uint8_t reserved;
+    uint8_t last_host_family;
     uint16_t chord_override_ms;
     uint8_t reserved1[2];
 #ifdef RGB_MATRIX_ENABLE
@@ -157,7 +180,131 @@ static void load_user_data(void) {
         xtreemze_user_data.chord_override_ms = XTREEMZE_CHORD_MS_DEFAULT;
         save_user_data();
     }
+
+#ifdef OS_DETECTION_ENABLE
+    xtreemze_user_data.last_host_family = validated_host_family(xtreemze_user_data.last_host_family);
+    if (session_host_family == HOST_FAMILY_UNKNOWN) {
+        effective_host_family = (host_family_t)xtreemze_user_data.last_host_family;
+        effective_host_source = effective_host_family == HOST_FAMILY_UNKNOWN ? HOST_SOURCE_DEFAULT : HOST_SOURCE_STORED;
+    }
+#endif
 }
+
+#ifdef OS_DETECTION_ENABLE
+static host_family_t host_family_from_os(os_variant_t detected_os) {
+    switch (detected_os) {
+        case OS_MACOS:
+        case OS_IOS:
+            return HOST_FAMILY_APPLE;
+        case OS_WINDOWS:
+        case OS_LINUX:
+            return HOST_FAMILY_CTRL;
+        case OS_UNSURE:
+        default:
+            return HOST_FAMILY_UNKNOWN;
+    }
+}
+
+bool process_detected_host_os_user(os_variant_t detected_os) {
+    const host_family_t detected_family = host_family_from_os(detected_os);
+
+    exact_detected_os = detected_os;
+
+    if (detected_family == HOST_FAMILY_UNKNOWN || session_host_family != HOST_FAMILY_UNKNOWN) {
+        return true;
+    }
+
+    session_host_family   = detected_family;
+    effective_host_family = detected_family;
+    effective_host_source = HOST_SOURCE_LIVE;
+
+    if (xtreemze_user_data.last_host_family != (uint8_t)detected_family) {
+        xtreemze_user_data.last_host_family = (uint8_t)detected_family;
+        save_user_data();
+    }
+
+    return true;
+}
+#endif
+
+#if defined(OS_DETECTION_ENABLE) && defined(HLC_TFT_DISPLAY)
+static halcyon_display_os_t display_os_from_variant(os_variant_t detected_os) {
+    switch (detected_os) {
+        case OS_MACOS:
+            return HALCYON_DISPLAY_OS_MACOS;
+        case OS_IOS:
+            return HALCYON_DISPLAY_OS_IOS;
+        case OS_WINDOWS:
+            return HALCYON_DISPLAY_OS_WINDOWS;
+        case OS_LINUX:
+            return HALCYON_DISPLAY_OS_LINUX;
+        case OS_UNSURE:
+        default:
+            return HALCYON_DISPLAY_OS_UNKNOWN;
+    }
+}
+
+static halcyon_host_source_t display_source_from_host_source(host_source_t source) {
+    switch (source) {
+        case HOST_SOURCE_STORED:
+            return HALCYON_HOST_SOURCE_STORED;
+        case HOST_SOURCE_LIVE:
+            return HALCYON_HOST_SOURCE_LIVE;
+        case HOST_SOURCE_DEFAULT:
+        default:
+            return HALCYON_HOST_SOURCE_DEFAULT;
+    }
+}
+
+static void observe_split_display_os(os_variant_t detected_os) {
+    exact_detected_os = detected_os;
+
+    if (is_keyboard_master() || session_host_family != HOST_FAMILY_UNKNOWN) {
+        return;
+    }
+
+    const host_family_t detected_family = host_family_from_os(detected_os);
+    if (detected_family == HOST_FAMILY_UNKNOWN) {
+        split_display_candidate_os = OS_UNSURE;
+        return;
+    }
+
+    if (split_display_candidate_os != detected_os) {
+        split_display_candidate_os = detected_os;
+        split_display_candidate_since = timer_read32();
+        return;
+    }
+
+    if (timer_elapsed32(split_display_candidate_since) < HOST_DISPLAY_DETECTION_SETTLE_MS) {
+        return;
+    }
+
+    /*
+     * QMK synchronizes detected_os to the USB-disconnected slave but does not
+     * run its userspace callback there. Mirror the first valid session policy
+     * in RAM for accurate TFT telemetry; the USB master remains the only half
+     * that persists a confirmed family.
+     */
+    session_host_family   = detected_family;
+    effective_host_family = detected_family;
+    effective_host_source = HOST_SOURCE_LIVE;
+}
+
+bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry) {
+    if (telemetry == NULL) {
+        return false;
+    }
+
+    observe_split_display_os(detected_host_os());
+
+    telemetry->os              = display_os_from_variant(exact_detected_os);
+    telemetry->shortcut_family = (halcyon_shortcut_family_t)effective_host_family;
+    telemetry->source          = display_source_from_host_source(effective_host_source);
+    telemetry->event           = HALCYON_HOST_EVENT_BOOT;
+    telemetry->is_master       = is_keyboard_master();
+    return true;
+}
+#endif
 
 #ifdef VIAL_ENABLE
 static void seed_vial_dynamic_entry_defaults(void);
@@ -755,16 +902,16 @@ static inline bool is_macro_keycode(uint16_t keycode) {
     return keycode >= XM_0 && keycode <= XM_9;
 }
 
-static bool host_is_apple(void) {
+static bool host_uses_command_shortcuts(void) {
 #ifdef OS_DETECTION_ENABLE
-    return cached_host_os == OS_MACOS || cached_host_os == OS_IOS;
+    return effective_host_family == HOST_FAMILY_APPLE;
 #else
     return false;
 #endif
 }
 
 static void tap_os_clipboard(uint16_t mac_keycode, uint16_t other_keycode) {
-    tap_code16(host_is_apple() ? mac_keycode : other_keycode);
+    tap_code16(host_uses_command_shortcuts() ? mac_keycode : other_keycode);
 }
 
 static void run_macro_slot(uint8_t slot);
@@ -1512,6 +1659,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     if (keycode == OS_SALL) {
         tap_os_clipboard(LGUI(KC_A), LCTL(KC_A));
+        return false;
+    }
+
+    if (keycode == OS_TRACE_VIEW) {
+#if defined(HLC_TFT_DISPLAY) && defined(XTREEMZE_OS_FINGERPRINT_TRACE)
+        halcyon_display_toggle_trace_view();
+#endif
         return false;
     }
 

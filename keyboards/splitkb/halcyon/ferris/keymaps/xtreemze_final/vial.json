@@ -26,7 +26,8 @@
         {"name": "OS_COPY", "title": "OS Copy (Cmd/Ctrl)", "shortName": "Copy"},
         {"name": "OS_CUT", "title": "OS Cut (Cmd/Ctrl)", "shortName": "Cut"},
         {"name": "OS_UNDO", "title": "OS Undo (Cmd/Ctrl)", "shortName": "Undo"},
-        {"name": "OS_SALL", "title": "OS Select All (Cmd/Ctrl)", "shortName": "SelA"}
+        {"name": "OS_SALL", "title": "OS Select All (Cmd/Ctrl)", "shortName": "SelA"},
+        {"name": "OS_TRACE_VIEW", "title": "Toggle OS Fingerprint Trace View", "shortName": "Trace"}
     ],
     "matrix": {
         "rows": 10,

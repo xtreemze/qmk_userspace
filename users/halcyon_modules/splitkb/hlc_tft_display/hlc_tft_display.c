@@ -3,6 +3,9 @@
 
 #include "halcyon.h"
 #include "hlc_tft_display.h"
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+#    include "os_detection.h"
+#endif
 #ifdef CAPS_WORD_ENABLE
 #    include "caps_word.h"
 #endif
@@ -14,11 +17,18 @@
 #include "graphics/fonts/Retron2000-27.qff.h"
 
 static painter_font_handle_t Retron27;
+static bool display_font_loaded = false;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
 painter_device_t lcd;
 painter_device_t lcd_surface;
+
+typedef enum {
+    DISPLAY_MODE_NORMAL = 0,
+    DISPLAY_MODE_HOST_OVERLAY,
+    DISPLAY_MODE_TRACE_VIEW,
+} display_mode_t;
 
 static uint8_t last_mod_state = 0xFF;
 static uint16_t last_visible_mod_mask = 0xFFFF;
@@ -29,10 +39,32 @@ static uint32_t last_background_redraw = 0;
 static uint8_t last_background_layer = 0xFF;
 static uint8_t pattern_animation_frame = 0;
 static volatile bool display_wakeup_pending = false;
+static volatile bool host_resume_pending = false;
+static bool host_event_pending = true;
+static halcyon_host_event_t pending_host_event = HALCYON_HOST_EVENT_BOOT;
+static display_mode_t display_mode = DISPLAY_MODE_NORMAL;
+static uint32_t host_overlay_started = 0;
+static uint32_t last_host_overlay_frame = 0;
+static bool has_observed_host_telemetry = false;
+static halcyon_host_telemetry_t observed_host_telemetry;
+static halcyon_host_telemetry_t host_overlay_telemetry;
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+static uint32_t os_fingerprint_page_started = 0;
+static uint32_t last_os_fingerprint_frame = 0;
+#endif
 
 #define STATUS_X       5
 #define STATUS_LAYER_Y 5
 #define PATTERN_ANIMATION_FRAME_MS 200
+#define HOST_PANEL_FRAME_MS 90
+#define HOST_PANEL_INTRO_MS 200
+#define HOST_PANEL_STABLE_MS 400
+#define HOST_PANEL_PULSE_MS 1700
+#define HOST_OVERLAY_DURATION_MS 2000
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+#    define OS_FINGERPRINT_PAGE_MS 2000
+#    define OS_FINGERPRINT_FRAME_MS 200
+#endif
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define MOD_INDICATOR_COLUMNS 2
@@ -240,6 +272,21 @@ __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
     return "---";
 }
 
+__attribute__((weak)) bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry) {
+    if (telemetry == NULL) {
+        return false;
+    }
+
+    *telemetry = (halcyon_host_telemetry_t){
+        .os              = HALCYON_DISPLAY_OS_UNKNOWN,
+        .shortcut_family = HALCYON_SHORTCUT_UNKNOWN,
+        .source          = HALCYON_HOST_SOURCE_DEFAULT,
+        .event           = HALCYON_HOST_EVENT_BOOT,
+        .is_master       = is_keyboard_master(),
+    };
+    return true;
+}
+
 static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, uint8_t s, uint8_t v) {
     for (int8_t dy = -(int8_t)radius; dy <= (int8_t)radius; ++dy) {
         int8_t span = (int8_t)radius - (dy < 0 ? -dy : dy);
@@ -379,14 +426,382 @@ static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
     }
 }
 
+static void ensure_display_font_loaded(void) {
+    if (!display_font_loaded) {
+        Retron27 = qp_load_font_mem(font_Retron2000_27);
+        display_font_loaded = true;
+    }
+}
+
+static const char *host_os_label(halcyon_display_os_t os) {
+    switch (os) {
+        case HALCYON_DISPLAY_OS_MACOS:
+            return "macOS";
+        case HALCYON_DISPLAY_OS_IOS:
+            return "iOS";
+        case HALCYON_DISPLAY_OS_WINDOWS:
+            return "Windows";
+        case HALCYON_DISPLAY_OS_LINUX:
+            return "Linux";
+        case HALCYON_DISPLAY_OS_UNKNOWN:
+        default:
+            return "DETECTING";
+    }
+}
+
+static const char *host_os_compact_label(halcyon_display_os_t os) {
+    switch (os) {
+        case HALCYON_DISPLAY_OS_WINDOWS:
+            return "WIN";
+        case HALCYON_DISPLAY_OS_UNKNOWN:
+            return "DETECT";
+        default:
+            return host_os_label(os);
+    }
+}
+
+static const char *host_marker_label(halcyon_display_os_t os) {
+    switch (os) {
+        case HALCYON_DISPLAY_OS_MACOS:
+            return "MAC";
+        case HALCYON_DISPLAY_OS_IOS:
+            return "IOS";
+        case HALCYON_DISPLAY_OS_WINDOWS:
+            return "WIN";
+        case HALCYON_DISPLAY_OS_LINUX:
+            return "LIN";
+        case HALCYON_DISPLAY_OS_UNKNOWN:
+        default:
+            return "?";
+    }
+}
+
+static const char *host_shortcut_label(halcyon_shortcut_family_t family) {
+    switch (family) {
+        case HALCYON_SHORTCUT_APPLE:
+            return "APPLE";
+        case HALCYON_SHORTCUT_CTRL:
+            return "CTRL";
+        case HALCYON_SHORTCUT_UNKNOWN:
+        default:
+            return "CTRL";
+    }
+}
+
+static const char *host_shortcut_compact_label(halcyon_shortcut_family_t family) {
+    return family == HALCYON_SHORTCUT_APPLE ? "CMD" : "CTL";
+}
+
+static const char *host_source_label(halcyon_host_source_t source) {
+    switch (source) {
+        case HALCYON_HOST_SOURCE_STORED:
+            return "STORED";
+        case HALCYON_HOST_SOURCE_LIVE:
+            return "QMK";
+        case HALCYON_HOST_SOURCE_DEFAULT:
+        default:
+            return "DEFAULT";
+    }
+}
+
+static const char *host_source_compact_label(halcyon_host_source_t source) {
+    switch (source) {
+        case HALCYON_HOST_SOURCE_STORED:
+            return "STOR";
+        case HALCYON_HOST_SOURCE_LIVE:
+            return "QMK";
+        case HALCYON_HOST_SOURCE_DEFAULT:
+        default:
+            return "DEF";
+    }
+}
+
+static const char *host_event_label(halcyon_host_event_t event) {
+    switch (event) {
+        case HALCYON_HOST_EVENT_RESUME:
+            return "RESUME";
+        case HALCYON_HOST_EVENT_CHANGE:
+            return "CHANGE";
+        case HALCYON_HOST_EVENT_BOOT:
+        default:
+            return "BOOT";
+    }
+}
+
+static const char *host_event_compact_label(halcyon_host_event_t event) {
+    switch (event) {
+        case HALCYON_HOST_EVENT_RESUME:
+            return "WAKE";
+        case HALCYON_HOST_EVENT_CHANGE:
+            return "CHG";
+        case HALCYON_HOST_EVENT_BOOT:
+        default:
+            return "BOOT";
+    }
+}
+
+static hsv_triplet_t host_accent(const halcyon_host_telemetry_t *telemetry) {
+    hsv_triplet_t accent;
+
+    switch (telemetry->os) {
+        case HALCYON_DISPLAY_OS_MACOS:
+        case HALCYON_DISPLAY_OS_IOS:
+            accent = (hsv_triplet_t){ 122, 82, 187 };
+            break;
+        case HALCYON_DISPLAY_OS_WINDOWS:
+            accent = (hsv_triplet_t){ 59, 85, 192 };
+            break;
+        case HALCYON_DISPLAY_OS_LINUX:
+            accent = (hsv_triplet_t){ 28, 107, 219 };
+            break;
+        case HALCYON_DISPLAY_OS_UNKNOWN:
+        default:
+            accent = (hsv_triplet_t){ 254, 115, 230 };
+            break;
+    }
+
+    if (telemetry->source == HALCYON_HOST_SOURCE_STORED) {
+        accent.v = (uint8_t)((uint16_t)accent.v * 3U / 4U);
+    } else if (telemetry->source == HALCYON_HOST_SOURCE_DEFAULT) {
+        accent.h = 254;
+        accent.s = 80;
+        accent.v = 150;
+    }
+
+    return accent;
+}
+
+static void draw_centered_host_text(uint16_t y, const char *text, hsv_triplet_t color) {
+    const int16_t width = qp_textwidth(Retron27, text);
+    const uint16_t x = width < LCD_WIDTH ? (uint16_t)((LCD_WIDTH - width) / 2) : 0;
+    qp_drawtext_recolor(lcd_surface, x, y, Retron27, text, color.h, color.s, color.v, HSV_EF_BG);
+}
+
+static const char *fit_host_line(const char *full, const char *compact) {
+    return qp_textwidth(Retron27, full) <= LCD_WIDTH ? full : compact;
+}
+
+static void draw_host_overlay(uint32_t elapsed) {
+    const hsv_triplet_t accent = host_accent(&host_overlay_telemetry);
+    const hsv_triplet_t text = { 29, 50, 211 };
+    const bool final_pulse = elapsed >= HOST_PANEL_PULSE_MS;
+    const uint8_t pulse_v = final_pulse && (elapsed / HOST_PANEL_FRAME_MS) % 2U != 0U ? (uint8_t)(accent.v * 3U / 4U) : accent.v;
+    char policy_full[32];
+    char policy_compact[24];
+    char lifecycle_full[32];
+    char lifecycle_compact[24];
+
+    snprintf(policy_full, sizeof(policy_full), "%s  %s", host_shortcut_label(host_overlay_telemetry.shortcut_family), host_source_label(host_overlay_telemetry.source));
+    snprintf(policy_compact, sizeof(policy_compact), "%s %s", host_shortcut_compact_label(host_overlay_telemetry.shortcut_family), host_source_compact_label(host_overlay_telemetry.source));
+    snprintf(lifecycle_full, sizeof(lifecycle_full), "%s  %s", host_event_label(host_overlay_telemetry.event), host_overlay_telemetry.is_master ? "MASTER" : "SLAVE");
+    snprintf(lifecycle_compact, sizeof(lifecycle_compact), "%s %s", host_event_compact_label(host_overlay_telemetry.event), host_overlay_telemetry.is_master ? "MST" : "SLV");
+
+    const char *const os_line = fit_host_line(host_os_label(host_overlay_telemetry.os), host_os_compact_label(host_overlay_telemetry.os));
+    const char *const policy_line = fit_host_line(policy_full, policy_compact);
+    const char *const lifecycle_line = fit_host_line(lifecycle_full, lifecycle_compact);
+
+    qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+
+    if (elapsed < HOST_PANEL_INTRO_MS) {
+        uint8_t radius = (uint8_t)(4U + elapsed / 12U);
+        if (radius > 19U) {
+            radius = 19U;
+        }
+        draw_diamond(LCD_WIDTH / 2, LCD_HEIGHT / 2, radius, accent.h, accent.s, pulse_v);
+        return;
+    }
+
+    draw_diamond(LCD_WIDTH / 2, 27, 6, accent.h, accent.s, pulse_v);
+    draw_diamond(LCD_WIDTH / 2, LCD_HEIGHT - 28, 6, accent.h, accent.s, pulse_v);
+    draw_centered_host_text(55, os_line, accent);
+
+    if (elapsed >= HOST_PANEL_STABLE_MS) {
+        draw_centered_host_text(108, policy_line, text);
+        draw_centered_host_text(161, lifecycle_line, text);
+    }
+}
+
+static bool host_telemetry_equal(const halcyon_host_telemetry_t *a, const halcyon_host_telemetry_t *b) {
+    return a->os == b->os && a->shortcut_family == b->shortcut_family && a->source == b->source && a->is_master == b->is_master;
+}
+
+static halcyon_host_telemetry_t read_host_telemetry(halcyon_host_event_t event) {
+    halcyon_host_telemetry_t telemetry = {
+        .os              = HALCYON_DISPLAY_OS_UNKNOWN,
+        .shortcut_family = HALCYON_SHORTCUT_UNKNOWN,
+        .source          = HALCYON_HOST_SOURCE_DEFAULT,
+        .event           = event,
+        .is_master       = is_keyboard_master(),
+    };
+
+    halcyon_display_host_telemetry_user(&telemetry);
+    telemetry.event = event;
+    return telemetry;
+}
+
+static void start_host_overlay(halcyon_host_event_t event, const halcyon_host_telemetry_t *telemetry) {
+    host_overlay_telemetry = *telemetry;
+    host_overlay_telemetry.event = event;
+    host_overlay_started = timer_read32();
+    last_host_overlay_frame = host_overlay_started - HOST_PANEL_FRAME_MS;
+    display_mode = DISPLAY_MODE_HOST_OVERLAY;
+}
+
+static void reset_normal_display_cache(void) {
+    last_mod_state = 0xFF;
+    last_visible_mod_mask = 0xFFFF;
+    last_display_layer = 0xFF;
+    last_background_layer = 0xFF;
+    last_background_redraw = 0;
+    last_arp_text[0] = '\0';
+}
+
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+void halcyon_display_toggle_trace_view(void) {
+    if (display_mode == DISPLAY_MODE_TRACE_VIEW) {
+        display_mode = DISPLAY_MODE_NORMAL;
+        reset_normal_display_cache();
+        return;
+    }
+
+    display_mode = DISPLAY_MODE_TRACE_VIEW;
+    os_fingerprint_page_started = timer_read32();
+    last_os_fingerprint_frame = os_fingerprint_page_started - OS_FINGERPRINT_FRAME_MS;
+    host_event_pending = false;
+}
+#endif
+
+static bool update_host_overlay(void) {
+    const halcyon_host_telemetry_t current = read_host_telemetry(pending_host_event);
+
+    if (!has_observed_host_telemetry) {
+        observed_host_telemetry = current;
+        has_observed_host_telemetry = true;
+    } else if (!host_telemetry_equal(&observed_host_telemetry, &current)) {
+        observed_host_telemetry = current;
+        pending_host_event = HALCYON_HOST_EVENT_CHANGE;
+        host_event_pending = true;
+    }
+
+    if (host_event_pending) {
+        host_event_pending = false;
+        if (display_mode != DISPLAY_MODE_TRACE_VIEW) {
+            start_host_overlay(pending_host_event, &current);
+        }
+    }
+
+    if (display_mode != DISPLAY_MODE_HOST_OVERLAY) {
+        return false;
+    }
+
+    const uint32_t elapsed = timer_elapsed32(host_overlay_started);
+    if (elapsed >= HOST_OVERLAY_DURATION_MS) {
+        display_mode = DISPLAY_MODE_NORMAL;
+        reset_normal_display_cache();
+        return false;
+    }
+
+    if (timer_elapsed32(last_host_overlay_frame) < HOST_PANEL_FRAME_MS) {
+        return false;
+    }
+
+    last_host_overlay_frame = timer_read32();
+    ensure_display_font_loaded();
+    draw_host_overlay(elapsed);
+    return true;
+}
+
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+static const char *fingerprint_os_label(os_variant_t os) {
+    switch (os) {
+        case OS_LINUX:
+            return "LIN";
+        case OS_WINDOWS:
+            return "WIN";
+        case OS_MACOS:
+            return "MAC";
+        case OS_IOS:
+            return "IOS";
+        case OS_UNSURE:
+        default:
+            return "UN";
+    }
+}
+
+static void draw_os_fingerprint_page(uint32_t elapsed) {
+    const hsv_triplet_t accent = host_accent(&host_overlay_telemetry);
+    const hsv_triplet_t text = { 29, 50, 211 };
+    const uint8_t trace_count = xtreemze_os_fingerprint_trace_count();
+    char line[24];
+
+    qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
+
+    if (trace_count == 0) {
+        draw_centered_host_text(70, "TRACE", accent);
+        draw_centered_host_text(125, is_keyboard_master() ? "NO TRACE" : "SLAVE", text);
+        return;
+    }
+
+    const uint8_t page = (uint8_t)((elapsed / OS_FINGERPRINT_PAGE_MS) % trace_count);
+    xtreemze_os_fingerprint_entry_t entry;
+    if (!xtreemze_os_fingerprint_trace_read(page, &entry)) {
+        return;
+    }
+
+    draw_centered_host_text(5, "TRACE", accent);
+    snprintf(line, sizeof(line), "%s%u/%u", xtreemze_os_fingerprint_trace_overflowed() ? "!" : "", (unsigned int)page + 1U, (unsigned int)trace_count);
+    draw_centered_host_text(36, line, accent);
+
+    snprintf(line, sizeof(line), "W %X", (unsigned int)entry.w_length);
+    draw_centered_host_text(70, line, text);
+    snprintf(line, sizeof(line), "N%u F%u", (unsigned int)entry.count, (unsigned int)entry.cnt_ff);
+    draw_centered_host_text(104, line, text);
+    snprintf(line, sizeof(line), "T%u Q%u", (unsigned int)entry.cnt_02, (unsigned int)entry.cnt_04);
+    draw_centered_host_text(138, line, text);
+    snprintf(line, sizeof(line), "C %s", fingerprint_os_label(entry.candidate_os));
+    draw_centered_host_text(172, line, accent);
+    snprintf(line, sizeof(line), "R %s", fingerprint_os_label(entry.detected_os));
+    draw_centered_host_text(206, line, accent);
+}
+
+static bool update_os_fingerprint_page(void) {
+    if (display_mode != DISPLAY_MODE_TRACE_VIEW) {
+        return false;
+    }
+
+    if (timer_elapsed32(last_os_fingerprint_frame) < OS_FINGERPRINT_FRAME_MS) {
+        return false;
+    }
+
+    last_os_fingerprint_frame = timer_read32();
+    ensure_display_font_loaded();
+    draw_os_fingerprint_page(timer_elapsed32(os_fingerprint_page_started));
+    return true;
+}
+#endif
+
+static void draw_host_marker(const char *layer_name, bool has_arp_text) {
+    if (!has_observed_host_telemetry || has_arp_text) {
+        return;
+    }
+
+    const char *const marker = host_marker_label(observed_host_telemetry.os);
+    const int16_t marker_width = qp_textwidth(Retron27, marker);
+    const int16_t layer_width = qp_textwidth(Retron27, layer_name);
+    const int16_t marker_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - marker_width;
+
+    if (marker_x <= (int16_t)STATUS_X + layer_width + 3) {
+        return;
+    }
+
+    const hsv_triplet_t accent = host_accent(&observed_host_telemetry);
+    qp_drawtext_recolor(lcd_surface, (uint16_t)marker_x, STATUS_LAYER_Y, Retron27, marker, accent.h, accent.s, accent.v, HSV_EF_BG);
+}
+
 bool update_display(void) {
-    static bool fonts_loaded = false;
     bool display_dirty = false;
 
-    if (!fonts_loaded) {
-        Retron27 = qp_load_font_mem(font_Retron2000_27);
-        fonts_loaded = true;
-    }
+    ensure_display_font_loaded();
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     const uint8_t active_mods = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
@@ -424,12 +839,14 @@ bool update_display(void) {
 
         const hsv_triplet_t layer_color = layer_fg(active_layer);
 
+        const char *const layer_name = halcyon_display_layer_name_user(active_layer);
+
         qp_drawtext_recolor(
             lcd_surface,
             STATUS_X,
             STATUS_LAYER_Y,
             Retron27,
-            halcyon_display_layer_name_user(active_layer),
+            layer_name,
             layer_color.h, layer_color.s, layer_color.v,
             HSV_EF_BG
         );
@@ -442,6 +859,8 @@ bool update_display(void) {
             }
             qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
         }
+
+        draw_host_marker(layer_name, has_arp_text);
 
         last_display_layer = active_layer;
         display_dirty = true;
@@ -480,6 +899,7 @@ void module_suspend_wakeup_init_kb(void) {
     // QMK invokes this callback from the USB wake ISR on ChibiOS. Defer the
     // SPI transaction until housekeeping runs in normal thread context.
     display_wakeup_pending = true;
+    host_resume_pending = true;
 }
 
 // Called from halcyon.c
@@ -520,15 +940,45 @@ bool display_module_housekeeping_task_kb(bool second_display) {
         }
 
         qp_surface_draw(lcd_surface, lcd, 0, 0, false);
+
+        if (host_resume_pending) {
+            host_resume_pending = false;
+            pending_host_event = HALCYON_HOST_EVENT_RESUME;
+            host_event_pending = true;
+        }
     }
 
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
 
-    bool display_dirty = false;
+    bool display_dirty = update_host_overlay();
 
-    if (last_input_activity_elapsed() >= HLC_BACKLIGHT_TIMEOUT) {
+    if (display_mode == DISPLAY_MODE_HOST_OVERLAY) {
+        if (display_dirty) {
+            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
+        }
         return true;
     }
+
+    if (last_input_activity_elapsed() >= HLC_BACKLIGHT_TIMEOUT) {
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+        if (display_mode == DISPLAY_MODE_TRACE_VIEW) {
+            display_mode = DISPLAY_MODE_NORMAL;
+            reset_normal_display_cache();
+        }
+#endif
+        return true;
+    }
+
+#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
+    display_dirty = update_os_fingerprint_page();
+
+    if (display_mode == DISPLAY_MODE_TRACE_VIEW) {
+        if (display_dirty) {
+            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
+        }
+        return true;
+    }
+#endif
 
     display_dirty = update_display();
 
