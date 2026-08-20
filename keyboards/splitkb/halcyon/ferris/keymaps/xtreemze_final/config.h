@@ -31,11 +31,9 @@
 #define VIAL_KEY_OVERRIDE_ENTRIES 32
 #define VIAL_ALT_REPEAT_KEY_ENTRIES 32
 
-/*
- * Reset detection only after genuine USB re-enumeration. Userspace stabilizes
- * each session because upstream single-report can finalize on OS_UNSURE.
- */
-#define OS_DETECTION_KEYBOARD_RESET
+/* Preserve the effective host family through suspend/resume. Detector reports
+ * are stabilized in userspace; do not turn USB reinitialization into a full
+ * keyboard soft reset. */
 #define SPLIT_DETECTED_OS_ENABLE
 
 /*

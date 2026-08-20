@@ -21,6 +21,13 @@ Vial enabled.
 - TRACE VIEW is intentionally unassigned in the compiled physical keymap; assign it temporarily through Vial when reviewing a RAM capture.
 - Automatic HOST LINK telemetry always returns to the normal TFT UI after at most `2000ms`.
 
+## OS-aware shortcut policy
+
+- Suspend/resume preserves the last effective Apple/Ctrl family; USB reinitialization does not soft-reset the keyboard.
+- A QMK detector callback is only a candidate. It must remain unchanged for `1500ms` before affecting shortcuts and `10000ms` before being persisted.
+- Wake adds a `5000ms` guard before post-resume detector evidence may replace the effective family.
+- `OS_UNSURE` cancels pending evidence but never replaces a confirmed family. With neither stored nor settled evidence, OS-aware clipboard keys intentionally send nothing.
+
 ## Module builds
 
 Build left-half firmware (TFT module):

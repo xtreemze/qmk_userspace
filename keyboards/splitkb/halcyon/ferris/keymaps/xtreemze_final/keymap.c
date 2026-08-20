@@ -72,7 +72,9 @@ enum custom_keycodes {
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
 #define XTREEMZE_CHORD_MS_MIN 250
 #define XTREEMZE_CHORD_MS_MAX 10000
-#define HOST_DISPLAY_DETECTION_SETTLE_MS 250
+#define HOST_FAMILY_SETTLE_MS 1500
+#define HOST_FAMILY_PERSIST_MS 10000
+#define HOST_FAMILY_RESUME_GUARD_MS 5000
 
 typedef enum {
     HOST_FAMILY_UNKNOWN = 0,
@@ -93,10 +95,11 @@ static host_family_t session_host_family   = HOST_FAMILY_UNKNOWN;
 static host_family_t effective_host_family = HOST_FAMILY_UNKNOWN;
 static host_source_t effective_host_source = HOST_SOURCE_DEFAULT;
 static os_variant_t exact_detected_os      = OS_UNSURE;
-#ifdef HLC_TFT_DISPLAY
-static os_variant_t split_display_candidate_os = OS_UNSURE;
-static uint32_t split_display_candidate_since  = 0;
-#endif
+static host_family_t pending_host_family   = HOST_FAMILY_UNKNOWN;
+static uint32_t pending_host_family_since  = 0;
+static volatile bool host_family_resume_pending = false;
+static bool host_family_resume_guard_active     = false;
+static uint32_t host_family_resume_started      = 0;
 
 static host_family_t validated_host_family(uint8_t value) {
     switch (value) {
@@ -205,23 +208,73 @@ static host_family_t host_family_from_os(os_variant_t detected_os) {
     }
 }
 
-bool process_detected_host_os_user(os_variant_t detected_os) {
+static void stage_host_family_candidate(os_variant_t detected_os) {
     const host_family_t detected_family = host_family_from_os(detected_os);
 
-    exact_detected_os = detected_os;
-
-    if (detected_family == HOST_FAMILY_UNKNOWN || session_host_family != HOST_FAMILY_UNKNOWN) {
-        return true;
+    if (detected_family == HOST_FAMILY_UNKNOWN) {
+        /* Inconclusive evidence may cancel a pending transition, but it must
+         * never replace the last confirmed/effective family. */
+        pending_host_family       = HOST_FAMILY_UNKNOWN;
+        pending_host_family_since = 0;
+        return;
     }
 
-    session_host_family   = detected_family;
-    effective_host_family = detected_family;
+    if (pending_host_family == detected_family) {
+        return;
+    }
+
+    pending_host_family       = detected_family;
+    pending_host_family_since = timer_read32();
+}
+
+static void update_host_family_candidate(void) {
+    if (host_family_resume_pending) {
+        host_family_resume_pending    = false;
+        host_family_resume_guard_active = true;
+        host_family_resume_started      = timer_read32();
+
+        /* Evidence observed around the wake edge starts its confidence window
+         * at resume, while the confirmed family remains immediately usable. */
+        if (pending_host_family != HOST_FAMILY_UNKNOWN) {
+            pending_host_family_since = host_family_resume_started;
+        }
+    }
+
+    if (pending_host_family == HOST_FAMILY_UNKNOWN) {
+        return;
+    }
+
+    if (host_family_resume_guard_active) {
+        if (timer_elapsed32(host_family_resume_started) < HOST_FAMILY_RESUME_GUARD_MS) {
+            return;
+        }
+        host_family_resume_guard_active = false;
+    }
+
+    const uint32_t stable_ms = timer_elapsed32(pending_host_family_since);
+    if (stable_ms < HOST_FAMILY_SETTLE_MS) {
+        return;
+    }
+
+    session_host_family   = pending_host_family;
+    effective_host_family = pending_host_family;
     effective_host_source = HOST_SOURCE_LIVE;
 
-    if (xtreemze_user_data.last_host_family != (uint8_t)detected_family) {
-        xtreemze_user_data.last_host_family = (uint8_t)detected_family;
+    /* The USB-connected master is the sole EEPROM writer. A family must remain
+     * unchanged much longer than the policy settle time before it is stored. */
+    if (!is_keyboard_master() || stable_ms < HOST_FAMILY_PERSIST_MS) {
+        return;
+    }
+
+    if (xtreemze_user_data.last_host_family != (uint8_t)pending_host_family) {
+        xtreemze_user_data.last_host_family = (uint8_t)pending_host_family;
         save_user_data();
     }
+}
+
+bool process_detected_host_os_user(os_variant_t detected_os) {
+    exact_detected_os = detected_os;
+    stage_host_family_candidate(detected_os);
 
     return true;
 }
@@ -259,35 +312,16 @@ static halcyon_host_source_t display_source_from_host_source(host_source_t sourc
 static void observe_split_display_os(os_variant_t detected_os) {
     exact_detected_os = detected_os;
 
-    if (is_keyboard_master() || session_host_family != HOST_FAMILY_UNKNOWN) {
-        return;
-    }
-
-    const host_family_t detected_family = host_family_from_os(detected_os);
-    if (detected_family == HOST_FAMILY_UNKNOWN) {
-        split_display_candidate_os = OS_UNSURE;
-        return;
-    }
-
-    if (split_display_candidate_os != detected_os) {
-        split_display_candidate_os = detected_os;
-        split_display_candidate_since = timer_read32();
-        return;
-    }
-
-    if (timer_elapsed32(split_display_candidate_since) < HOST_DISPLAY_DETECTION_SETTLE_MS) {
+    if (is_keyboard_master()) {
         return;
     }
 
     /*
      * QMK synchronizes detected_os to the USB-disconnected slave but does not
-     * run its userspace callback there. Mirror the first valid session policy
-     * in RAM for accurate TFT telemetry; the USB master remains the only half
-     * that persists a confirmed family.
+     * run its userspace callback there. Stage the same RAM-only evidence for
+     * accurate TFT telemetry; the USB master remains the only EEPROM writer.
      */
-    session_host_family   = detected_family;
-    effective_host_family = detected_family;
-    effective_host_source = HOST_SOURCE_LIVE;
+    stage_host_family_candidate(detected_os);
 }
 
 bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry) {
@@ -902,16 +936,23 @@ static inline bool is_macro_keycode(uint16_t keycode) {
     return keycode >= XM_0 && keycode <= XM_9;
 }
 
-static bool host_uses_command_shortcuts(void) {
-#ifdef OS_DETECTION_ENABLE
-    return effective_host_family == HOST_FAMILY_APPLE;
-#else
-    return false;
-#endif
-}
-
 static void tap_os_clipboard(uint16_t mac_keycode, uint16_t other_keycode) {
-    tap_code16(host_uses_command_shortcuts() ? mac_keycode : other_keycode);
+#ifdef OS_DETECTION_ENABLE
+    switch (effective_host_family) {
+        case HOST_FAMILY_APPLE:
+            tap_code16(mac_keycode);
+            break;
+        case HOST_FAMILY_CTRL:
+            tap_code16(other_keycode);
+            break;
+        case HOST_FAMILY_UNKNOWN:
+        default:
+            /* Fail closed until a stored or settled detector family exists. */
+            break;
+    }
+#else
+    tap_code16(other_keycode);
+#endif
 }
 
 static void run_macro_slot(uint8_t slot);
@@ -1710,8 +1751,18 @@ void keyboard_post_init_user(void) {
 }
 
 void matrix_scan_user(void) {
+#ifdef OS_DETECTION_ENABLE
+    update_host_family_candidate();
+#endif
 #ifdef RGB_MATRIX_ENABLE
     refresh_rgb_profile_state();
+#endif
+}
+
+void suspend_wakeup_init_user(void) {
+#ifdef OS_DETECTION_ENABLE
+    /* This may run from the ChibiOS USB wake ISR. Defer all policy work. */
+    host_family_resume_pending = true;
 #endif
 }
 

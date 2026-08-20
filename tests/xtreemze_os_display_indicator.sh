@@ -86,10 +86,17 @@ grep -q 'is_keyboard_master()' <<<"$telemetry_body" ||
     fail "Expected telemetry to expose the split role."
 
 split_observer_body="$(extract_function "$keymap_file" 'observe_split_display_os(os_variant_t detected_os)')"
-grep -q 'timer_elapsed32' <<<"$split_observer_body" ||
-    fail "Expected slave policy telemetry to wait for a stable synchronized OS result."
-grep -q 'HOST_DISPLAY_DETECTION_SETTLE_MS' <<<"$split_observer_body" ||
-    fail "Expected slave stabilization to use the documented detector settle window."
+grep -q 'stage_host_family_candidate' <<<"$split_observer_body" ||
+    fail "Expected the slave to stage its synchronized OS through the shared policy state machine."
+if grep -Eq '(session_host_family|effective_host_family)[[:space:]]*=' <<<"$split_observer_body"; then
+    fail "Expected slave telemetry observation not to bypass host-family stabilization."
+fi
+
+policy_update_body="$(extract_function "$keymap_file" 'update_host_family_candidate(void)')"
+grep -q 'timer_elapsed32' <<<"$policy_update_body" ||
+    fail "Expected shared host-family policy to wait for stable detector evidence."
+grep -q 'HOST_FAMILY_SETTLE_MS' <<<"$policy_update_body" ||
+    fail "Expected master and slave stabilization to use the same settle window."
 
 include_guard="$(awk '/#include "hlc_tft_display\/hlc_tft_display.h"/{print previous ORS $0} {previous=$0}' "$keymap_file")"
 grep -q '#ifdef HLC_TFT_DISPLAY' <<<"$include_guard" ||
