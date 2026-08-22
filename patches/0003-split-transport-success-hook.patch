@@ -1,0 +1,21 @@
+diff --git a/quantum/split_common/split_util.c b/quantum/split_common/split_util.c
+index 59b6009ec4..2e747278db 100644
+--- a/quantum/split_common/split_util.c
++++ b/quantum/split_common/split_util.c
+@@ -247,6 +247,16 @@ bool transport_master_if_connected(matrix_row_t master_matrix[], matrix_row_t sl
+ #endif // SPLIT_MAX_CONNECTION_ERRORS > 0 && SPLIT_CONNECTION_CHECK_TIMEOUT > 0
+ 
+     __attribute__((unused)) bool okay = transport_master(master_matrix, slave_matrix);
++#ifdef XTREEMZE_USB_EVENT_TRACE
++    // Passive: observes a split transaction that was going to happen anyway.
++    // The diagnostic deliberately generates no transport traffic of its own --
++    // injecting RPCs during the unstable post-wake window could provoke or mask
++    // the very failure under investigation.
++    if (okay) {
++        void xtreemze_usb_trace_split_success(void);
++        xtreemze_usb_trace_split_success();
++    }
++#endif
+ #if SPLIT_MAX_CONNECTION_ERRORS > 0
+     if (!okay) {
+         if (connection_errors < UINT8_MAX) {

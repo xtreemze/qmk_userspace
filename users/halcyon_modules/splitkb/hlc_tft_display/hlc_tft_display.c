@@ -3,6 +3,9 @@
 
 #include "halcyon.h"
 #include "hlc_tft_display.h"
+#ifdef TFT_NO_WAKE_RECOVERY
+#    include "qp_internal_driver.h"
+#endif
 #ifdef XTREEMZE_OS_FINGERPRINT_TRACE
 #    include "os_detection.h"
 #endif
@@ -1083,7 +1086,20 @@ void module_suspend_power_down_kb(void) {
 
     // DISPLAY_OFF is only meaningful while the controller is initialised. If a
     // suspend lands mid-recovery, RST is already low and SPI is not valid.
-#ifndef TFT_NO_WAKE_RECOVERY
+#ifdef TFT_NO_WAKE_RECOVERY
+    // Disabling QUANTUM_PAINTER_DISPLAY_TIMEOUT stops qp_internal_task() from
+    // toggling display power, but its tail still calls qp_flush() on every
+    // registered device each throttled pass. For the ST7789 the flush vtable is
+    // a no-op, so no data is clocked -- but qp_flush() goes through
+    // qp_comms_start() -> qp_comms_spi_start() -> spi_start() first, which takes
+    // the SPI bus mutex and asserts CS against a controller held in reset.
+    //
+    // Clearing validate_ok makes every qp_* entry point bail before touching
+    // comms, which is what "the TFT contributes nothing after suspend" has to
+    // mean for this experiment to be single-variable. Nothing revives it short
+    // of qp_init(), and this build never calls that again.
+    ((painter_driver_t *)lcd)->validate_ok = false;
+#else
     if (tft_power_state == TFT_POWER_ACTIVE) {
         qp_power(lcd, false);
     }

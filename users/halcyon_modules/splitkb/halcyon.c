@@ -106,8 +106,6 @@ void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void*
 #ifdef XTREEMZE_USB_EVENT_TRACE
 static bool trace_suspended        = false;
 static bool trace_first_hk_pending = false;
-// Set when a post-wake split round-trip still needs to be confirmed.
-static bool trace_split_probe_pending = false;
 #endif
 
 void suspend_power_down_kb(void) {
@@ -129,7 +127,7 @@ void suspend_wakeup_init_kb(void) {
 #ifdef XTREEMZE_USB_EVENT_TRACE
     trace_suspended           = false;
     trace_first_hk_pending    = true;
-    trace_split_probe_pending = true;
+    xtreemze_usb_trace_arm_split_probe();
     xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_WAKE_HANDLER_RUN, 0);
 #endif
 
@@ -156,21 +154,9 @@ void housekeeping_task_kb(void) {
         xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_FIRST_HOUSEKEEPING_AFTER_WAKE, 0);
     }
 
-    // is_transport_connected() is NOT evidence of a live link: it is just
-    // `connection_errors < SPLIT_MAX_CONNECTION_ERRORS`, and connection_errors
-    // starts at zero and only rises after failed master transactions. It reads
-    // true after a wake before any post-wake transaction has been attempted.
-    //
-    // Record only on a confirmed round-trip instead. transaction_rpc_send()
-    // returns the actual success of a real transaction, so re-running the
-    // existing MODULE_SYNC as a heartbeat gives a marker that means what its
-    // label says. Only compiled into trace builds, so production is untouched.
-    if (trace_split_probe_pending && is_keyboard_master()) {
-        if (transaction_rpc_send(MODULE_SYNC, sizeof(module), &module)) {
-            trace_split_probe_pending = false;
-            xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SPLIT_TRANSPORT_ALIVE, 0);
-        }
-    }
+    // SPLIT_TRANSPORT_ALIVE is armed here and recorded from the successful path
+    // of transport_master_if_connected() (patches/0003), so it observes a
+    // transaction QMK was going to run anyway rather than injecting one.
 #endif
 
     if (is_keyboard_master()) {

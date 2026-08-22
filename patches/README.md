@@ -18,6 +18,7 @@ userspace expects:
 ```
 git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
 git -C qmk_firmware apply ../patches/0002-usb-event-queue-instrumentation.patch
+git -C qmk_firmware apply ../patches/0003-split-transport-success-hook.patch
 ```
 
 Both are additive and fully guarded by compile flags, but "guarded" does not
@@ -27,9 +28,10 @@ mean "optional for every target here":
   `XTREEMZE_OS_FINGERPRINT_TRACE` to `yes` in
   `users/halcyon_modules/splitkb/hlc_tft_display/rules.mk`. Build with
   `-e XTREEMZE_OS_FINGERPRINT_TRACE=no` to skip it.
-- `0002` is required by any target built with `XTREEMZE_USB_EVENT_TRACE=yes`.
-  It is a hard dependency, not a soft one: the hook is a plain `extern`, not a
-  weak symbol, so a missing patch is a link error.
+- `0002` and `0003` are both required by any target built with
+  `XTREEMZE_USB_EVENT_TRACE=yes`. These are hard dependencies, not soft ones:
+  the hooks are plain `extern`s, not weak symbols, so a missing patch is a link
+  error rather than a silent no-op.
 
 Targets that enable neither feature build against an unpatched checkout.
 
@@ -47,3 +49,15 @@ Adds RAM counters and a trace hook to the ChibiOS USB event queue behind
 `XTREEMZE_USB_EVENT_TRACE`. See `users/halcyon_modules/splitkb/xtreemze_usb_trace.h`
 for why: all four `usb_event_queue_enqueue()` call sites discard the return
 value, so an event dropped because the 16-entry queue is full is invisible.
+
+### `0003-split-transport-success-hook.patch`
+
+Records a `SPLIT_TRANSPORT_ALIVE` trace entry from the successful path of
+`transport_master_if_connected()`, behind `XTREEMZE_USB_EVENT_TRACE`.
+
+`is_transport_connected()` cannot serve this purpose: it is only
+`connection_errors < SPLIT_MAX_CONNECTION_ERRORS`, and `connection_errors`
+starts at zero, so it reads true after a wake before any post-wake transaction
+has been attempted. Observing a transaction QMK performs anyway also avoids the
+diagnostic injecting transport traffic of its own during the unstable post-wake
+window.

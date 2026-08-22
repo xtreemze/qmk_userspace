@@ -67,6 +67,12 @@ typedef struct {
 // Safe from ISR or thread context.
 void xtreemze_usb_trace_record(uint8_t kind, uint8_t detail);
 
+// Arm on wake; the next split transaction that QMK performs on its own account
+// then confirms liveness. Nothing here initiates transport traffic.
+void xtreemze_usb_trace_arm_split_probe(void);
+// Called from the successful path of transport_master_if_connected().
+void xtreemze_usb_trace_split_success(void);
+
 // Number of entries currently held (saturates at XTREEMZE_USB_TRACE_CAPACITY).
 uint8_t  xtreemze_usb_trace_count(void);
 // Total events ever recorded, including ones the ring has since overwritten.

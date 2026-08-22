@@ -60,6 +60,21 @@ void xtreemze_usb_trace_record(uint8_t kind, uint8_t detail) {
     }
 }
 
+static volatile bool split_probe_pending = false;
+
+void xtreemze_usb_trace_arm_split_probe(void) {
+    split_probe_pending = true;
+}
+
+void xtreemze_usb_trace_split_success(void) {
+    if (!split_probe_pending) {
+        return;
+    }
+
+    split_probe_pending = false;
+    xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SPLIT_TRANSPORT_ALIVE, 0);
+}
+
 uint8_t xtreemze_usb_trace_count(void) {
     uint8_t held;
     ATOMIC_BLOCK_RESTORESTATE {
@@ -138,7 +153,12 @@ void xtreemze_usb_trace_type_report(void) {
 
         const char *label = entry.kind < XTREEMZE_USB_TRACE_KIND_COUNT ? trace_kind_labels[entry.kind] : "UNKNOWN";
 
-        if (entry.detail != 0) {
+        // Presence is decided by kind, never by value: QUEUE_OVERFLOW.detail is
+        // a raw usbevent_t and CONFIGURED_APPLIED.detail is a configuration
+        // number, both of which can legitimately be zero.
+        const bool show_detail = entry.kind == XTREEMZE_USB_TRACE_QUEUE_OVERFLOW || entry.kind == XTREEMZE_USB_TRACE_CONFIGURED_APPLIED;
+
+        if (show_detail) {
             snprintf(line, sizeof(line), "%u %lu %s %u\n", (unsigned)entry.seq, (unsigned long)entry.time, label, (unsigned)entry.detail);
         } else {
             snprintf(line, sizeof(line), "%u %lu %s\n", (unsigned)entry.seq, (unsigned long)entry.time, label);
