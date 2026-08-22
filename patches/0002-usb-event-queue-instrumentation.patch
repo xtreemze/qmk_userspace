@@ -1,0 +1,84 @@
+diff --git a/tmk_core/protocol/chibios/usb_main.c b/tmk_core/protocol/chibios/usb_main.c
+index f9d7f5c4d6..3e4ba2264e 100644
+--- a/tmk_core/protocol/chibios/usb_main.c
++++ b/tmk_core/protocol/chibios/usb_main.c
+@@ -103,6 +103,53 @@ usbevent_t event_queue[USB_EVENT_QUEUE_SIZE];
+ uint8_t    event_queue_head;
+ uint8_t    event_queue_tail;
+ 
++#ifdef XTREEMZE_USB_EVENT_TRACE
++// Diagnostic instrumentation. All four usb_event_queue_enqueue() call sites in
++// this file discard the return value, so an event dropped because the queue is
++// full is otherwise completely invisible. RAM only -- no EEPROM or flash writes
++// happen here, this runs in ISR context.
++volatile uint16_t usb_event_queue_overflow_count     = 0;
++volatile uint8_t  usb_event_queue_last_dropped_event = 0xFF;
++volatile uint8_t  usb_event_queue_high_watermark     = 0;
++
++// Implemented in userspace (xtreemze_usb_trace.c), which the same build flag
++// pulls into SRC. Deliberately NOT a weak symbol: LTO is enabled here, and weak
++// overrides across translation units can be resolved before the linker sees the
++// strong definition. A plain extern makes a missing module a link error instead
++// of a silently inlined no-op.
++extern void xtreemze_usb_trace_record(uint8_t kind);
++
++// Mirrors xtreemze_usb_trace_kind_t.
++#    define XTREEMZE_TRACE_USB_EVENT_SUSPEND 1
++#    define XTREEMZE_TRACE_USB_EVENT_WAKEUP 2
++#    define XTREEMZE_TRACE_USB_RESET 4
++#    define XTREEMZE_TRACE_USB_UNCONFIGURED 5
++#    define XTREEMZE_TRACE_USB_CONFIGURED 6
++#    define XTREEMZE_TRACE_QUEUE_OVERFLOW 7
++
++static inline void xtreemze_trace_usb_event(usbevent_t event) {
++    switch (event) {
++        case USB_EVENT_SUSPEND:
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_EVENT_SUSPEND);
++            break;
++        case USB_EVENT_WAKEUP:
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_EVENT_WAKEUP);
++            break;
++        case USB_EVENT_RESET:
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_RESET);
++            break;
++        case USB_EVENT_UNCONFIGURED:
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_UNCONFIGURED);
++            break;
++        case USB_EVENT_CONFIGURED:
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_CONFIGURED);
++            break;
++        default:
++            break;
++    }
++}
++#endif
++
+ void usb_event_queue_init(void) {
+     // Initialise the event queue
+     memset(&event_queue, 0, sizeof(event_queue));
+@@ -113,10 +160,25 @@ void usb_event_queue_init(void) {
+ static inline bool usb_event_queue_enqueue(usbevent_t event) {
+     uint8_t next = (event_queue_head + 1) % USB_EVENT_QUEUE_SIZE;
+     if (next == event_queue_tail) {
++#ifdef XTREEMZE_USB_EVENT_TRACE
++        usb_event_queue_overflow_count++;
++        usb_event_queue_last_dropped_event = (uint8_t)event;
++        xtreemze_usb_trace_record(XTREEMZE_TRACE_QUEUE_OVERFLOW);
++#endif
+         return false;
+     }
+     event_queue[event_queue_head] = event;
+     event_queue_head              = next;
++#ifdef XTREEMZE_USB_EVENT_TRACE
++    {
++        // Modular distance from tail to the new head: how deep the queue got.
++        uint8_t depth = (uint8_t)((uint8_t)(next - event_queue_tail) % USB_EVENT_QUEUE_SIZE);
++        if (depth > usb_event_queue_high_watermark) {
++            usb_event_queue_high_watermark = depth;
++        }
++    }
++    xtreemze_trace_usb_event(event);
++#endif
+     return true;
+ }
+ 
