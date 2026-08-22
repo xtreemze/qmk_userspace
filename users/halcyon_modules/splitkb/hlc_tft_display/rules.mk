@@ -21,6 +21,14 @@ ifeq ($(strip $(XTREEMZE_OS_FINGERPRINT_TRACE)),yes)
 OPT_DEFS += -DXTREEMZE_OS_FINGERPRINT_TRACE
 endif
 
+# Single-variable diagnostic: allow normal TFT init at cold boot, then hold the
+# panel in reset from the first suspend onward and never recover it. Removes the
+# whole QP/SPI path from the resume sequence so USB/main/split can be tested alone.
+TFT_NO_WAKE_RECOVERY ?= no
+ifeq ($(strip $(TFT_NO_WAKE_RECOVERY)),yes)
+OPT_DEFS += -DTFT_NO_WAKE_RECOVERY
+endif
+
 # Test hook: force every wake recovery attempt to fail, so the retry/backoff and
 # TFT_POWER_FAILED policy can be exercised on hardware. Never ship this on.
 TFT_FORCE_RECOVERY_FAILURE ?= no

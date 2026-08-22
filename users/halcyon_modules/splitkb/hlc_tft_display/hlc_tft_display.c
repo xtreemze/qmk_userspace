@@ -952,8 +952,16 @@ static bool tft_power_task(void) {
     }
 
     if (wake_requested) {
+#ifdef TFT_NO_WAKE_RECOVERY
+        // Diagnostic build: the panel is never brought back. It stays in reset
+        // from the first suspend onward so the TFT/QP/SPI path is removed as a
+        // variable entirely. State stays SUSPENDED, which makes every caller
+        // below a no-op.
+        host_resume_pending = false;
+#else
         tft_recovery_attempts = 0;
         tft_begin_recovery();
+#endif
     }
 
     switch (tft_power_state) {
@@ -1055,9 +1063,11 @@ void module_suspend_power_down_kb(void) {
 
     // DISPLAY_OFF is only meaningful while the controller is initialised. If a
     // suspend lands mid-recovery, RST is already low and SPI is not valid.
+#ifndef TFT_NO_WAKE_RECOVERY
     if (tft_power_state == TFT_POWER_ACTIVE) {
         qp_power(lcd, false);
     }
+#endif
 
     tft_assert_reset();
 
