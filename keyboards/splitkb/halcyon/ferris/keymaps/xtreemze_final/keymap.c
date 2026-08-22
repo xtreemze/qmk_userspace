@@ -17,6 +17,9 @@
 #ifdef RGB_MATRIX_ENABLE
 #include "rgb_matrix.h"
 #endif
+#ifdef XTREEMZE_USB_EVENT_TRACE
+#    include "xtreemze_usb_trace.h"
+#endif
 #ifdef HLC_TFT_DISPLAY
 #include "hlc_tft_display/hlc_tft_display.h"
 #endif
@@ -58,7 +61,8 @@ enum custom_keycodes {
     OS_CUT,
     OS_UNDO,
     OS_SALL,
-    OS_TRACE_VIEW
+    OS_TRACE_VIEW,
+    OS_USB_TRACE
 };
 
 /*
@@ -1706,6 +1710,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (keycode == OS_TRACE_VIEW) {
 #if defined(HLC_TFT_DISPLAY) && defined(XTREEMZE_OS_FINGERPRINT_TRACE)
         halcyon_display_toggle_trace_view();
+#endif
+        return false;
+    }
+
+    if (keycode == OS_USB_TRACE) {
+#ifdef XTREEMZE_USB_EVENT_TRACE
+        // Types the report as keystrokes rather than rendering it: the TFT is
+        // deliberately inert in the no-wake-recovery diagnostic build.
+        xtreemze_usb_trace_type_report();
 #endif
         return false;
     }

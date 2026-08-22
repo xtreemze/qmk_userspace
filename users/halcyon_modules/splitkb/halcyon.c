@@ -6,6 +6,9 @@
 #include "halcyon.h"
 #include "transactions.h"
 #include "split_util.h"
+#ifdef XTREEMZE_USB_EVENT_TRACE
+#    include "xtreemze_usb_trace.h"
+#endif
 
 __attribute__((weak)) void module_suspend_power_down_kb(void);
 __attribute__((weak)) void module_suspend_wakeup_init_kb(void);
@@ -100,13 +103,35 @@ void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void*
     }
 }
 
+#ifdef XTREEMZE_USB_EVENT_TRACE
+static bool trace_suspended         = false;
+static bool trace_first_hk_pending  = false;
+static bool trace_transport_alive   = false;
+#endif
+
 void suspend_power_down_kb(void) {
+#ifdef XTREEMZE_USB_EVENT_TRACE
+    // protocol_pre_task() calls this every ~17ms for the whole suspend, so the
+    // trace entry has to be edge-gated or it buries everything else in the ring.
+    if (!trace_suspended) {
+        trace_suspended       = true;
+        trace_transport_alive = false;
+        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SUSPEND_ENTER);
+    }
+#endif
+
     module_suspend_power_down_kb();
 
     suspend_power_down_user();
 }
 
 void suspend_wakeup_init_kb(void) {
+#ifdef XTREEMZE_USB_EVENT_TRACE
+    trace_suspended        = false;
+    trace_first_hk_pending = true;
+    xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_WAKE_HANDLER_RUN);
+#endif
+
     module_suspend_wakeup_init_kb();
 
     suspend_wakeup_init_user();
@@ -124,6 +149,23 @@ void keyboard_post_init_kb(void) {
 }
 
 void housekeeping_task_kb(void) {
+#ifdef XTREEMZE_USB_EVENT_TRACE
+    if (trace_first_hk_pending) {
+        trace_first_hk_pending = false;
+        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_FIRST_HOUSEKEEPING_AFTER_WAKE);
+    }
+
+    // Edge only: what matters is when the split link comes back after a wake,
+    // not that it is still up on every tick.
+    {
+        bool transport_alive = is_transport_connected();
+        if (transport_alive && !trace_transport_alive) {
+            xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SPLIT_TRANSPORT_ALIVE);
+        }
+        trace_transport_alive = transport_alive;
+    }
+#endif
+
     if (is_keyboard_master()) {
         static bool synced = false;
 

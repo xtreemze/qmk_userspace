@@ -3,6 +3,14 @@ SRC += $(USER_PATH)/splitkb/halcyon.c
 HALCONFDIR += $(USER_PATH)/splitkb/halconf.h
 POST_CONFIG_H += $(USER_PATH)/splitkb/config.h
 
+# USB resume instrumentation. RAM counters + an event ring with sequence numbers.
+# Requires the matching guarded hunks in qmk_firmware's usb_main.c.
+XTREEMZE_USB_EVENT_TRACE ?= no
+ifeq ($(strip $(XTREEMZE_USB_EVENT_TRACE)),yes)
+SRC += $(USER_PATH)/splitkb/xtreemze_usb_trace.c
+OPT_DEFS += -DXTREEMZE_USB_EVENT_TRACE
+endif
+
 HLC_TRUE_VALUES := 1 yes true y
 HLC_NONE_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_NONE)))
 HLC_ENCODER_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_ENCODER)))
