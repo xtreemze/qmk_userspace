@@ -104,9 +104,10 @@ void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void*
 }
 
 #ifdef XTREEMZE_USB_EVENT_TRACE
-static bool trace_suspended         = false;
-static bool trace_first_hk_pending  = false;
-static bool trace_transport_alive   = false;
+static bool trace_suspended        = false;
+static bool trace_first_hk_pending = false;
+// Set when a post-wake split round-trip still needs to be confirmed.
+static bool trace_split_probe_pending = false;
 #endif
 
 void suspend_power_down_kb(void) {
@@ -114,9 +115,8 @@ void suspend_power_down_kb(void) {
     // protocol_pre_task() calls this every ~17ms for the whole suspend, so the
     // trace entry has to be edge-gated or it buries everything else in the ring.
     if (!trace_suspended) {
-        trace_suspended       = true;
-        trace_transport_alive = false;
-        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SUSPEND_ENTER);
+        trace_suspended = true;
+        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SUSPEND_ENTER, 0);
     }
 #endif
 
@@ -127,9 +127,10 @@ void suspend_power_down_kb(void) {
 
 void suspend_wakeup_init_kb(void) {
 #ifdef XTREEMZE_USB_EVENT_TRACE
-    trace_suspended        = false;
-    trace_first_hk_pending = true;
-    xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_WAKE_HANDLER_RUN);
+    trace_suspended           = false;
+    trace_first_hk_pending    = true;
+    trace_split_probe_pending = true;
+    xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_WAKE_HANDLER_RUN, 0);
 #endif
 
     module_suspend_wakeup_init_kb();
@@ -152,17 +153,23 @@ void housekeeping_task_kb(void) {
 #ifdef XTREEMZE_USB_EVENT_TRACE
     if (trace_first_hk_pending) {
         trace_first_hk_pending = false;
-        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_FIRST_HOUSEKEEPING_AFTER_WAKE);
+        xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_FIRST_HOUSEKEEPING_AFTER_WAKE, 0);
     }
 
-    // Edge only: what matters is when the split link comes back after a wake,
-    // not that it is still up on every tick.
-    {
-        bool transport_alive = is_transport_connected();
-        if (transport_alive && !trace_transport_alive) {
-            xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SPLIT_TRANSPORT_ALIVE);
+    // is_transport_connected() is NOT evidence of a live link: it is just
+    // `connection_errors < SPLIT_MAX_CONNECTION_ERRORS`, and connection_errors
+    // starts at zero and only rises after failed master transactions. It reads
+    // true after a wake before any post-wake transaction has been attempted.
+    //
+    // Record only on a confirmed round-trip instead. transaction_rpc_send()
+    // returns the actual success of a real transaction, so re-running the
+    // existing MODULE_SYNC as a heartbeat gives a marker that means what its
+    // label says. Only compiled into trace builds, so production is untouched.
+    if (trace_split_probe_pending && is_keyboard_master()) {
+        if (transaction_rpc_send(MODULE_SYNC, sizeof(module), &module)) {
+            trace_split_probe_pending = false;
+            xtreemze_usb_trace_record(XTREEMZE_USB_TRACE_SPLIT_TRANSPORT_ALIVE, 0);
         }
-        trace_transport_alive = transport_alive;
     }
 #endif
 

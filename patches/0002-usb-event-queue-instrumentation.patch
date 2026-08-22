@@ -1,8 +1,8 @@
 diff --git a/tmk_core/protocol/chibios/usb_main.c b/tmk_core/protocol/chibios/usb_main.c
-index f9d7f5c4d6..3e4ba2264e 100644
+index f9d7f5c4d6..cc91b9a31d 100644
 --- a/tmk_core/protocol/chibios/usb_main.c
 +++ b/tmk_core/protocol/chibios/usb_main.c
-@@ -103,6 +103,53 @@ usbevent_t event_queue[USB_EVENT_QUEUE_SIZE];
+@@ -103,6 +103,63 @@ usbevent_t event_queue[USB_EVENT_QUEUE_SIZE];
  uint8_t    event_queue_head;
  uint8_t    event_queue_tail;
  
@@ -20,32 +20,42 @@ index f9d7f5c4d6..3e4ba2264e 100644
 +// overrides across translation units can be resolved before the linker sees the
 +// strong definition. A plain extern makes a missing module a link error instead
 +// of a silently inlined no-op.
-+extern void xtreemze_usb_trace_record(uint8_t kind);
++extern void xtreemze_usb_trace_record(uint8_t kind, uint8_t detail);
 +
-+// Mirrors xtreemze_usb_trace_kind_t.
-+#    define XTREEMZE_TRACE_USB_EVENT_SUSPEND 1
-+#    define XTREEMZE_TRACE_USB_EVENT_WAKEUP 2
-+#    define XTREEMZE_TRACE_USB_RESET 4
-+#    define XTREEMZE_TRACE_USB_UNCONFIGURED 5
-+#    define XTREEMZE_TRACE_USB_CONFIGURED 6
-+#    define XTREEMZE_TRACE_QUEUE_OVERFLOW 7
++// Mirrors xtreemze_usb_trace_kind_t; _Static_asserts in xtreemze_usb_trace.c pin
++// these values so a reorder there breaks the build rather than mislabelling data.
++#    define XTREEMZE_TRACE_SUSPEND_ENQUEUED 1
++#    define XTREEMZE_TRACE_WAKEUP_ENQUEUED 2
++#    define XTREEMZE_TRACE_RESET_ENQUEUED 3
++#    define XTREEMZE_TRACE_UNCONFIGURED_ENQUEUED 4
++#    define XTREEMZE_TRACE_CONFIGURED_ENQUEUED 5
++#    define XTREEMZE_TRACE_QUEUE_OVERFLOW 6
++#    define XTREEMZE_TRACE_SUSPEND_APPLIED 7
++#    define XTREEMZE_TRACE_WAKEUP_APPLIED 8
++#    define XTREEMZE_TRACE_RESET_APPLIED 9
++#    define XTREEMZE_TRACE_UNCONFIGURED_APPLIED 10
++#    define XTREEMZE_TRACE_CONFIGURED_APPLIED 11
 +
-+static inline void xtreemze_trace_usb_event(usbevent_t event) {
++// Enqueue side only: "the ISR accepted this into the queue". The matching
++// _APPLIED entry is recorded in usb_event_queue_task() once the protocol task
++// has actually dequeued it and updated USB device state. An _ENQUEUED with no
++// following _APPLIED is the divergence being hunted.
++static inline void xtreemze_trace_enqueued(usbevent_t event) {
 +    switch (event) {
 +        case USB_EVENT_SUSPEND:
-+            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_EVENT_SUSPEND);
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_SUSPEND_ENQUEUED, 0);
 +            break;
 +        case USB_EVENT_WAKEUP:
-+            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_EVENT_WAKEUP);
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_WAKEUP_ENQUEUED, 0);
 +            break;
 +        case USB_EVENT_RESET:
-+            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_RESET);
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_RESET_ENQUEUED, 0);
 +            break;
 +        case USB_EVENT_UNCONFIGURED:
-+            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_UNCONFIGURED);
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_UNCONFIGURED_ENQUEUED, 0);
 +            break;
 +        case USB_EVENT_CONFIGURED:
-+            xtreemze_usb_trace_record(XTREEMZE_TRACE_USB_CONFIGURED);
++            xtreemze_usb_trace_record(XTREEMZE_TRACE_CONFIGURED_ENQUEUED, 0);
 +            break;
 +        default:
 +            break;
@@ -56,14 +66,16 @@ index f9d7f5c4d6..3e4ba2264e 100644
  void usb_event_queue_init(void) {
      // Initialise the event queue
      memset(&event_queue, 0, sizeof(event_queue));
-@@ -113,10 +160,25 @@ void usb_event_queue_init(void) {
+@@ -113,10 +170,27 @@ void usb_event_queue_init(void) {
  static inline bool usb_event_queue_enqueue(usbevent_t event) {
      uint8_t next = (event_queue_head + 1) % USB_EVENT_QUEUE_SIZE;
      if (next == event_queue_tail) {
 +#ifdef XTREEMZE_USB_EVENT_TRACE
 +        usb_event_queue_overflow_count++;
 +        usb_event_queue_last_dropped_event = (uint8_t)event;
-+        xtreemze_usb_trace_record(XTREEMZE_TRACE_QUEUE_OVERFLOW);
++        // detail carries the identity of THIS dropped event; the counter above
++        // only remembers the last one, so multiple drops would otherwise merge.
++        xtreemze_usb_trace_record(XTREEMZE_TRACE_QUEUE_OVERFLOW, (uint8_t)event);
 +#endif
          return false;
      }
@@ -77,8 +89,46 @@ index f9d7f5c4d6..3e4ba2264e 100644
 +            usb_event_queue_high_watermark = depth;
 +        }
 +    }
-+    xtreemze_trace_usb_event(event);
++    xtreemze_trace_enqueued(event);
 +#endif
      return true;
  }
  
+@@ -155,20 +229,37 @@ void usb_event_queue_task(void) {
+             case USB_EVENT_SUSPEND:
+                 last_suspend_state = true;
+                 usb_event_suspend_handler();
++#ifdef XTREEMZE_USB_EVENT_TRACE
++                xtreemze_usb_trace_record(XTREEMZE_TRACE_SUSPEND_APPLIED, 0);
++#endif
+                 break;
+             case USB_EVENT_WAKEUP:
+                 last_suspend_state = false;
+                 usb_event_wakeup_handler();
++#ifdef XTREEMZE_USB_EVENT_TRACE
++                // Recorded after the handler, so it lands after the
++                // WAKE_HANDLER_RUN entry that suspend_wakeup_init() emits.
++                xtreemze_usb_trace_record(XTREEMZE_TRACE_WAKEUP_APPLIED, 0);
++#endif
+                 break;
+             case USB_EVENT_CONFIGURED:
+                 usb_device_state_set_configuration(USB_DRIVER.configuration != 0, USB_DRIVER.configuration);
++#ifdef XTREEMZE_USB_EVENT_TRACE
++                xtreemze_usb_trace_record(XTREEMZE_TRACE_CONFIGURED_APPLIED, USB_DRIVER.configuration);
++#endif
+                 break;
+             case USB_EVENT_UNCONFIGURED:
+                 usb_device_state_set_configuration(false, 0);
++#ifdef XTREEMZE_USB_EVENT_TRACE
++                xtreemze_usb_trace_record(XTREEMZE_TRACE_UNCONFIGURED_APPLIED, 0);
++#endif
+                 break;
+             case USB_EVENT_RESET:
+                 usb_device_state_set_reset();
+                 usb_device_state_set_protocol(USB_PROTOCOL_REPORT);
++#ifdef XTREEMZE_USB_EVENT_TRACE
++                xtreemze_usb_trace_record(XTREEMZE_TRACE_RESET_APPLIED, 0);
++#endif
+                 break;
+             default:
+                 // Nothing to do, we don't handle it.

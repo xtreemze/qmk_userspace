@@ -18,22 +18,39 @@ static volatile uint8_t           trace_head  = 0;  // Next slot to write.
 static volatile uint8_t           trace_held  = 0;  // Entries retained, <= capacity.
 static volatile uint16_t          trace_total = 0;  // Ever recorded, incl. overwritten.
 
-void xtreemze_usb_trace_record(uint8_t kind) {
+// Pin the numeric values mirrored in the usb_main.c patch (patches/0002).
+// Reordering the enum without updating the patch becomes a build error.
+_Static_assert(XTREEMZE_USB_TRACE_SUSPEND_ENQUEUED == 1, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_WAKEUP_ENQUEUED == 2, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_RESET_ENQUEUED == 3, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_UNCONFIGURED_ENQUEUED == 4, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_CONFIGURED_ENQUEUED == 5, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_QUEUE_OVERFLOW == 6, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_SUSPEND_APPLIED == 7, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_WAKEUP_APPLIED == 8, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_RESET_APPLIED == 9, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_UNCONFIGURED_APPLIED == 10, "usb_main.c patch mirrors this value");
+_Static_assert(XTREEMZE_USB_TRACE_CONFIGURED_APPLIED == 11, "usb_main.c patch mirrors this value");
+
+void xtreemze_usb_trace_record(uint8_t kind, uint8_t detail) {
     if (kind >= XTREEMZE_USB_TRACE_KIND_COUNT) {
         return;
     }
 
-    // timer_read32() outside the lock: it is a plain register read and we want
-    // the critical section to be as short as possible in ISR context.
+    // Taken outside our own lock, but note this is NOT free: timer_read32()
+    // itself takes chSysGetStatusAndLockX() and updates shared tick/ms offset
+    // bookkeeping. It is valid from any context, which is what matters here, but
+    // each record costs that lock plus the ATOMIC_BLOCK below.
     const uint32_t now = timer_read32();
 
     // RESTORESTATE, not FORCEON: this is reached from usb_event_cb() in ISR
     // context as well as from the protocol task, and chSysGetStatusAndLockX()
     // is the variant valid in both.
     ATOMIC_BLOCK_RESTORESTATE {
-        trace_ring[trace_head].seq  = trace_total;
-        trace_ring[trace_head].time = now;
-        trace_ring[trace_head].kind = kind;
+        trace_ring[trace_head].seq    = trace_total;
+        trace_ring[trace_head].time   = now;
+        trace_ring[trace_head].kind   = kind;
+        trace_ring[trace_head].detail = detail;
 
         trace_head = (uint8_t)((trace_head + 1) % XTREEMZE_USB_TRACE_CAPACITY);
         if (trace_held < XTREEMZE_USB_TRACE_CAPACITY) {
@@ -77,13 +94,18 @@ bool xtreemze_usb_trace_read(uint8_t index, xtreemze_usb_trace_entry_t *entry) {
 
 static const char *const trace_kind_labels[XTREEMZE_USB_TRACE_KIND_COUNT] = {
     "SUSPEND_ENTER",
-    "USB_EVENT_SUSPEND",
-    "USB_EVENT_WAKEUP",
-    "WAKE_HANDLER_RUN",
-    "USB_RESET",
-    "USB_UNCONFIGURED",
-    "USB_CONFIGURED",
+    "SUSPEND_ENQUEUED",
+    "WAKEUP_ENQUEUED",
+    "RESET_ENQUEUED",
+    "UNCONFIGURED_ENQUEUED",
+    "CONFIGURED_ENQUEUED",
     "QUEUE_OVERFLOW",
+    "SUSPEND_APPLIED",
+    "WAKEUP_APPLIED",
+    "RESET_APPLIED",
+    "UNCONFIGURED_APPLIED",
+    "CONFIGURED_APPLIED",
+    "WAKE_HANDLER_RUN",
     "FIRST_HOUSEKEEPING_AFTER_WAKE",
     "SPLIT_TRANSPORT_ALIVE",
 };
@@ -116,7 +138,11 @@ void xtreemze_usb_trace_type_report(void) {
 
         const char *label = entry.kind < XTREEMZE_USB_TRACE_KIND_COUNT ? trace_kind_labels[entry.kind] : "UNKNOWN";
 
-        snprintf(line, sizeof(line), "%u %lu %s\n", (unsigned)entry.seq, (unsigned long)entry.time, label);
+        if (entry.detail != 0) {
+            snprintf(line, sizeof(line), "%u %lu %s %u\n", (unsigned)entry.seq, (unsigned long)entry.time, label, (unsigned)entry.detail);
+        } else {
+            snprintf(line, sizeof(line), "%u %lu %s\n", (unsigned)entry.seq, (unsigned long)entry.time, label);
+        }
         send_string(line);
     }
 

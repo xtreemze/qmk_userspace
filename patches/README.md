@@ -20,8 +20,18 @@ git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
 git -C qmk_firmware apply ../patches/0002-usb-event-queue-instrumentation.patch
 ```
 
-Both are additive and fully guarded by compile flags, so an unpatched checkout
-still builds every target — the guarded features are simply absent.
+Both are additive and fully guarded by compile flags, but "guarded" does not
+mean "optional for every target here":
+
+- `0001` is required by the **normal display module**, which defaults
+  `XTREEMZE_OS_FINGERPRINT_TRACE` to `yes` in
+  `users/halcyon_modules/splitkb/hlc_tft_display/rules.mk`. Build with
+  `-e XTREEMZE_OS_FINGERPRINT_TRACE=no` to skip it.
+- `0002` is required by any target built with `XTREEMZE_USB_EVENT_TRACE=yes`.
+  It is a hard dependency, not a soft one: the hook is a plain `extern`, not a
+  weak symbol, so a missing patch is a link error.
+
+Targets that enable neither feature build against an unpatched checkout.
 
 ## Contents
 
