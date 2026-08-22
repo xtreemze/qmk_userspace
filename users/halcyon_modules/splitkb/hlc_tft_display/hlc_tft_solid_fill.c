@@ -52,8 +52,20 @@ static void solid_fill_paint(void) {
     qp_flush(lcd);
 }
 
-// Called from halcyon.c
+// Called from halcyon.c.
+//
+// Edge-gated: protocol_pre_task() calls suspend_power_down() every ~17ms for the
+// whole suspend, so an ungated hook re-sends DISPLAY_OFF thousands of times per
+// hour. This build is only ever for the panel-row diagnostic, never the USB
+// suspend experiment, but there is no reason to leave the footgun in place.
+static bool solid_fill_suspended = false;
+
 void module_suspend_power_down_kb(void) {
+    if (solid_fill_suspended) {
+        return;
+    }
+
+    solid_fill_suspended = true;
     backlight_suspend();
     qp_power(lcd, false);
 }
@@ -92,7 +104,8 @@ bool display_module_housekeeping_task_kb(bool second_display) {
             return true;
         }
 
-        solid_fill_pending = true;
+        solid_fill_suspended = false;
+        solid_fill_pending   = true;
     }
 
     if (timer_elapsed32(solid_fill_last) >= SOLID_FILL_HOLD_MS) {

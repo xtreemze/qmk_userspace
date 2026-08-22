@@ -937,6 +937,12 @@ static void tft_begin_recovery(void) {
     tft_power_state = TFT_POWER_WAKE_RESET;
 }
 
+static void tft_recovery_failed(void) {
+    tft_recovery_attempts++;
+    tft_power_timer = timer_read32();
+    tft_power_state = (tft_recovery_attempts >= TFT_RECOVERY_MAX_ATTEMPTS) ? TFT_POWER_FAILED : TFT_POWER_WAKE_RETRY;
+}
+
 // Drives the suspend/resume state machine. Returns true only when the
 // controller is fully initialised and it is safe to push pixels at it.
 static bool tft_power_task(void) {
@@ -959,8 +965,15 @@ static bool tft_power_task(void) {
         // below a no-op.
         host_resume_pending = false;
 #else
-        tft_recovery_attempts = 0;
-        tft_begin_recovery();
+        // Only ever start from SUSPENDED. macOS bouncing the USB state on resume
+        // is precisely what is under investigation, and without this a second
+        // wake notification arriving mid-recovery would restart the reset cycle
+        // from scratch and clear the attempt counter -- so repeated wakes could
+        // defer recovery indefinitely. Additional wakes are coalesced.
+        if (tft_power_state == TFT_POWER_SUSPENDED) {
+            tft_recovery_attempts = 0;
+            tft_begin_recovery();
+        }
 #endif
     }
 
@@ -1004,11 +1017,7 @@ static bool tft_power_task(void) {
 #else
             if (!qp_clear(lcd)) {
 #endif
-                tft_recovery_attempts++;
-                tft_power_timer = timer_read32();
-                tft_power_state = (tft_recovery_attempts >= TFT_RECOVERY_MAX_ATTEMPTS)
-                                      ? TFT_POWER_FAILED
-                                      : TFT_POWER_WAKE_RETRY;
+                tft_recovery_failed();
                 return false;
             }
 
@@ -1016,16 +1025,27 @@ static bool tft_power_task(void) {
             // alone, but re-assert them so geometry can never drift.
             qp_set_viewport_offsets(lcd, LCD_OFFSET_X, LCD_OFFSET_Y);
 
-            // The RGB565 surface lives in RAM and survived suspend untouched,
-            // so this restores the exact pre-suspend image in one blit.
-            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-            qp_flush(lcd);
-
-            // Only after the framebuffer has landed: drop cached header/mod/
-            // animation state so the next update_display() cannot decide it has
-            // nothing to redraw.
+            // The RAM surface survived suspend, but its contents are NOT enough
+            // on their own: qp_surface_draw() early-returns true WITHOUT
+            // transmitting anything when the surface is not dirty, and the
+            // previous successful draw cleared that flag itself via
+            // qp_flush(surface). Blitting here would "succeed" having sent zero
+            // pixels, and we would then release the backlight over a freshly
+            // reset panel with undefined GRAM. Passing entire_surface=true does
+            // not help -- the clean-surface check happens before it is consulted.
+            //
+            // So invalidate the logical cache first and force a full re-render
+            // into the surface, which marks it dirty, before the transfer.
             display_mode = DISPLAY_MODE_NORMAL;
             reset_normal_display_cache();
+            update_display();
+
+            if (!qp_surface_draw(lcd_surface, lcd, 0, 0, false)) {
+                tft_recovery_failed();
+                return false;
+            }
+
+            qp_flush(lcd);
 
             if (host_resume_pending) {
                 host_resume_pending = false;
@@ -1082,8 +1102,12 @@ void module_suspend_power_down_kb(void) {
 
 // Called from halcyon.c
 void module_suspend_wakeup_init_kb(void) {
-    // QMK invokes this callback from the USB wake ISR on ChibiOS. Defer the
-    // SPI transaction until housekeeping runs in normal thread context.
+    // Reached from usb_event_queue_task() -> usb_event_wakeup_handler() ->
+    // suspend_wakeup_init(), i.e. protocol task context, not the USB ISR -- the
+    // ISR only enqueues. (The "running from ISR" comment in
+    // platforms/chibios/suspend.c is stale for this implementation.) Work is
+    // still deferred to housekeeping so the reset/init timing is owned by the
+    // state machine rather than done inline here.
     display_wakeup_pending = true;
     host_resume_pending = true;
 }
