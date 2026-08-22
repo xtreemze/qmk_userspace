@@ -46,6 +46,7 @@ module_t module;
 #endif
 
 bool backlight_off = false;
+static bool backlight_inhibited = false;
 
 #ifndef BACKLIGHT_ON_STATE
 #    define BACKLIGHT_ON_STATE 1
@@ -70,13 +71,27 @@ static void halcyon_backlight_set(bool enabled) {
 // Timeout handling
 void backlight_wakeup(void) {
     backlight_off = false;
-    halcyon_backlight_set(true);
+    if (!backlight_inhibited) {
+        halcyon_backlight_set(true);
+    }
 }
 
 // Timeout handling
 void backlight_suspend(void) {
     backlight_off = true;
     halcyon_backlight_set(false);
+}
+
+// Lets a module hold the panel dark while it owns the display hardware (e.g.
+// during a TFT reset/re-init cycle on wake), without the timeout logic below
+// switching the backlight back on underneath it every housekeeping tick.
+void halcyon_backlight_inhibit(bool inhibit) {
+    if (backlight_inhibited == inhibit) {
+        return;
+    }
+
+    backlight_inhibited = inhibit;
+    halcyon_backlight_set(inhibit ? false : !backlight_off);
 }
 
 void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void* initiator2target_buffer, uint8_t target2initiator_buffer_size, void* target2initiator_buffer) {
@@ -123,13 +138,15 @@ void housekeeping_task_kb(void) {
     }
 
     // Backlight feature
-    if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
-        if (backlight_off) {
-            backlight_wakeup();
-        }
-    } else {
-        if (!backlight_off) {
-            backlight_suspend();
+    if (!backlight_inhibited) {
+        if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
+            if (backlight_off) {
+                backlight_wakeup();
+            }
+        } else {
+            if (!backlight_off) {
+                backlight_suspend();
+            }
         }
     }
 

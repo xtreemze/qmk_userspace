@@ -21,3 +21,7 @@ bool display_module_housekeeping_task_kb(bool second_display);
 bool module_post_init_user(void);
 bool module_housekeeping_task_user(void);
 bool display_module_housekeeping_task_user(bool second_display);
+
+void backlight_wakeup(void);
+void backlight_suspend(void);
+void halcyon_backlight_inhibit(bool inhibit);

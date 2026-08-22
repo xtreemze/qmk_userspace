@@ -31,4 +31,24 @@
 #define BACKLIGHT_PIN GP27
 
 // Timeout configuration
-#define QUANTUM_PAINTER_DISPLAY_TIMEOUT HLC_BACKLIGHT_TIMEOUT
+#ifdef XTREEMZE_TFT_SOLID_FILL
+// Keep the panel lit indefinitely so the fill can be watched without input.
+#    undef HLC_BACKLIGHT_TIMEOUT
+#    define HLC_BACKLIGHT_TIMEOUT 0xFFFFFFFFUL
+#endif
+
+// Disable Quantum Painter's own display timeout task.
+//
+// qp_internal_display_timeout_task() (quantum/painter/qp_internal.c) runs from
+// quantum/main.c, walks every registered qp_devices[] entry and calls qp_power()
+// on it based on last_input_activity_elapsed(). That is a second, independent
+// owner of display power with no knowledge of the suspend/resume state machine:
+// it can emit SPI while we are holding the controller in hardware reset during
+// wake recovery, and it defeats the "no QP/SPI activity" premise of the
+// TFT_NO_WAKE_RECOVERY diagnostic entirely.
+//
+// Setting it to 0 compiles that task out and leaves the module as the sole owner
+// of qp_power(). The visible behaviour is unchanged: halcyon.c still blanks the
+// backlight at HLC_BACKLIGHT_TIMEOUT, which is what the user actually sees. The
+// panel simply no longer receives a redundant DISPLAY_OFF while already dark.
+#define QUANTUM_PAINTER_DISPLAY_TIMEOUT 0

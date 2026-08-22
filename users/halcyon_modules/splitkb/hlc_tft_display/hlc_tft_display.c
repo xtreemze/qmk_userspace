@@ -30,6 +30,20 @@ typedef enum {
     DISPLAY_MODE_TRACE_VIEW,
 } display_mode_t;
 
+// USB suspend is treated as a real display shutdown boundary rather than a
+// DISPLAY_OFF/DISPLAY_ON pair. There is no firmware-controlled VIK 3.3V switch
+// on this board, so the closest we can get to depowering the ST7789 is holding
+// its dedicated reset line low for the whole suspend, then bringing the
+// controller back through a full initialisation on wake.
+typedef enum {
+    TFT_POWER_ACTIVE = 0,   // Initialised, safe to draw.
+    TFT_POWER_SUSPENDED,    // RST held low, no SPI traffic permitted.
+    TFT_POWER_WAKE_RESET,   // RST low, waiting out the reset pulse width.
+    TFT_POWER_WAKE_INIT,    // RST released, waiting for controller recovery.
+    TFT_POWER_WAKE_RETRY,   // Re-init failed, backing off before another cycle.
+    TFT_POWER_FAILED,       // Gave up; panel stays dark, keyboard keeps working.
+} tft_power_state_t;
+
 static uint8_t last_mod_state = 0xFF;
 static uint16_t last_visible_mod_mask = 0xFFFF;
 static uint8_t last_display_layer = 0xFF;
@@ -39,6 +53,9 @@ static uint32_t last_background_redraw = 0;
 static uint8_t last_background_layer = 0xFF;
 static uint8_t pattern_animation_frame = 0;
 static volatile bool display_wakeup_pending = false;
+static tft_power_state_t tft_power_state = TFT_POWER_ACTIVE;
+static uint32_t tft_power_timer = 0;
+static uint8_t tft_recovery_attempts = 0;
 static volatile bool host_resume_pending = false;
 static bool host_event_pending = true;
 static halcyon_host_event_t pending_host_event = HALCYON_HOST_EVENT_BOOT;
@@ -66,6 +83,20 @@ static uint32_t last_os_fingerprint_frame = 0;
 #    define OS_FINGERPRINT_FRAME_MS 200
 #endif
 #define MOD_RECENT_MS 2200
+// ST7789 reset pulse width; the datasheet minimum is ~10us, QMK's own comms
+// init uses 20ms, so match that rather than inventing a shorter one.
+#define TFT_RESET_LOW_MS 20
+// Reset-release recovery before the controller will accept commands. The init
+// sequence issues its own SWRESET + 120ms afterwards, so this is deliberately
+// conservative rather than tight.
+#define TFT_RESET_RECOVERY_MS 120
+#define TFT_RECOVERY_RETRY_MS 1000
+// Bounded so a dead panel cannot inflict a ~145ms init stall every housekeeping
+// tick forever. Worst case is 5 attempts spread over ~5s, then permanently
+// quiet. Note that qp_clear() can only fail at the comms layer -- this SPI
+// config has no read-back path, so a controller that silently ignores commands
+// is not detectable and will look like a successful recovery.
+#define TFT_RECOVERY_MAX_ATTEMPTS 5
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define MOD_INDICATOR_COLUMNS 2
 
@@ -888,10 +919,155 @@ bool update_display(void) {
     return display_dirty;
 }
 
-// Called from halcyon.c
+static void tft_assert_reset(void) {
+    gpio_set_pin_output(LCD_RST_PIN);
+    gpio_write_pin_low(LCD_RST_PIN);
+}
+
+static void tft_begin_recovery(void) {
+    // Normally already asserted by the suspend path; re-assert so a retry cycle
+    // is self-contained. qp_clear() re-runs the init sequence, which ends in
+    // DISPLAY_ON while GRAM still holds whatever survived the reset, so the
+    // backlight must stay off until the blit has landed.
+    halcyon_backlight_inhibit(true);
+
+    tft_assert_reset();
+
+    tft_power_timer = timer_read32();
+    tft_power_state = TFT_POWER_WAKE_RESET;
+}
+
+// Drives the suspend/resume state machine. Returns true only when the
+// controller is fully initialised and it is safe to push pixels at it.
+static bool tft_power_task(void) {
+    // Test-and-clear atomically. In this checkout the wake handler actually runs
+    // from protocol task context (usb_event_cb only enqueues; usb_event_queue_task
+    // dequeues and calls suspend_wakeup_init), so this is belt-and-braces rather
+    // than strictly required -- RESTORESTATE is used because it is valid from any
+    // context, unlike FORCEON, should that ever change.
+    bool wake_requested = false;
+    ATOMIC_BLOCK_RESTORESTATE {
+        wake_requested         = display_wakeup_pending;
+        display_wakeup_pending = false;
+    }
+
+    if (wake_requested) {
+        tft_recovery_attempts = 0;
+        tft_begin_recovery();
+    }
+
+    switch (tft_power_state) {
+        case TFT_POWER_ACTIVE:
+            return true;
+
+        case TFT_POWER_SUSPENDED:
+        case TFT_POWER_FAILED:
+            return false;
+
+        case TFT_POWER_WAKE_RESET:
+            if (timer_elapsed32(tft_power_timer) >= TFT_RESET_LOW_MS) {
+                gpio_write_pin_high(LCD_RST_PIN);
+                tft_power_timer = timer_read32();
+                tft_power_state = TFT_POWER_WAKE_INIT;
+            }
+            return false;
+
+        case TFT_POWER_WAKE_RETRY:
+            if (timer_elapsed32(tft_power_timer) >= TFT_RECOVERY_RETRY_MS) {
+                tft_begin_recovery();
+            }
+            return false;
+
+        case TFT_POWER_WAKE_INIT:
+            if (timer_elapsed32(tft_power_timer) < TFT_RESET_RECOVERY_MS) {
+                return false;
+            }
+
+            // qp_clear() re-runs the ST7789 init sequence (SWRESET, sleep off,
+            // pixel format, inversion, MADCTL, DISPLAY_ON) over SPI. Unlike
+            // qp_init() it does not pulse RST again, so this is the single
+            // authoritative re-initialisation after the reset cycle above.
+            // qp_clear() only reports comms-layer failures (see the note in
+            // TFT_RECOVERY_MAX_ATTEMPTS' commentary), so the failure policy is
+            // otherwise untestable. Build with -DTFT_FORCE_RECOVERY_FAILURE to
+            // exercise the retry/backoff/FAILED path on real hardware.
+#ifdef TFT_FORCE_RECOVERY_FAILURE
+            if (true) {
+#else
+            if (!qp_clear(lcd)) {
+#endif
+                tft_recovery_attempts++;
+                tft_power_timer = timer_read32();
+                tft_power_state = (tft_recovery_attempts >= TFT_RECOVERY_MAX_ATTEMPTS)
+                                      ? TFT_POWER_FAILED
+                                      : TFT_POWER_WAKE_RETRY;
+                return false;
+            }
+
+            // ST7789_NO_AUTOMATIC_VIEWPORT_OFFSETS means init leaves these
+            // alone, but re-assert them so geometry can never drift.
+            qp_set_viewport_offsets(lcd, LCD_OFFSET_X, LCD_OFFSET_Y);
+
+            // The RGB565 surface lives in RAM and survived suspend untouched,
+            // so this restores the exact pre-suspend image in one blit.
+            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
+            qp_flush(lcd);
+
+            // Only after the framebuffer has landed: drop cached header/mod/
+            // animation state so the next update_display() cannot decide it has
+            // nothing to redraw.
+            display_mode = DISPLAY_MODE_NORMAL;
+            reset_normal_display_cache();
+
+            if (host_resume_pending) {
+                host_resume_pending = false;
+                pending_host_event = HALCYON_HOST_EVENT_RESUME;
+                host_event_pending = true;
+            }
+
+            tft_recovery_attempts = 0;
+            tft_power_state = TFT_POWER_ACTIVE;
+            halcyon_backlight_inhibit(false);
+            return true;
+    }
+
+    return false;
+}
+
+// Called from halcyon.c.
+//
+// NOT an edge callback: protocol_pre_task() spins in
+// `while (USB_DRIVER.state == USB_SUSPENDED) { suspend_power_down(); }`, so
+// this runs roughly every 17ms for the whole suspend. Everything below must
+// therefore happen exactly once, on the transition into SUSPENDED, or we end
+// up clocking SPI at a controller we are deliberately holding in reset.
 void module_suspend_power_down_kb(void) {
+    if (tft_power_state == TFT_POWER_SUSPENDED) {
+        return;
+    }
+
+    // Assert the inhibit here, not in the wake path: it has to survive the
+    // suspend. housekeeping_task_kb() runs its backlight timeout block before
+    // the display task, so on the first tick after wake it would otherwise
+    // light the panel while the controller is still in reset.
+    halcyon_backlight_inhibit(true);
     backlight_suspend();
-    qp_power(lcd, false);
+
+    // DISPLAY_OFF is only meaningful while the controller is initialised. If a
+    // suspend lands mid-recovery, RST is already low and SPI is not valid.
+    if (tft_power_state == TFT_POWER_ACTIVE) {
+        qp_power(lcd, false);
+    }
+
+    tft_assert_reset();
+
+    // Discard a wake that raced the suspend, so recovery cannot start while
+    // the host is still down and strand us with RST released.
+    display_wakeup_pending = false;
+    host_resume_pending    = false;
+
+    tft_recovery_attempts = 0;
+    tft_power_state       = TFT_POWER_SUSPENDED;
 }
 
 // Called from halcyon.c
@@ -924,6 +1100,13 @@ bool module_post_init_kb(void) {
     qp_surface_draw(lcd_surface, lcd, 0, 0, false);
     qp_flush(lcd);
 
+    // Land in exactly the logical state a successful wake recovery reaches.
+    display_wakeup_pending = false;
+    host_resume_pending    = false;
+    tft_recovery_attempts  = 0;
+    tft_power_state        = TFT_POWER_ACTIVE;
+    halcyon_backlight_inhibit(false);
+
     if(!module_post_init_user()) { return false; }
 
     return true;
@@ -931,21 +1114,10 @@ bool module_post_init_kb(void) {
 
 // Called from halcyon.c
 bool display_module_housekeeping_task_kb(bool second_display) {
-    if (display_wakeup_pending) {
-        display_wakeup_pending = false;
-
-        if (!qp_power(lcd, true)) {
-            display_wakeup_pending = true;
-            return true;
-        }
-
-        qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-
-        if (host_resume_pending) {
-            host_resume_pending = false;
-            pending_host_event = HALCYON_HOST_EVENT_RESUME;
-            host_event_pending = true;
-        }
+    // Nothing below this point may touch the panel unless the controller is
+    // fully initialised: no overlays, no animation frames, no trace pages.
+    if (!tft_power_task()) {
+        return true;
     }
 
     if(!display_module_housekeeping_task_user(second_display)) { return false; }
