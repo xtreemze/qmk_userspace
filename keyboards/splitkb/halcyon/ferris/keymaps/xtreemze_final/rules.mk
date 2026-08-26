@@ -17,6 +17,10 @@ MOUSEKEY_ENABLE = yes
 ONESHOT_ENABLE = yes
 OS_DETECTION_ENABLE = yes
 
+# Isolate debounce timers per switch so rapid activity on other keys cannot
+# suppress a short press before it reaches QMK's key processing pipeline.
+DEBOUNCE_TYPE = sym_defer_pk
+
 # This adds module functionality to your keyboard (files found in users/halcyon_modules)
 USER_NAME := halcyon_modules
 
