@@ -149,8 +149,8 @@ if grep -Eq '\bqp_|\bwait_(ms|us)[[:space:]]*\(' <<<"$record_body"; then
 fi
 
 keymaps_body="$(extract_function "$keymap_file" 'const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS]')"
-if grep -q 'OS_TRACE_VIEW' <<<"$keymaps_body"; then
-    fail "Expected TRACE VIEW to remain unassigned in the compiled physical keymap."
+if ! grep -q 'OS_TRACE_VIEW' <<<"$keymaps_body"; then
+    fail "Expected the canonical USER20 TRACE VIEW binding in the compiled keymap."
 fi
 
 housekeeping_body="$(extract_function "$display_file" 'display_module_housekeeping_task_kb(bool second_display)')"

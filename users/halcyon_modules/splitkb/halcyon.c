@@ -53,13 +53,17 @@ bool backlight_off = false;
 
 static void halcyon_backlight_set(bool enabled) {
 #ifdef BACKLIGHT_ENABLE
+    // Only the USB master owns brightness. QMK synchronizes its effective level
+    // to the other half, including the transient zero used during inactivity.
+    if (!is_keyboard_master()) {
+        return;
+    }
     if (enabled) {
-        backlight_enable();
-        if (get_backlight_level() == 0) {
-            backlight_level(BACKLIGHT_LEVELS);
-        }
+        // Restore the user's saved level AND enable flag, including manual off.
+        backlight_init();
     } else {
-        backlight_disable();
+        // Do not persist an idle/suspend event as the user's brightness choice.
+        backlight_level_noeeprom(0);
     }
 #elif defined(HLC_TFT_DISPLAY) && defined(BACKLIGHT_PIN)
     gpio_set_pin_output(BACKLIGHT_PIN);
@@ -79,6 +83,14 @@ void backlight_suspend(void) {
     halcyon_backlight_set(false);
 }
 
+bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
+    // A BL_* key after inactivity must adjust the saved level, not transient zero.
+    if (record->event.pressed && backlight_off) {
+        backlight_wakeup();
+    }
+    return process_record_user(keycode, record);
+}
+
 void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void* initiator2target_buffer, uint8_t target2initiator_buffer_size, void* target2initiator_buffer) {
     if (initiator2target_buffer_size == sizeof(module)) {
         memcpy(&module_master, initiator2target_buffer, sizeof(module_master));
@@ -86,12 +98,16 @@ void module_sync_slave_handler(uint8_t initiator2target_buffer_size, const void*
 }
 
 void suspend_power_down_kb(void) {
+    backlight_suspend();
     module_suspend_power_down_kb();
 
     suspend_power_down_user();
 }
 
 void suspend_wakeup_init_kb(void) {
+    // QMK has restored the saved backlight state. Re-evaluate the idle timeout
+    // in housekeeping without touching PWM, EEPROM or the display in this hook.
+    backlight_off = false;
     module_suspend_wakeup_init_kb();
 
     suspend_wakeup_init_user();

@@ -3,6 +3,11 @@ SRC += $(USER_PATH)/splitkb/halcyon.c
 HALCONFDIR += $(USER_PATH)/splitkb/halconf.h
 POST_CONFIG_H += $(USER_PATH)/splitkb/config.h
 
+# Enable on every module so either USB master processes BL_* and both halves
+# agree on QMK's backlight split transaction layout. Only the TFT uses GP27.
+BACKLIGHT_ENABLE = yes
+BACKLIGHT_DRIVER = pwm
+
 HLC_TRUE_VALUES := 1 yes true y
 HLC_NONE_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_NONE)))
 HLC_ENCODER_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_ENCODER)))

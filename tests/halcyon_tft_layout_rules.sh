@@ -42,7 +42,7 @@ layer_names="$(
     ' "$keymap_file"
 )"
 
-expected_names="MOUSE QWERTY COLEMAK NUMSYMS RGBSAT ONESHOT EDITING FNMEDIA RGBSPD RGBMODE RGBHUE RGBVAL RESERVE"
+expected_names="MOUSE QWERTY COLEMAK NUMSYMS NUMFLIP ONESHOT EDITING FNSYMS FNFLIP SYMBOLS RGBHUE RGBVAL BKLIGHT"
 actual_names="$(tr '\n' ' ' <<<"$layer_names" | sed 's/[[:space:]]*$//')"
 
 if [[ "$actual_names" != "$expected_names" ]]; then
@@ -56,3 +56,5 @@ while IFS= read -r name; do
         exit 1
     fi
 done <<<"$layer_names"
+
+python3 "$repo_root/tests/halcyon_tft_patterns.py"

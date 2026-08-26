@@ -23,4 +23,4 @@ jobs:
     if: needs.build.result == 'success'
     needs: build
     with:
-      release_name: halcyon-legacy-migration
+      release_name: ${{ github.ref == 'refs/heads/halcyon' && 'latest' || 'halcyon-legacy-migration' }}

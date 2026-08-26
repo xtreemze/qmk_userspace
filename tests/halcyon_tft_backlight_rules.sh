@@ -6,39 +6,21 @@ rules_file="$repo_root/users/halcyon_modules/splitkb/rules.mk"
 halcyon_file="$repo_root/users/halcyon_modules/splitkb/halcyon.c"
 tft_file="$repo_root/users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c"
 
-tft_block="$(
-    awk '
-        /^ifneq \(\$\(HLC_TFT_DISPLAY_ENABLED\),\)/ {
-            in_block = 1
-        }
-        in_block {
-            print
-        }
-        in_block && /^endif$/ {
-            exit
-        }
-    ' "$rules_file"
+# Backlighting is required on BOTH module builds: QMK's split packet layout
+# includes it, and either half may be the USB master handling the encoder keys.
+for module in HLC_TFT_DISPLAY HLC_ENCODER; do
+    settings="$(make -s -f - "$module=1" <<MAKEFILE
+USER_PATH := $repo_root/users/halcyon_modules
+include $rules_file
+all:
+	@printf '%s %s' '\$(BACKLIGHT_ENABLE)' '\$(BACKLIGHT_DRIVER)'
+MAKEFILE
 )"
-
-if grep -Eq '^[[:space:]]*BACKLIGHT_ENABLE[[:space:]]*=' <<<"$tft_block"; then
-    echo "Expected the HLC_TFT_DISPLAY rules block to avoid QMK BACKLIGHT_ENABLE." >&2
-    exit 1
-fi
-
-if grep -Eq '^[[:space:]]*BACKLIGHT_DRIVER[[:space:]]*=' <<<"$tft_block"; then
-    echo "Expected the HLC_TFT_DISPLAY rules block to avoid QMK backlight drivers." >&2
-    exit 1
-fi
-
-if ! grep -q 'halcyon_backlight_set' "$halcyon_file"; then
-    echo "Expected direct Halcyon TFT backlight control in halcyon.c." >&2
-    exit 1
-fi
-
-if ! grep -q 'gpio_write_pin' "$halcyon_file"; then
-    echo "Expected Halcyon TFT backlight control to drive a GPIO pin." >&2
-    exit 1
-fi
+    if [[ "$settings" != "yes pwm" ]]; then
+        echo "Expected $module to enable QMK backlight with the PWM driver." >&2
+        exit 1
+    fi
+done
 
 housekeeping_body="$(
     awk '
@@ -82,7 +64,7 @@ tft_wakeup_body="$(
 )"
 
 if grep -Eq '\bqp_|\bwait_(ms|us)[[:space:]]*\(' <<<"$tft_wakeup_body"; then
-    echo "Expected the interrupt-context wake callback to avoid TFT/SPI operations and blocking waits." >&2
+    echo "Expected the wake callback to avoid TFT/SPI operations and blocking waits." >&2
     exit 1
 fi
 
@@ -95,3 +77,5 @@ if ! grep -q 'display_wakeup_pending' "$tft_file" || ! grep -q 'qp_power(lcd, tr
     echo "Expected housekeeping-context TFT wake recovery." >&2
     exit 1
 fi
+
+python3 "$repo_root/tests/halcyon_backlight_pwm.py"

@@ -27,6 +27,8 @@ function normalizeKeycode(value) {
 
     const direct = {
         KC_TRNS: '_______',
+        BL_INC: 'BL_UP',
+        BL_DEC: 'BL_DOWN',
         RGB_TOG: 'RM_TOGG',
         RGB_SAD: 'RM_SATD',
         RGB_SAI: 'RM_SATU',
@@ -88,7 +90,7 @@ function normalizeKeycode(value) {
     match = /^(LCTL_T|LGUI_T|LSFT_T|LALT_T|RCTL_T|RGUI_T|RSFT_T|RALT_T)\((.*)\)$/.exec(value);
     if (match) return `${match[1]}(${match[2] === 'KC_SPACE' ? 'KC_SPC' : normalizeKeycode(match[2])})`;
 
-    match = /^(LSFT|LCTL|LALT|LGUI|RCTL|RALT|RGUI|SGUI|HYPR|MEH)\((.*)\)$/.exec(value);
+    match = /^(LSFT|RSFT|LCTL|LALT|LGUI|RCTL|RALT|RGUI|SGUI|HYPR|MEH)\((.*)\)$/.exec(value);
     if (match) return `${match[1]}(${normalizeKeycode(match[2])})`;
 
     match = /^C_S\((.*)\)$/.exec(value);
@@ -113,7 +115,7 @@ function splitTopLevel(value) {
     return result;
 }
 
-assert(profile.uid === 3946455230411839832, 'Unexpected Vial keyboard UID.');
+assert(/"uid"\s*:\s*3946455230411839832[,}]/.test(fs.readFileSync(vilPath, 'utf8')), 'Unexpected Vial keyboard UID.');
 assert(profile.layout.length === 13, 'Factory profile must contain all 13 layers.');
 assert(profile.encoder_layout.length === 13, 'Factory profile must contain encoder settings for all 13 layers.');
 assert(profile.combo.length === 32 && profile.tap_dance.length === 32 && profile.macro.length === 32 && profile.key_override.length === 32 && profile.alt_repeat_key.length === 32, 'Factory profile must preserve all 32 Vial dynamic slots.');
@@ -124,7 +126,7 @@ for (const feature of ['VIA_ENABLE = yes', 'VIAL_ENABLE = yes', 'VIALRGB_ENABLE 
 for (const capacity of ['DYNAMIC_KEYMAP_LAYER_COUNT 13', 'DYNAMIC_KEYMAP_MACRO_COUNT 32', 'VIAL_TAP_DANCE_ENTRIES 32', 'VIAL_COMBO_ENTRIES 32', 'VIAL_KEY_OVERRIDE_ENTRIES 32', 'VIAL_ALT_REPEAT_KEY_ENTRIES 32']) {
     assert(config.includes(capacity), `Missing Vial capacity: ${capacity}`);
 }
-assert(config.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAE') || source.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAE'), 'Factory seed marker must be bumped for this profile.');
+assert(config.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAF') || source.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAF'), 'Factory seed marker must be bumped for this profile.');
 assert(definition.lighting === 'vialrgb', 'VialRGB must be exposed by the keyboard definition.');
 assert((definition.keycodes || []).includes('qmk_lighting'), 'QMK RGB keycodes must be visible in Vial.');
 assert((definition.menus || []).includes('qmk_rgb_matrix'), 'RGB Matrix controls must be visible in Vial.');
@@ -149,34 +151,31 @@ for (const match of encoderMatches) {
     assert(JSON.stringify(actual) === JSON.stringify(expected), `Compiled encoder layer ${layer} differs from xtreemzeVial.vil.\nactual=${JSON.stringify(actual)}\nexpected=${JSON.stringify(expected)}`);
 }
 
-for (const [index, entry] of profile.tap_dance.entries()) {
-    const expected = `    { ${entry.slice(0, 4).map(normalizeKeycode).join(', ')}, ${entry[4]} },`;
-    assert(source.includes(expected), `Tap dance ${index} is not seeded from xtreemzeVial.vil.`);
+// Compare slot order and exact table length, including every cleared slot.
+function assertTable(name, expected) {
+    const block = source.match(new RegExp(`${name}\\[\\] = \\{\\n([\\s\\S]*?)\\n\\};`));
+    assert(block, `Missing ${name}.`);
+    const actual = block[1].split('\n').map(line => line.trim()).filter(Boolean);
+    assert(JSON.stringify(actual) === JSON.stringify(expected), `${name} differs from xtreemzeVial.vil (including slot order/count).`);
 }
-for (const [index, entry] of profile.combo.entries()) {
-    const expected = `    { { ${entry.slice(0, 4).map(normalizeKeycode).join(', ')} }, ${normalizeKeycode(entry[4])} },`;
-    assert(source.includes(expected), `Combo ${index} is not seeded from xtreemzeVial.vil.`);
-}
-for (const [index, entry] of profile.key_override.entries()) {
-    const expected = `    { .trigger = ${normalizeKeycode(entry.trigger)}, .replacement = ${normalizeKeycode(entry.replacement)}, .layers = ${entry.layers}, .trigger_mods = ${entry.trigger_mods}, .negative_mod_mask = ${entry.negative_mod_mask}, .suppressed_mods = ${entry.suppressed_mods}, .options = ${entry.options} },`;
-    assert(source.includes(expected), `Key override ${index} is not seeded from xtreemzeVial.vil.`);
-}
-for (const [index, entry] of profile.alt_repeat_key.entries()) {
-    const expected = `    { .keycode = ${normalizeKeycode(entry.keycode)}, .alt_keycode = ${normalizeKeycode(entry.alt_keycode)}, .allowed_mods = ${entry.allowed_mods}, .options = ${entry.options} },`;
-    assert(source.includes(expected), `Alt-repeat entry ${index} is not seeded from xtreemzeVial.vil.`);
-}
-for (const [id, value] of Object.entries(profile.settings)) {
-    assert(source.includes(`    { ${id}, ${value} },`), `QMK setting ${id} is not seeded from xtreemzeVial.vil.`);
-}
+assertTable('xtreemze_default_tap_dances', profile.tap_dance.map(entry => `{ ${entry.slice(0, 4).map(normalizeKeycode).join(', ')}, ${entry[4]} },`));
+assertTable('xtreemze_default_combos', profile.combo.map(entry => `{ { ${entry.slice(0, 4).map(normalizeKeycode).join(', ')} }, ${normalizeKeycode(entry[4])} },`));
+assertTable('xtreemze_default_key_overrides', profile.key_override.map(entry => `{ .trigger = ${normalizeKeycode(entry.trigger)}, .replacement = ${normalizeKeycode(entry.replacement)}, .layers = ${entry.layers}, .trigger_mods = ${entry.trigger_mods}, .negative_mod_mask = ${entry.negative_mod_mask}, .suppressed_mods = ${entry.suppressed_mods}, .options = ${entry.options} },`));
+assertTable('xtreemze_default_alt_repeat_keys', profile.alt_repeat_key.map(entry => `{ .keycode = ${normalizeKeycode(entry.keycode)}, .alt_keycode = ${normalizeKeycode(entry.alt_keycode)}, .allowed_mods = ${entry.allowed_mods}, .options = ${entry.options} },`));
+assertTable('xtreemze_qmk_settings_defaults', Object.entries(profile.settings).map(([id, value]) => `{ ${id}, ${value} },`));
 
-const macroStart = source.lastIndexOf('static void seed_vial_macro_defaults(void)');
+const macroStart = source.lastIndexOf('static bool seed_vial_macro_defaults(void)');
 const macroBlock = source.slice(macroStart, source.indexOf('#ifdef QMK_SETTINGS', macroStart));
-const compiledMacros = Array.from({length: 10}, () => []);
+let macroTerminators = 0;
+const compiledMacroSlots = [];
+const compiledMacros = Array.from({length: 32}, () => []);
 let compiledMacroIndex = -1;
 for (const line of macroBlock.split('\n')) {
+    if (line.includes('ok &= macro_seed_end_slot(&offset, macro_buffer_size);')) macroTerminators++;
     let match = /\/\/ M(\d+):/.exec(line);
     if (match) {
         compiledMacroIndex = Number(match[1]);
+        compiledMacroSlots.push(compiledMacroIndex);
         continue;
     }
     match = /macro_seed_write_tap\(&offset, macro_buffer_size, (.*)\);/.exec(line);
@@ -189,17 +188,23 @@ for (const line of macroBlock.split('\n')) {
         compiledMacros[compiledMacroIndex].push(['text', JSON.parse(match[1])]);
     }
 }
-for (let index = 0; index < 10; index++) {
+for (let index = 0; index < 32; index++) {
     const expected = [];
     for (const action of profile.macro[index]) {
         if (action[0] === 'tap') {
             for (const keycode of action.slice(1)) expected.push(['tap', normalizeKeycode(keycode)]);
         } else if (action[0] === 'text') {
             expected.push(['text', action[1]]);
+        } else {
+            fail(`Untested macro action: ${action[0]}`);
         }
     }
     assert(JSON.stringify(compiledMacros[index]) === JSON.stringify(expected), `Macro ${index} differs from xtreemzeVial.vil.`);
 }
-assert(macroBlock.includes('for (uint8_t i = 10; i < DYNAMIC_KEYMAP_MACRO_COUNT && ok; ++i)'), 'Unused macro slots must be explicitly seeded empty.');
+assert(macroTerminators === 32 && compiledMacroSlots.every((slot, i) => slot === i) && compiledMacroSlots.length === 32, 'All 32 macro slots, including empty ones, must be explicitly terminated.');
+assert(source.includes('dynamic_keymap_macro_send(slot);'), 'Legacy USER macro aliases must use current Vial macro data.');
 assert(source.includes(`via_set_layout_options(${profile.layout_options}U);`), 'Halcyon module layout options differ from xtreemzeVial.vil.');
 NODE
+
+node "$repo_root/scripts/generate-vial-defaults.mjs" --check
+python3 "$repo_root/tests/xtreemze_vial_macro_encoding.py"

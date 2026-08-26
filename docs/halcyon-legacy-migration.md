@@ -1,5 +1,8 @@
 # Halcyon legacy migration candidate
 
+This records the accepted equivalence slice. The subsequent factory-profile,
+animation and PWM work is documented in [the follow-up report](halcyon-default-profile-2026-08-26.md).
+
 ## Acceptance boundary
 
 On 2026-08-26 the user confirmed that firmware `9b615b9e7b92b386d7cee07315a4b3f5b27d5a5d`

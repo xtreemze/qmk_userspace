@@ -133,5 +133,5 @@ fi
 
 grep -Eq '^#define[[:space:]]+XTREEMZE_USER_DATA_VERSION[[:space:]]+0x02([[:space:]]|$)' "$keymap_file" ||
     fail "Expected the EEPROM user-data version to remain 0x02."
-grep -Eq '^#define[[:space:]]+XTREEMZE_DEFAULTS_EE_MARKER[[:space:]]+0xAE([[:space:]]|$)' "$keymap_file" ||
-    fail "Expected the Vial defaults marker to remain 0xAE."
+grep -Eq '^#define[[:space:]]+XTREEMZE_DEFAULTS_EE_MARKER[[:space:]]+0xAF([[:space:]]|$)' "$keymap_file" ||
+    fail "Expected the Vial defaults marker to remain 0xAF."
