@@ -8,14 +8,19 @@ permissions:
 jobs:
   build:
     name: 'QMK Userspace Build'
-    uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@main
+    uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     with:
       qmk_repo: vial-kb/vial-qmk
-      qmk_ref: vial
-      preparation_command: 'ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/'
+      qmk_ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+      preparation_command: >-
+        ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/ &&
+        git -C qmk_firmware apply --check ../patches/0001-os-detection-fingerprint-trace.patch &&
+        git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
 
   publish:
     name: 'QMK Userspace Publish'
-    uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@main
-    if: always() && !cancelled()
+    uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
+    if: needs.build.result == 'success'
     needs: build
+    with:
+      release_name: halcyon-legacy-migration

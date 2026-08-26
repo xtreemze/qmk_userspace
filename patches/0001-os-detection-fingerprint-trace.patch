@@ -1,0 +1,198 @@
+diff --git a/quantum/os_detection.c b/quantum/os_detection.c
+index 552375f61c..bb20daddc1 100644
+--- a/quantum/os_detection.c
++++ b/quantum/os_detection.c
+@@ -61,6 +61,51 @@ struct setups_data_t setups_data = {
+ static volatile os_variant_t detected_os = OS_UNSURE;
+ static volatile os_variant_t reported_os = OS_UNSURE;
+ 
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++static xtreemze_os_fingerprint_entry_t fingerprint_trace[XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY];
++static volatile uint8_t                 fingerprint_trace_count      = 0;
++static volatile bool                    fingerprint_trace_overflowed = false;
++
++static void trace_fingerprint_packet(uint16_t w_length, os_variant_t candidate_os) {
++    const uint8_t index = fingerprint_trace_count;
++    if (index >= XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY) {
++        fingerprint_trace_overflowed = true;
++        return;
++    }
++
++    fingerprint_trace[index] = (xtreemze_os_fingerprint_entry_t){
++        .sequence_index = index,
++        .w_length       = w_length,
++        .count          = setups_data.count,
++        .cnt_02         = setups_data.cnt_02,
++        .cnt_04         = setups_data.cnt_04,
++        .cnt_ff         = setups_data.cnt_ff,
++        .candidate_os   = candidate_os,
++        .detected_os    = detected_os,
++    };
++
++    // Publish only after every field is committed. Entries never change after publication.
++    fingerprint_trace_count = index + 1;
++}
++
++uint8_t xtreemze_os_fingerprint_trace_count(void) {
++    return fingerprint_trace_count;
++}
++
++bool xtreemze_os_fingerprint_trace_overflowed(void) {
++    return fingerprint_trace_overflowed;
++}
++
++bool xtreemze_os_fingerprint_trace_read(uint8_t index, xtreemze_os_fingerprint_entry_t *entry) {
++    if (entry == NULL || index >= fingerprint_trace_count) {
++        return false;
++    }
++
++    *entry = fingerprint_trace[index];
++    return true;
++}
++#endif
++
+ // we need to be able to report OS_UNSURE if that is the stable result of the guesses
+ static volatile bool first_report = true;
+ 
+@@ -171,6 +216,10 @@ void process_wlength(const uint16_t w_length) {
+         detected_os = guessed;
+     }
+ 
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++    trace_fingerprint_packet(w_length, guessed);
++#endif
++
+     // whatever the result, debounce
+     last_time  = timer_read_fast();
+     debouncing = true;
+@@ -189,6 +238,10 @@ void erase_wlength_data(void) {
+     debouncing                               = false;
+     last_time                                = 0;
+     first_report                             = true;
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++    fingerprint_trace_count      = 0;
++    fingerprint_trace_overflowed = false;
++#endif
+ }
+ 
+ void os_detection_notify_usb_device_state_change(struct usb_device_state usb_device_state) {
+diff --git a/quantum/os_detection.h b/quantum/os_detection.h
+index e9e7b25f1d..47662d6d46 100644
+--- a/quantum/os_detection.h
++++ b/quantum/os_detection.h
+@@ -28,6 +28,21 @@ typedef enum {
+     OS_IOS,
+ } os_variant_t;
+ 
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++#    define XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY 48
++
++typedef struct {
++    uint8_t      sequence_index;
++    uint16_t     w_length;
++    uint8_t      count;
++    uint8_t      cnt_02;
++    uint8_t      cnt_04;
++    uint8_t      cnt_ff;
++    os_variant_t candidate_os;
++    os_variant_t detected_os;
++} xtreemze_os_fingerprint_entry_t;
++#endif
++
+ void         process_wlength(const uint16_t w_length);
+ os_variant_t detected_host_os(void);
+ void         erase_wlength_data(void);
+@@ -35,6 +50,12 @@ void         os_detection_notify_usb_device_state_change(struct usb_device_state
+ 
+ void os_detection_task(void);
+ 
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++uint8_t xtreemze_os_fingerprint_trace_count(void);
++bool    xtreemze_os_fingerprint_trace_overflowed(void);
++bool    xtreemze_os_fingerprint_trace_read(uint8_t index, xtreemze_os_fingerprint_entry_t *entry);
++#endif
++
+ bool process_detected_host_os_kb(os_variant_t os);
+ bool process_detected_host_os_user(os_variant_t os);
+ 
+diff --git a/quantum/os_detection/tests/os_detection.cpp b/quantum/os_detection/tests/os_detection.cpp
+index 21c4536243..36af0632c1 100644
+--- a/quantum/os_detection/tests/os_detection.cpp
++++ b/quantum/os_detection/tests/os_detection.cpp
+@@ -442,3 +442,65 @@ TEST_F(OsDetectionTest, TestDoNotGoBackToUnsure) {
+     os_detection_task();
+     assert_not_reported();
+ }
++
++#ifdef XTREEMZE_OS_FINGERPRINT_TRACE
++TEST_F(OsDetectionTest, FingerprintTraceRecordsOrderedPostPacketState) {
++    check_sequence({0x02, 0x24, 0x02, 0x28, 0xFF});
++
++    EXPECT_EQ(xtreemze_os_fingerprint_trace_count(), 5);
++    EXPECT_FALSE(xtreemze_os_fingerprint_trace_overflowed());
++
++    xtreemze_os_fingerprint_entry_t entry = {};
++    ASSERT_TRUE(xtreemze_os_fingerprint_trace_read(3, &entry));
++    EXPECT_EQ(entry.sequence_index, 3);
++    EXPECT_EQ(entry.w_length, 0x28);
++    EXPECT_EQ(entry.count, 4);
++    EXPECT_EQ(entry.cnt_02, 2);
++    EXPECT_EQ(entry.cnt_04, 0);
++    EXPECT_EQ(entry.cnt_ff, 0);
++    EXPECT_EQ(entry.candidate_os, OS_IOS);
++    EXPECT_EQ(entry.detected_os, OS_IOS);
++
++    ASSERT_TRUE(xtreemze_os_fingerprint_trace_read(4, &entry));
++    EXPECT_EQ(entry.sequence_index, 4);
++    EXPECT_EQ(entry.w_length, 0xFF);
++    EXPECT_EQ(entry.count, 5);
++    EXPECT_EQ(entry.cnt_02, 2);
++    EXPECT_EQ(entry.cnt_04, 0);
++    EXPECT_EQ(entry.cnt_ff, 1);
++    EXPECT_EQ(entry.candidate_os, OS_MACOS);
++    EXPECT_EQ(entry.detected_os, OS_MACOS);
++}
++
++TEST_F(OsDetectionTest, FingerprintTraceRetainsFirstEntriesWhenFull) {
++    for (uint16_t i = 0; i < XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY + 3; ++i) {
++        process_wlength(i);
++    }
++
++    EXPECT_EQ(xtreemze_os_fingerprint_trace_count(), XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY);
++    EXPECT_TRUE(xtreemze_os_fingerprint_trace_overflowed());
++
++    xtreemze_os_fingerprint_entry_t first = {};
++    xtreemze_os_fingerprint_entry_t last  = {};
++    ASSERT_TRUE(xtreemze_os_fingerprint_trace_read(0, &first));
++    ASSERT_TRUE(xtreemze_os_fingerprint_trace_read(XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY - 1, &last));
++    EXPECT_EQ(first.sequence_index, 0);
++    EXPECT_EQ(first.w_length, 0);
++    EXPECT_EQ(last.sequence_index, XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY - 1);
++    EXPECT_EQ(last.w_length, XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY - 1);
++    EXPECT_FALSE(xtreemze_os_fingerprint_trace_read(XTREEMZE_OS_FINGERPRINT_TRACE_CAPACITY, &last));
++    EXPECT_FALSE(xtreemze_os_fingerprint_trace_read(0, nullptr));
++}
++
++TEST_F(OsDetectionTest, FingerprintTraceResetsWithDetectionState) {
++    process_wlength(0xFF);
++    ASSERT_EQ(xtreemze_os_fingerprint_trace_count(), 1);
++
++    erase_wlength_data();
++
++    EXPECT_EQ(xtreemze_os_fingerprint_trace_count(), 0);
++    EXPECT_FALSE(xtreemze_os_fingerprint_trace_overflowed());
++    xtreemze_os_fingerprint_entry_t entry = {};
++    EXPECT_FALSE(xtreemze_os_fingerprint_trace_read(0, &entry));
++}
++#endif
+diff --git a/quantum/os_detection/tests/rules.mk b/quantum/os_detection/tests/rules.mk
+index 2f31f5e391..6aad463d9f 100644
+--- a/quantum/os_detection/tests/rules.mk
++++ b/quantum/os_detection/tests/rules.mk
+@@ -1,5 +1,6 @@
+ os_detection_DEFS := -DOS_DETECTION_ENABLE
+ os_detection_DEFS += -DOS_DETECTION_DEBOUNCE=50
++os_detection_DEFS += -DXTREEMZE_OS_FINGERPRINT_TRACE
+ 
+ os_detection_SRC := \
+     $(QUANTUM_PATH)/os_detection/tests/os_detection.cpp \

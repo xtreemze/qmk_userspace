@@ -1,0 +1,10 @@
+#!/bin/sh
+# QMK's recursive make invocation needs QMK_BIN to be one executable path.
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+config=${QMK_LOCAL_CONFIG:-"$repo_root/.qmk-migration.ini"}
+if [ ! -f "$config" ]; then
+    echo "Missing local QMK config: $config (see docs/halcyon-legacy-migration.md)" >&2
+    exit 1
+fi
+exec qmk --config-file "$config" "$@"

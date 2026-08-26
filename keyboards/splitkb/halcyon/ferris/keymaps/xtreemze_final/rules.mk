@@ -25,3 +25,6 @@ DEBOUNCE_TYPE = sym_defer_pk
 USER_NAME := halcyon_modules
 
 LTO_ENABLE = yes
+
+# Keep legacy RGB/matrix coordinates local to this keymap, as in vial_hlc_legacy.
+SRC += halcyon_overrides.c

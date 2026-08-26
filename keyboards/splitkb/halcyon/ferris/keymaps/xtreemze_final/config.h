@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "halcyon_legacy.h"
+
 #define VIAL_KEYBOARD_UID {0x58, 0x19, 0xAE, 0x72, 0x1F, 0xA0, 0xC4, 0x36}
 
 #define VIAL_UNLOCK_COMBO_ROWS { 0, 5 }

@@ -320,8 +320,8 @@ const matrix_row_t matrix_mask[] = {
 #endif
 #endif
 
-// Ferris
-#if defined(KEYBOARD_splitkb_halcyon_ferris_rev1)
+// Ferris: legacy keymaps provide their own RGB/matrix overrides.
+#if defined(KEYBOARD_splitkb_halcyon_ferris_rev1) && !defined(HALCYON_LEGACY)
 #ifdef RGB_MATRIX_ENABLE
 #include "rgb_matrix.h"
 led_config_t g_led_config = {

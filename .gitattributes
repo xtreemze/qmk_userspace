@@ -1,0 +1,2 @@
+# Unified-diff context prefixes are data; check the applied QMK diff separately.
+patches/*.patch -whitespace

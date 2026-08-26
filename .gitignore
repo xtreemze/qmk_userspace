@@ -10,6 +10,10 @@
 *.bin
 *.uf2
 
+# External firmware checkout (or local symlink); revision is pinned in CI.
+/qmk_firmware
+/.qmk-migration.ini
+
 # clangd
 compile_commands.json
 .clangd/
