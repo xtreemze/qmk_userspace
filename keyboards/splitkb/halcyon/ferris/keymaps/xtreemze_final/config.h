@@ -13,6 +13,10 @@
 
 #define ENCODER_RESOLUTION 2
 
+/* Use QMK's default 5 ms debounce interval explicitly so the selected
+ * per-key debounce algorithm remains stable across firmware upgrades. */
+#define DEBOUNCE 5
+
 #define COMBO_TERM 30
 #define TAPPING_TERM 180
 #ifndef TAPPING_TERM_PER_KEY
