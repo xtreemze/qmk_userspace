@@ -36,7 +36,7 @@ static const int lcd_surface = 0;
 typedef struct { uint8_t h, s, v; } hsv_triplet_t;
 static uint8_t pixels[LCD_HEIGHT][LCD_WIDTH][3];
 static unsigned calls;
-static uint8_t cycle[16][LCD_HEIGHT][LCD_WIDTH][3];
+static uint8_t cycle[4][LCD_HEIGHT][LCD_WIDTH][3];
 static void qp_line(int surface, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint8_t h, uint8_t s, uint8_t v) {
     (void)surface; calls++;
     assert(x0 <= x1 && x1 < LCD_WIDTH && y0 == y1 && y1 < LCD_HEIGHT);
@@ -58,11 +58,11 @@ int main(void) {
             calls = 0;
             draw_layer_background_pattern(layer, frame);
             assert(calls < 7000); // Bounded work; no per-pixel full-screen effects.
-            if (frame < 16) {
+            if (frame < 4) {
                 memcpy(cycle[frame], pixels, sizeof(pixels));
                 assert(fwrite(pixels, sizeof(pixels), 1, stdout) == 1);
             } else {
-                assert(memcmp(cycle[frame % 16], pixels, sizeof(pixels)) == 0);
+                assert(memcmp(cycle[frame % 4], pixels, sizeof(pixels)) == 0);
             }
         }
     }
@@ -72,25 +72,26 @@ with tempfile.TemporaryDirectory(prefix='halcyon-patterns-') as tmp:
     c, exe = Path(tmp) / 'patterns.c', Path(tmp) / 'patterns'
     c.write_text(harness)
     subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', str(c), '-o', str(exe)], check=True)
-    raw = subprocess.run([str(exe)], check=True, capture_output=True).stdout
+    result = subprocess.run([str(exe)], capture_output=True)
+    if result.returncode:
+        raise RuntimeError(result.stderr.decode())
+    raw = result.stdout
 
 size = 135 * 240 * 3
-assert len(raw) == 13 * 16 * size
+assert len(raw) == 13 * 4 * size
 fg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[0])]
 bg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[1])]
 base_bytes = bytes(map(int, base.split(',')))
 sequences = []
 for layer in range(13):
     hashes = []
-    for frame in range(16):
-        data = raw[(layer * 16 + frame) * size:(layer * 16 + frame + 1) * size]
+    for frame in range(4):
+        data = raw[(layer * 4 + frame) * size:(layer * 4 + frame + 1) * size]
         colors = {data[i:i+3] for i in range(0, size, 3)}
         assert colors <= {base_bytes, fg[layer], bg[layer]}, (layer, frame, 'palette drift/unpainted pixels')
-        # Each 24px tile remains symmetric around its center; animate shape, not hue flashes.
+        # Filled motifs drift around the tile center; bilateral reflection is
+        # intentionally not required for the original diagonal/paired designs.
         pixel = lambda x, y: data[(y * 135 + x) * 3:(y * 135 + x + 1) * 3]
-        for y in range(2, 23):
-            for x in range(2, 23):
-                assert pixel(x, y) == pixel(24-x, y) == pixel(x, 24-y) == pixel(y, x), (layer, frame, 'lost four-way symmetry')
         assert any(pixel(x, y) != base_bytes for x in range(120, 135) for y in range(240)), (layer, 'right edge unpainted')
         normalized = bytes(0 if data[i:i+3] == base_bytes else 1 if data[i:i+3] == fg[layer] else 2 for i in range(0, size, 3))
         hashes.append(hashlib.sha256(normalized).digest())
@@ -100,4 +101,9 @@ for layer in range(13):
     assert len(set(hashes)) >= 4, (layer, 'expected at least four distinct animation shapes')
     sequences.append(tuple(hashes))
 assert len(set(sequences)) == 13, 'Layer geometry must be unique even without its palette.'
-print('13 unique symmetric animations; all 3,328 frames bounded and sanitizer-clean.')
+# The MOUSE center changes between the bright and muted roles halfway through
+# the four-frame cycle. Motion alone must not substitute for the requested color exchange.
+center = (12 * 135 + 12) * 3
+assert raw[center:center+3] == fg[0]
+assert raw[2*size+center:2*size+center+3] == bg[0]
+print('13 distinct colorful four-frame animations; all 3,328 frames bounded and sanitizer-clean.')

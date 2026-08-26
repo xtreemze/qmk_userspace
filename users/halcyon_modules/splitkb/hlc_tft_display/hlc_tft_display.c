@@ -309,30 +309,18 @@ static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, ui
     }
 }
 
-// Shape-only animation: fixed muted colors, 16 frames / 3.2 seconds at 200 ms.
-// Each radius/offset advances at most one pixel and returns smoothly at wrap.
-static uint8_t pattern_breath(uint8_t frame, uint16_t tile_index, uint8_t layer) {
-    const uint8_t step = (frame + 2U * tile_index + 2U * layer) & 15U;
-    return (step < 8U ? step : 15U - step) / 2U;
-}
-
-static void draw_diamond_ring(uint16_t cx, uint16_t cy, uint8_t radius, hsv_triplet_t color) {
-    draw_diamond(cx, cy, radius, color.h, color.s, color.v);
-    draw_diamond(cx, cy, radius - 1, HSV_EF_BG);
-}
-
-static void draw_diamond_cross(uint16_t cx, uint16_t cy, uint8_t offset, uint8_t radius, hsv_triplet_t color) {
-    draw_diamond(cx - offset, cy, radius, color.h, color.s, color.v);
-    draw_diamond(cx + offset, cy, radius, color.h, color.s, color.v);
-    draw_diamond(cx, cy - offset, radius, color.h, color.s, color.v);
-    draw_diamond(cx, cy + offset, radius, color.h, color.s, color.v);
-}
-
-static void draw_diamond_corners(uint16_t cx, uint16_t cy, uint8_t offset, uint8_t radius, hsv_triplet_t color) {
-    draw_diamond(cx - offset, cy - offset, radius, color.h, color.s, color.v);
-    draw_diamond(cx + offset, cy - offset, radius, color.h, color.s, color.v);
-    draw_diamond(cx - offset, cy + offset, radius, color.h, color.s, color.v);
-    draw_diamond(cx + offset, cy + offset, radius, color.h, color.s, color.v);
+// Restore the original 200 ms cadence: four-frame drift/pulse and alternating
+// color roles, retaining the existing palette and a unique motif for every layer.
+static int8_t pattern_motion_offset(uint8_t frame, uint16_t tile_index, uint8_t layer, bool vertical) {
+    const uint8_t step = (uint8_t)((frame + tile_index + (vertical ? layer : layer * 2U)) & 0x03U);
+    switch (step) {
+        case 1:
+            return 1;
+        case 3:
+            return -1;
+        default:
+            return 0;
+    }
 }
 
 static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
@@ -347,68 +335,94 @@ static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
     for (uint16_t y = 0; y + tile_h <= LCD_HEIGHT; y += tile_h) {
         for (uint16_t x = 0; x < LCD_WIDTH; x += tile_w) {
             const uint16_t tile_index = (x / tile_w) + (y / tile_h);
-            const uint16_t cx = x + tile_w / 2;
-            const uint16_t cy = y + tile_h / 2;
-            const uint8_t pulse = pattern_breath(frame, tile_index, variant);
+            const bool phase = ((tile_index + layer + (frame >> 1)) & 1U) != 0U;
+            const int8_t dx = pattern_motion_offset(frame, tile_index, layer, false);
+            const int8_t dy = pattern_motion_offset(frame, tile_index, layer, true);
+            const uint16_t cx = (uint16_t)((int16_t)x + tile_w / 2 + dx);
+            const uint16_t cy = (uint16_t)((int16_t)y + tile_h / 2 + dy);
+            const int8_t pulse = ((frame + tile_index + layer) & 0x03U) == 0 ? 1 : 0;
+            const uint8_t ah = phase ? fg.h : bg.h;
+            const uint8_t as = phase ? fg.s : bg.s;
+            const uint8_t av = phase ? fg.v : bg.v;
+            const uint8_t bh = phase ? bg.h : fg.h;
+            const uint8_t bs = phase ? bg.s : fg.s;
+            const uint8_t bv = phase ? bg.v : fg.v;
 
-            // Four-way symmetric diamond tiles; every semantic layer has its own geometry.
+            // Filled diamond motifs exchange bright/muted roles while drifting and pulsing.
             switch (variant) {
-                case 0: // MOUSE: expanding compass points.
-                    draw_diamond_cross(cx, cy, 5 + pulse, 2, fg);
-                    draw_diamond(cx, cy, 2, bg.h, bg.s, bg.v);
+                case 0: // MOUSE
+                    draw_diamond(cx, cy, 6 + pulse, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 1: // QWERTY: woven center with fixed corner stitches.
-                    draw_diamond_ring(cx, cy, 3 + pulse, fg);
-                    draw_diamond_corners(cx, cy, 7, 2, bg);
+                case 1: // QWERTY
+                    draw_diamond(cx, cy - 6, 3, ah, as, av);
+                    draw_diamond(cx - 6, cy, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy, 3, ah, as, av);
+                    draw_diamond(cx, cy + 6, 3, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 2: // COLEMAK: nested lattice and inward keys.
-                    draw_diamond_ring(cx, cy, 10 - pulse, fg);
-                    draw_diamond_cross(cx, cy, 3, 1, bg);
+                case 2: // COLEMAK
+                    draw_diamond(cx, cy, 7 + pulse, ah, as, av);
+                    draw_diamond(cx, cy, 5, HSV_EF_BG);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 3: // NUMSYMS: four counting beads around a growing center.
-                    draw_diamond_cross(cx, cy, 8, 2, bg);
-                    draw_diamond(cx, cy, 2 + pulse, fg.h, fg.s, fg.v);
+                case 3: // NUMSYMS
+                    draw_diamond(cx - 5, cy, 4, ah, as, av);
+                    draw_diamond(cx + 5, cy, 4, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 4: // NUMFLIP: counter-moving corner beads and center ring.
-                    draw_diamond_corners(cx, cy, 7 - pulse, 2, fg);
-                    draw_diamond_ring(cx, cy, 3, bg);
+                case 4: // NUMFLIP
+                    draw_diamond(cx, cy - 5, 4, ah, as, av);
+                    draw_diamond(cx, cy + 5, 4, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 5: // ONESHOT: a single expanding impulse with a fixed core.
-                    draw_diamond_ring(cx, cy, 6 + pulse, fg);
-                    draw_diamond(cx, cy, 2, bg.h, bg.s, bg.v);
+                case 5: // ONESHOT
+                    draw_diamond(cx, cy, 3, ah, as, av);
+                    draw_diamond(cx - 7, cy - 7, 2, bh, bs, bv);
+                    draw_diamond(cx + 7, cy - 7, 2, bh, bs, bv);
+                    draw_diamond(cx - 7, cy + 7, 2, bh, bs, bv);
+                    draw_diamond(cx + 7, cy + 7, 2, bh, bs, bv);
                     break;
-                case 6: // EDITING: cut-paper aperture and corner handles.
-                    draw_diamond(cx, cy, 8, fg.h, fg.s, fg.v);
-                    draw_diamond(cx, cy, 3 + pulse, HSV_EF_BG);
-                    draw_diamond_corners(cx, cy, 7, 1, bg);
+                case 6: // EDITING
+                    draw_diamond(cx - 6, cy - 6, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy + 6, 3, ah, as, av);
+                    draw_diamond(cx + 6, cy - 6, 2, bh, bs, bv);
+                    draw_diamond(cx - 6, cy + 6, 2, bh, bs, bv);
                     break;
-                case 7: // FNSYMS: a stepped four-point rosette.
-                    draw_diamond_cross(cx, cy, 3 + pulse, 3, fg);
-                    draw_diamond(cx, cy, 2, bg.h, bg.s, bg.v);
+                case 7: // FNSYMS
+                    draw_diamond(cx, cy, 5, ah, as, av);
+                    draw_diamond(x + 2, cy, 2, bh, bs, bv);
+                    draw_diamond(x + tile_w - 3, cy, 2, bh, bs, bv);
                     break;
-                case 8: // FNFLIP: rosette counterpoint inside a fixed border.
-                    draw_diamond_ring(cx, cy, 10, bg);
-                    draw_diamond_cross(cx, cy, 6 - pulse, 2, fg);
+                case 8: // FNFLIP
+                    draw_diamond(cx, y + 3, 2, ah, as, av);
+                    draw_diamond(cx, y + tile_h - 4, 2, ah, as, av);
+                    draw_diamond(cx, cy, 4, bh, bs, bv);
                     break;
-                case 9: // SYMBOLS: punctuation dots and breathing corner marks.
-                    draw_diamond_corners(cx, cy, 4 + pulse, 1, fg);
-                    draw_diamond_cross(cx, cy, 5, 1, bg);
-                    draw_diamond(cx, cy, 1, fg.h, fg.s, fg.v);
+                case 9: // SYMBOLS
+                    draw_diamond(cx, cy, 3, ah, as, av);
+                    draw_diamond(cx - 6, cy, 2, bh, bs, bv);
+                    draw_diamond(cx + 6, cy, 2, bh, bs, bv);
+                    draw_diamond(cx, cy - 6, 2, bh, bs, bv);
+                    draw_diamond(cx, cy + 6, 2, bh, bs, bv);
                     break;
-                case 10: // RGBHUE: an eight-point orbit (palette stays fixed).
-                    draw_diamond_cross(cx, cy, 6 + pulse, 1, fg);
-                    draw_diamond_corners(cx, cy, 6, 1, bg);
-                    draw_diamond_ring(cx, cy, 3, fg);
+                case 10: // RGBHUE
+                    draw_diamond(cx, cy, 6 + pulse, ah, as, av);
+                    draw_diamond(cx - 8, cy, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy, 2, bh, bs, bv);
                     break;
-                case 11: // RGBVAL: nested value aperture, no luminance flashing.
-                    draw_diamond(cx, cy, 10, bg.h, bg.s, bg.v);
-                    draw_diamond(cx, cy, 8, HSV_EF_BG);
-                    draw_diamond_ring(cx, cy, 3 + pulse, fg);
+                case 11: // RGBVAL
+                    draw_diamond(cx, cy, 4, ah, as, av);
+                    draw_diamond(cx - 8, cy - 8, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy - 8, 2, bh, bs, bv);
+                    draw_diamond(cx - 8, cy + 8, 2, bh, bs, bv);
+                    draw_diamond(cx + 8, cy + 8, 2, bh, bs, bv);
                     break;
-                default: // BKLIGHT: soft sun with four stationary rays.
-                    draw_diamond_cross(cx, cy, 9, 1, bg);
-                    draw_diamond_corners(cx, cy, 6, 1, bg);
-                    draw_diamond(cx, cy, 2 + pulse, fg.h, fg.s, fg.v);
+                // Layer 12 keeps its own diagonal-pair motif.
+                default: // BKLIGHT
+                    draw_diamond(cx - 5, cy - 5, 3, ah, as, av);
+                    draw_diamond(cx + 5, cy + 5, 3, ah, as, av);
+                    draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
             }
         }

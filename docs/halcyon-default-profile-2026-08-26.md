@@ -89,3 +89,24 @@ For PWM acceptance, use layer 12 to set level 1 and level 10 and compare brightn
 verify toggle and step, both encoder mappings, manual off across idle wake, and
 saved brightness across reboot and USB sleep/wake. Repeat with USB on each half.
 The software audit and mocked HAL duty-cycle test do not prove physical PWM output.
+
+## Animation preference follow-up
+
+After confirming the backlight controls work, the user preferred the earlier,
+more colorful animation style. The renderer from `1939c3a` is restored while
+retaining the current 13 semantic labels, complete Vial profile, marker `0xAF`,
+PWM controls and wake policy. Filled diamond motifs alternate bright/muted
+color roles and use the original one-pixel drift/pulse at 200ms per frame
+(four frames / 800ms per cycle). This supersedes the slower outline-style
+animation described above; no EEPROM reset or new factory reseed is required.
+
+The host raster check now requires the original four-frame cycle and visible
+color-role exchange, while preserving bounds, sanitizer, palette and uniqueness
+checks over all 3,328 layer/frame combinations. All 52 unique cycle frames match
+the earlier renderer byte-for-byte. Backlight functionality is user-confirmed;
+that report is not a new certification of every suspend/resume scenario.
+
+Both module builds, all six shell guards and strict lint pass for the restored
+renderer. The compiled PWM configuration remains verified, and all 16 initialized
+contract tables match the preceding build for each module (including keymap,
+encoder, dynamic defaults, RGB/Vial metadata and USB descriptors).

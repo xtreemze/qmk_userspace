@@ -35,24 +35,25 @@ layer has unique procedural diamond geometry, including encoder-only RGB layers.
 
 | Layer | Label | Role | Pattern |
 | --- | --- | --- | --- |
-| 0 | MOUSE | Mouse, shortcuts and layer access | Compass points |
-| 1 | QWERTY | QWERTY typing | Woven center |
-| 2 | COLEMAK | Alternate typing layout | Nested lattice |
-| 3 | NUMSYMS | Numbers, keypad and symbols | Counting beads |
-| 4 | NUMFLIP | Mirrored digits; saturation encoder | Counter-moving beads |
-| 5 | ONESHOT | One-shot modifiers | Expanding impulse |
-| 6 | EDITING | Editing, shortcuts and macro access | Cut-paper aperture |
-| 7 | FNSYMS | Function keys, symbols and navigation | Stepped rosette |
-| 8 | FNFLIP | Mirrored function keys; speed encoder | Rosette counterpoint |
-| 9 | SYMBOLS | Shifted number symbols; mode encoder | Punctuation lattice |
-| 10 | RGBHUE | RGB hue encoder | Eight-point orbit |
-| 11 | RGBVAL | RGB value encoder | Nested aperture |
-| 12 | BKLIGHT | Exported backlight buttons/encoders | Soft sun |
+| 0 | MOUSE | Mouse, shortcuts and layer access | Pulsing filled diamond |
+| 1 | QWERTY | QWERTY typing | Compass cluster |
+| 2 | COLEMAK | Alternate typing layout | Diamond ring |
+| 3 | NUMSYMS | Numbers, keypad and symbols | Horizontal pair |
+| 4 | NUMFLIP | Mirrored digits; saturation encoder | Vertical pair |
+| 5 | ONESHOT | One-shot modifiers | Corner cluster |
+| 6 | EDITING | Editing, shortcuts and macro access | Crossed diagonals |
+| 7 | FNSYMS | Function keys, symbols and navigation | Horizontal edge accents |
+| 8 | FNFLIP | Mirrored function keys; speed encoder | Vertical edge accents |
+| 9 | SYMBOLS | Shifted number symbols; mode encoder | Small compass |
+| 10 | RGBHUE | RGB hue encoder | Wide pulsing diamond |
+| 11 | RGBVAL | RGB value encoder | Wide corner cluster |
+| 12 | BKLIGHT | Exported backlight buttons/encoders | Diagonal pair |
 
 Animation retains the existing foreground/background HSV palette, dark base,
-24px tiling, clipped final column and 200ms frame interval. A 16-frame/3.2-second
-cycle changes radii or spacing at most one pixel at a time, with four-way symmetry
-and fixed colors. Rendering remains in housekeeping; no waits, allocation,
+24px tiling, clipped final column and 200ms frame interval. The original filled
+diamond renderer is restored: a four-frame/800ms cycle combines one-pixel drift,
+radius pulses and alternating bright/muted color roles every two frames. Each
+layer retains its own motif; diagonal and paired designs are intentional. Rendering remains in housekeeping; no waits, allocation,
 USB changes or display work were added to wake callbacks.
 
 ## TFT backlight controls
@@ -73,7 +74,9 @@ backlighting adds a shared split transaction.
 
 `BL_BRTG` is retained exactly as exported but remains inactive because breathing
 is not enabled. No hard-coded level override or diagnostic loop is shipped.
-Physical acceptance must compare level 1 against level 10, toggle/step, both
+The user confirmed working backlight controls with `38121bc`; this animation-only
+follow-up does not change that implementation or reseed Vial. Remaining physical
+acceptance includes level 1 against level 10, toggle/step, both
 encoders, idle wake and USB sleep/wake with the TFT half as both master and slave.
 
 Audit the final compiled configuration after building:
