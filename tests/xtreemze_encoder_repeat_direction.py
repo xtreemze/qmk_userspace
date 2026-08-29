@@ -237,6 +237,8 @@ int main(void) {
     expect_native(TD(12), 0, QK_ALT_REPEAT_KEY, true, KC_UP);
     expect_native(TD(9), 0, QK_REPEAT_KEY, false, TD(9));
     expect_native(TD(9), 0, QK_ALT_REPEAT_KEY, true, KC_DOWN);
+    expect_native(QK_MOD_TAP | KC_DOWN, 0, QK_REPEAT_KEY, true, KC_UP);
+    expect_native(QK_LAYER_TAP | KC_UP, 0, QK_ALT_REPEAT_KEY, true, KC_DOWN);
 
     /* One-way winners and all fallbacks retain stock processing. */
     expect_passthrough(KC_J, 0, QK_REPEAT_KEY);
@@ -249,6 +251,16 @@ int main(void) {
     live[0] = (vial_alt_repeat_key_entry_t){LCTL(KC_D), LCTL(KC_U), 0, 8};
     live[1] = (vial_alt_repeat_key_entry_t){KC_D, KC_U, 0, 14};
     expect_passthrough(KC_D, MOD_LCTL, QK_ALT_REPEAT_KEY);
+    reset_live();
+    memset(live, 0, sizeof(live));
+    live[0] = (vial_alt_repeat_key_entry_t){LCTL(KC_D), LCTL(KC_U), 0, 8};
+    live[1] = (vial_alt_repeat_key_entry_t){LCTL(KC_D), LCTL(KC_A), 0, 10};
+    expect_passthrough(LCTL(KC_D), 0, QK_REPEAT_KEY);
+    expect_passthrough(LCTL(KC_D), 0, QK_ALT_REPEAT_KEY);
+    memset(live, 0, sizeof(live));
+    live[0] = (vial_alt_repeat_key_entry_t){KC_N, KC_B, 0, 9};
+    expect_passthrough(KC_A, 0, QK_REPEAT_KEY);
+    expect_passthrough(KC_A, 0, QK_ALT_REPEAT_KEY);
     reset_live();
     live_error[0] = 1;
     expect_passthrough(KC_UP, 0, QK_REPEAT_KEY);
@@ -294,7 +306,7 @@ int main(void) {
     for (unsigned i = 0; i < NUM_ENCODERS; ++i) assert(encoder_repeat_dispatch[i] == encoder_repeat_passthrough);
     for (unsigned i = 0; i < repeat_events; i += 2) assert(native_repeat_pressed[i] && !native_repeat_pressed[i + 1]);
     for (unsigned i = 0; i < alt_events; i += 2) assert(native_alt_pressed[i] && !native_alt_pressed[i + 1]);
-    puts("encoder repeat direction: live Vial orientation, precedence, latching, and bounds pass.");
+    puts("encoder repeat direction: Vial orientation, normalization, precedence, fallback, latching, and bounds pass.");
 }
 '''
 
