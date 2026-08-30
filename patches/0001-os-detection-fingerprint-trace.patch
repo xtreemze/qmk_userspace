@@ -196,3 +196,18 @@ index 2f31f5e391..6aad463d9f 100644
  
  os_detection_SRC := \
      $(QUANTUM_PATH)/os_detection/tests/os_detection.cpp \
+diff --git a/quantum/repeat_key.c b/quantum/repeat_key.c
+index 56f242f8b8..f0cd550796 100644
+--- a/quantum/repeat_key.c
++++ b/quantum/repeat_key.c
+@@ -30,6 +30,10 @@ uint16_t get_last_keycode(void) {
+     return last_record.keycode;
+ }
+ 
++keyrecord_t* get_last_record(void) {
++    return &last_record;
++}
++
+ uint8_t get_last_mods(void) {
+     return last_mods;
+ }

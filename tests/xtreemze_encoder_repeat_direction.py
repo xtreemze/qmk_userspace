@@ -16,7 +16,10 @@ def extracted_policy(source: str) -> str:
 
 
 policy = extracted_policy(SOURCE.read_text())
-assert "set_last_keycode(endpoint)" in policy and "set_last_keycode(source)" in policy, "translated encoder repeats must restore the native Repeat source"
+assert "set_last_keycode(" not in policy, "translated encoder repeats must not rewrite Repeat source state"
+assert "set_last_record(" not in policy, "translated encoder repeats must not replace Repeat source records"
+assert "set_last_mods(" not in policy, "translated encoder repeats must not rewrite Repeat modifier state"
+assert "get_last_record()" in policy, "translated encoder repeats must use the mutable Repeat record API"
 
 harness = r'''
 #include <assert.h>
@@ -91,7 +94,8 @@ harness = r'''
 enum { KEY_EVENT = 1, ENCODER_CW_EVENT = 2, ENCODER_CCW_EVENT = 3 };
 typedef struct { uint8_t row, col; } keypos_t;
 typedef struct { keypos_t key; bool pressed; uint16_t time; uint8_t type; } keyevent_t;
-typedef struct { keyevent_t event; uint16_t keycode; } keyrecord_t;
+typedef struct { uint8_t count; bool interrupted; } tap_t;
+typedef struct { keyevent_t event; uint16_t keycode; tap_t tap; } keyrecord_t;
 typedef struct { uint16_t keycode, alt_keycode; uint8_t allowed_mods, options; } vial_alt_repeat_key_entry_t;
 enum {
     vial_arep_option_default_to_this_alt_key = (1 << 0),
@@ -102,13 +106,16 @@ enum {
 
 static vial_alt_repeat_key_entry_t live[VIAL_ALT_REPEAT_KEY_ENTRIES];
 static int live_error[VIAL_ALT_REPEAT_KEY_ENTRIES];
-static uint16_t remembered_key;
 static uint8_t remembered_mods;
 static keyrecord_t last_record;
 static unsigned native_repeat_calls, native_alt_calls;
 static bool native_repeat_pressed[256], native_alt_pressed[256];
 static unsigned repeat_events, alt_events;
 static uint16_t repeat_latched, alt_latched, observed_endpoint;
+static int8_t last_repeat_count;
+static int8_t processing_repeat_count;
+static keyrecord_t registered_repeat_record;
+static int8_t registered_repeat_count;
 
 static uint8_t bitpop(uint8_t value) {
     uint8_t count = 0;
@@ -123,9 +130,9 @@ static int dynamic_keymap_get_alt_repeat_key(uint8_t index, vial_alt_repeat_key_
     *entry = live[index];
     return 0;
 }
-static uint16_t get_last_keycode(void) { return remembered_key; }
+static uint16_t get_last_keycode(void) { return last_record.keycode; }
 static uint8_t get_last_mods(void) { return remembered_mods; }
-static void set_last_keycode(uint16_t keycode) { last_record.keycode = keycode; }
+static keyrecord_t *get_last_record(void) { return &last_record; }
 
 static uint8_t unpack_mods5_for_stock(uint8_t mods5) { return (mods5 & 0x10) ? (uint8_t)(mods5 << 4) : mods5; }
 static uint16_t normalize_for_stock(uint16_t keycode, uint8_t *mods) {
@@ -150,7 +157,7 @@ static uint16_t stock_alt_endpoint(void) {
     int best = -1;
     uint16_t result = KC_NO;
     uint8_t mods = remembered_mods;
-    uint16_t keycode = normalize_for_stock(remembered_key, &mods);
+    uint16_t keycode = normalize_for_stock(last_record.keycode, &mods);
     for (uint8_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
         vial_alt_repeat_key_entry_t entry = live[i];
         uint8_t primary_mods = 0, alternate_mods = 0;
@@ -172,7 +179,16 @@ static uint16_t stock_alt_endpoint(void) {
 static void repeat_key_invoke(const keyevent_t *event) {
     native_repeat_pressed[repeat_events++] = event->pressed;
     native_repeat_calls++;
-    if (event->pressed) repeat_latched = ((uint16_t)remembered_mods << 8) | last_record.keycode;
+    if (processing_repeat_count || !last_record.keycode) return;
+    if (event->pressed) {
+        if (last_repeat_count < 127) last_repeat_count++;
+        registered_repeat_record = last_record;
+        registered_repeat_count = last_repeat_count;
+    }
+    registered_repeat_record.event = *event;
+    processing_repeat_count = registered_repeat_count;
+    repeat_latched = ((uint16_t)remembered_mods << 8) | registered_repeat_record.keycode;
+    processing_repeat_count = 0;
     observed_endpoint = repeat_latched;
 }
 static void alt_repeat_key_invoke(const keyevent_t *event) {
@@ -186,6 +202,29 @@ harness += policy
 harness += r'''
 static keyrecord_t event_for(uint8_t encoder, bool pressed, bool matrix) {
     return (keyrecord_t){.event = {.key = {.col = encoder}, .pressed = pressed, .type = matrix ? KEY_EVENT : ENCODER_CW_EVENT}};
+}
+static void assert_record_preserved(const keyrecord_t *before) {
+    assert(last_record.keycode == before->keycode);
+    assert(last_record.event.key.row == before->event.key.row);
+    assert(last_record.event.key.col == before->event.key.col);
+    assert(last_record.event.time == before->event.time);
+    assert(last_record.event.type == before->event.type);
+    assert(last_record.event.pressed == before->event.pressed);
+    assert(last_record.tap.count == before->tap.count);
+    assert(last_record.tap.interrupted == before->tap.interrupted);
+}
+static void remember_key(uint16_t keycode) {
+    memset(&last_record, 0, sizeof(last_record));
+    last_record.keycode = keycode;
+    last_repeat_count = 0;
+}
+static void remember_translated_key(uint16_t keycode) {
+    last_record = (keyrecord_t){
+        .event = {.key = {.row = 7, .col = 9}, .pressed = true, .time = 0x1234, .type = KEY_EVENT},
+        .keycode = keycode,
+        .tap = {.count = 3, .interrupted = true},
+    };
+    last_repeat_count = 0;
 }
 static void reset_live(void) {
     memset(live, 0, sizeof(live)); memset(live_error, 0, sizeof(live_error));
@@ -215,7 +254,7 @@ static void reset_live(void) {
 static void expect_native(uint16_t seed, uint8_t mods, uint16_t request, bool alternate, uint16_t endpoint) {
     keyrecord_t record = event_for(0, true, false);
     unsigned repeats = native_repeat_calls, alts = native_alt_calls;
-    remembered_key = seed; remembered_mods = mods; last_record.keycode = seed;
+    remember_key(seed); remembered_mods = mods;
     assert(!pre_process_record_user(request, &record));
     assert(native_repeat_calls == repeats + (!alternate));
     assert(native_alt_calls == alts + alternate);
@@ -228,25 +267,71 @@ static void expect_native(uint16_t seed, uint8_t mods, uint16_t request, bool al
 static void expect_translated_native(uint16_t seed, uint16_t request, uint16_t endpoint) {
     keyrecord_t record = event_for(0, true, false);
     unsigned repeats = native_repeat_calls, alts = native_alt_calls;
-    remembered_key = seed; remembered_mods = 0; last_record.keycode = seed;
+    remember_translated_key(seed); remembered_mods = 0;
+    keyrecord_t before = last_record;
     assert(!pre_process_record_user(request, &record));
     assert(native_repeat_calls == repeats + 1);
     assert(native_alt_calls == alts);
     assert(observed_endpoint == endpoint);
-    assert(last_record.keycode == seed);
+    assert_record_preserved(&before);
     record.event.pressed = false;
     assert(!pre_process_record_user(request, &record));
     assert(native_repeat_calls == repeats + 2);
     assert(native_alt_calls == alts);
+    assert_record_preserved(&before);
 }
 static void expect_passthrough(uint16_t seed, uint8_t mods, uint16_t request) {
     keyrecord_t record = event_for(0, true, false);
     unsigned repeats = native_repeat_calls, alts = native_alt_calls;
-    remembered_key = seed; remembered_mods = mods;
+    remember_key(seed); remembered_mods = mods;
     assert(pre_process_record_user(request, &record));
     record.event.pressed = false;
     assert(pre_process_record_user(request, &record));
     assert(native_repeat_calls == repeats && native_alt_calls == alts);
+}
+static void expect_translated_record_preserved(void) {
+    keyrecord_t record = event_for(0, true, false);
+    remember_translated_key(TD(12));
+    remembered_mods = 0;
+    last_repeat_count = 5;
+    keyrecord_t before = last_record;
+    int8_t repeat_count_before = last_repeat_count;
+    assert(repeat_count_before == 5);
+
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert(get_last_record() == &last_record);
+    assert(get_last_keycode() == TD(12));
+    assert_record_preserved(&before);
+    assert(last_repeat_count == repeat_count_before + 1);
+    assert(observed_endpoint == KC_DOWN);
+
+    record.event.pressed = false;
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert_record_preserved(&before);
+
+    record.event.pressed = true;
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert_record_preserved(&before);
+    assert(last_repeat_count == repeat_count_before + 2);
+    assert(observed_endpoint == KC_DOWN);
+
+    record.event.pressed = false;
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert_record_preserved(&before);
+}
+static void expect_translated_mods_preserved(void) {
+    keyrecord_t record = event_for(0, true, false);
+    unsigned repeats = native_repeat_calls;
+    remember_translated_key(KC_K); remembered_mods = MOD_LALT;
+    keyrecord_t before = last_record;
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert(native_repeat_calls == repeats + 1);
+    assert(observed_endpoint == (((uint16_t)MOD_LALT << 8) | KC_UP));
+    assert_record_preserved(&before);
+    record.event.pressed = false;
+    assert(!pre_process_record_user(QK_REPEAT_KEY, &record));
+    assert(native_repeat_calls == repeats + 2);
+    assert_record_preserved(&before);
 }
 static void expect_deterministic_pair(uint16_t clockwise, uint16_t counter_clockwise) {
     expect_native(clockwise, 0, QK_REPEAT_KEY, false, clockwise);
@@ -282,6 +367,8 @@ int main(void) {
     expect_translated_pair(LSFT(KC_DOT), LSFT(KC_COMM), LSFT(KC_DOT), LSFT(KC_COMM));
     expect_translated_pair(SC_RSPC, SC_LSPO, SC_RSPC, SC_LSPO);
     expect_translated_pair(LSFT(KC_0), LSFT(KC_9), LSFT(KC_0), LSFT(KC_9));
+    expect_translated_mods_preserved();
+    expect_translated_record_preserved();
     expect_native(KC_RBRC, MOD_RCTL | MOD_LALT, QK_REPEAT_KEY, false, ((uint16_t)(MOD_RCTL | MOD_LALT) << 8) | KC_RBRC);
     expect_native(KC_LBRC, MOD_RCTL | MOD_LALT, QK_ALT_REPEAT_KEY, false, ((uint16_t)(MOD_RCTL | MOD_LALT) << 8) | KC_LBRC);
 
@@ -300,6 +387,10 @@ int main(void) {
     expect_passthrough(LCTL(KC_A), 0, QK_ALT_REPEAT_KEY);
     expect_passthrough(KC_1, 0, QK_ALT_REPEAT_KEY);
     expect_passthrough(KC_A, 0, QK_REPEAT_KEY);
+    memset(live, 0, sizeof(live));
+    live[0] = (vial_alt_repeat_key_entry_t){KC_N, KC_B, 0, 0};
+    expect_passthrough(KC_N, 0, QK_REPEAT_KEY);
+    reset_live();
     live[0] = (vial_alt_repeat_key_entry_t){LCTL(KC_D), LCTL(KC_U), 0, 8};
     live[1] = (vial_alt_repeat_key_entry_t){KC_D, KC_U, 0, 14};
     expect_passthrough(KC_D, MOD_LCTL, QK_ALT_REPEAT_KEY);
@@ -331,11 +422,11 @@ int main(void) {
 
     /* Press selection and native endpoint stay latched through a live edit. */
     keyrecord_t latched = event_for(0, true, false);
-    remembered_key = KC_UP; remembered_mods = 0; last_record.keycode = KC_UP;
+    remember_key(KC_UP); remembered_mods = 0;
     unsigned repeats = native_repeat_calls, alts = native_alt_calls;
     assert(!pre_process_record_user(QK_REPEAT_KEY, &latched));
     live[13] = (vial_alt_repeat_key_entry_t){KC_DOWN, KC_UP, 0, 14};
-    remembered_key = KC_DOWN; last_record.keycode = KC_DOWN;
+    last_record.keycode = KC_DOWN;
     latched.event.pressed = false;
     assert(!pre_process_record_user(QK_REPEAT_KEY, &latched));
     assert(native_repeat_calls == repeats + 2 && native_alt_calls == alts && observed_endpoint == KC_UP);
@@ -350,7 +441,7 @@ int main(void) {
     /* Alternating physical encoders leave no latched policy behind. */
     for (unsigned i = 0; i < 8; ++i) {
         keyrecord_t rapid = event_for(i % NUM_ENCODERS, true, false);
-        remembered_key = (i & 1) ? KC_LEFT : KC_UP; last_record.keycode = remembered_key;
+        remember_key((i & 1) ? KC_LEFT : KC_UP);
         assert(!pre_process_record_user((i & 1) ? QK_ALT_REPEAT_KEY : QK_REPEAT_KEY, &rapid));
         rapid.event.pressed = false;
         assert(!pre_process_record_user((i & 1) ? QK_ALT_REPEAT_KEY : QK_REPEAT_KEY, &rapid));

@@ -2015,10 +2015,15 @@ static void xtreemze_encoder_repeat_translated_invoke(const keyevent_t *event, u
         return;
     }
 
-    const uint16_t source = get_last_keycode();
-    set_last_keycode(endpoint);
+    keyrecord_t *last_record = get_last_record();
+    if (last_record == NULL) {
+        return;
+    }
+
+    const uint16_t source_keycode = last_record->keycode;
+    last_record->keycode = endpoint;
     repeat_key_invoke(event);
-    set_last_keycode(source);
+    last_record->keycode = source_keycode;
 }
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
