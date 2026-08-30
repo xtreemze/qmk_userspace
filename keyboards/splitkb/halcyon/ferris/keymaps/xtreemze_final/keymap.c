@@ -66,7 +66,7 @@ enum custom_keycodes {
  * compiled keymap once on boot. This guarantees shipped defaults are applied while
  * still allowing later Vial edits to persist.
  */
-#define XTREEMZE_DEFAULTS_EE_MARKER 0xAF
+#define XTREEMZE_DEFAULTS_EE_MARKER 0xB0
 #define XTREEMZE_USER_DATA_MAGIC 0x58
 #define XTREEMZE_USER_DATA_VERSION 0x02
 #define XTREEMZE_CHORD_MS_DEFAULT 2000
@@ -492,27 +492,27 @@ static const vial_key_override_entry_t xtreemze_default_key_overrides[] = {
 #if defined(VIAL_ALT_REPEAT_KEY_ENTRIES) && (VIAL_ALT_REPEAT_KEY_ENTRIES > 0)
 static const vial_alt_repeat_key_entry_t xtreemze_default_alt_repeat_keys[] = {
     { .keycode = KC_N, .alt_keycode = LSFT(KC_N), .allowed_mods = 0, .options = 12 },
-    { .keycode = LCTL(KC_D), .alt_keycode = LCTL(KC_U), .allowed_mods = 0, .options = 12 },
-    { .keycode = KC_W, .alt_keycode = KC_B, .allowed_mods = 0, .options = 12 },
-    { .keycode = KC_J, .alt_keycode = KC_K, .allowed_mods = 68, .options = 12 },
-    { .keycode = KC_L, .alt_keycode = KC_H, .allowed_mods = 68, .options = 12 },
-    { .keycode = KC_TAB, .alt_keycode = LSFT(KC_TAB), .allowed_mods = 17, .options = 13 },
-    { .keycode = LGUI(KC_G), .alt_keycode = SGUI(KC_G), .allowed_mods = 0, .options = 12 },
+    { .keycode = LCTL(KC_U), .alt_keycode = LCTL(KC_D), .allowed_mods = 0, .options = 14 },
+    { .keycode = KC_W, .alt_keycode = KC_B, .allowed_mods = 0, .options = 14 },
+    { .keycode = KC_K, .alt_keycode = KC_J, .allowed_mods = 68, .options = 14 },
+    { .keycode = KC_L, .alt_keycode = KC_H, .allowed_mods = 68, .options = 14 },
+    { .keycode = KC_TAB, .alt_keycode = LSFT(KC_TAB), .allowed_mods = 17, .options = 15 },
+    { .keycode = LGUI(KC_G), .alt_keycode = SGUI(KC_G), .allowed_mods = 0, .options = 14 },
     { .keycode = KC_U, .alt_keycode = LSFT(KC_U), .allowed_mods = 0, .options = 14 },
-    { .keycode = LSFT(KC_DOT), .alt_keycode = LSFT(KC_COMM), .allowed_mods = 0, .options = 12 },
+    { .keycode = LSFT(KC_DOT), .alt_keycode = LSFT(KC_COMM), .allowed_mods = 0, .options = 14 },
     { .keycode = KC_RBRC, .alt_keycode = KC_LBRC, .allowed_mods = 119, .options = 14 },
     { .keycode = LCTL(KC_A), .alt_keycode = LCTL(KC_X), .allowed_mods = 17, .options = 12 },
-    { .keycode = KC_BSPC, .alt_keycode = KC_DEL, .allowed_mods = 103, .options = 12 },
+    { .keycode = KC_DEL, .alt_keycode = KC_BSPC, .allowed_mods = 103, .options = 14 },
     { .keycode = KC_RGHT, .alt_keycode = KC_LEFT, .allowed_mods = 0, .options = 14 },
     { .keycode = KC_UP, .alt_keycode = KC_DOWN, .allowed_mods = 0, .options = 14 },
-    { .keycode = TD(12), .alt_keycode = KC_UP, .allowed_mods = 0, .options = 14 },
+    { .keycode = TD(12), .alt_keycode = TD(9), .allowed_mods = 0, .options = 14 },
     { .keycode = KC_1, .alt_keycode = KC_2, .allowed_mods = 0, .options = 8 },
-    { .keycode = TD(9), .alt_keycode = KC_DOWN, .allowed_mods = 0, .options = 14 },
-    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
-    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
-    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
-    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
-    { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
+    { .keycode = TD(11), .alt_keycode = TD(10), .allowed_mods = 0, .options = 14 },
+    { .keycode = KC_PGUP, .alt_keycode = KC_PGDN, .allowed_mods = 0, .options = 14 },
+    { .keycode = KC_END, .alt_keycode = KC_HOME, .allowed_mods = 0, .options = 14 },
+    { .keycode = LSFT(KC_RBRC), .alt_keycode = LSFT(KC_LBRC), .allowed_mods = 0, .options = 14 },
+    { .keycode = SC_RSPC, .alt_keycode = SC_LSPO, .allowed_mods = 0, .options = 14 },
+    { .keycode = LSFT(KC_0), .alt_keycode = LSFT(KC_9), .allowed_mods = 0, .options = 14 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
     { .keycode = KC_NO, .alt_keycode = KC_NO, .allowed_mods = 0, .options = 0 },
@@ -1673,27 +1673,27 @@ typedef struct {
 
 static const alt_repeat_raw_entry_t alt_repeat_entries[] = {
     { KC_N, LSFT(KC_N), 0, 12 },
-    { LCTL(KC_D), LCTL(KC_U), 0, 12 },
-    { KC_W, KC_B, 0, 12 },
-    { KC_J, KC_K, 68, 12 },
-    { KC_L, KC_H, 68, 12 },
-    { KC_TAB, LSFT(KC_TAB), 17, 13 },
-    { LGUI(KC_G), SGUI(KC_G), 0, 12 },
+    { LCTL(KC_U), LCTL(KC_D), 0, 14 },
+    { KC_W, KC_B, 0, 14 },
+    { KC_K, KC_J, 68, 14 },
+    { KC_L, KC_H, 68, 14 },
+    { KC_TAB, LSFT(KC_TAB), 17, 15 },
+    { LGUI(KC_G), SGUI(KC_G), 0, 14 },
     { KC_U, LSFT(KC_U), 0, 14 },
-    { LSFT(KC_DOT), LSFT(KC_COMM), 0, 12 },
+    { LSFT(KC_DOT), LSFT(KC_COMM), 0, 14 },
     { KC_RBRC, KC_LBRC, 119, 14 },
     { LCTL(KC_A), LCTL(KC_X), 17, 12 },
-    { KC_BSPC, KC_DEL, 103, 12 },
+    { KC_DEL, KC_BSPC, 103, 14 },
     { KC_RGHT, KC_LEFT, 0, 14 },
     { KC_UP, KC_DOWN, 0, 14 },
-    { TD(12), KC_UP, 0, 14 },
+    { TD(12), TD(9), 0, 14 },
     { KC_1, KC_2, 0, 8 },
-    { TD(9), KC_DOWN, 0, 14 },
-    { KC_NO, KC_NO, 0, 0 },
-    { KC_NO, KC_NO, 0, 0 },
-    { KC_NO, KC_NO, 0, 0 },
-    { KC_NO, KC_NO, 0, 0 },
-    { KC_NO, KC_NO, 0, 0 },
+    { TD(11), TD(10), 0, 14 },
+    { KC_PGUP, KC_PGDN, 0, 14 },
+    { KC_END, KC_HOME, 0, 14 },
+    { LSFT(KC_RBRC), LSFT(KC_LBRC), 0, 14 },
+    { SC_RSPC, SC_LSPO, 0, 14 },
+    { LSFT(KC_0), LSFT(KC_9), 0, 14 },
     { KC_NO, KC_NO, 0, 0 },
     { KC_NO, KC_NO, 0, 0 },
     { KC_NO, KC_NO, 0, 0 },
@@ -1855,9 +1855,30 @@ typedef enum {
     encoder_repeat_passthrough = 0,
     encoder_repeat_native_repeat,
     encoder_repeat_native_alt_repeat,
+    encoder_repeat_native_translated_alt_repeat,
 } encoder_repeat_dispatch_t;
 
 static encoder_repeat_dispatch_t encoder_repeat_dispatch[NUM_ENCODERS];
+static uint16_t encoder_repeat_translated_endpoint[NUM_ENCODERS];
+
+static uint16_t xtreemze_encoder_direction_keycode(uint16_t keycode) {
+    switch (keycode) {
+        case KC_K:
+        case TD(9):
+            return KC_UP;
+        case KC_J:
+        case TD(12):
+            return KC_DOWN;
+        case KC_L:
+        case TD(11):
+            return KC_RGHT;
+        case KC_H:
+        case TD(10):
+            return KC_LEFT;
+        default:
+            return KC_NO;
+    }
+}
 
 static uint8_t xtreemze_unpack_mods5(uint8_t mods5) {
     return (mods5 & 0x10) != 0 ? (uint8_t)(mods5 << 4) : mods5;
@@ -1877,6 +1898,28 @@ static uint16_t xtreemze_normalize_alt_repeat_keycode(uint16_t keycode, uint8_t 
     }
 }
 
+static bool xtreemze_encoder_symbol_keycode(uint16_t keycode) {
+    if (keycode == SC_LSPO || keycode == SC_RSPC) {
+        return true;
+    }
+
+    if (keycode >= QK_MODS && keycode <= QK_MODS_MAX) {
+        switch (QK_MODS_GET_BASIC_KEYCODE(keycode)) {
+            case KC_COMM:
+            case KC_DOT:
+            case KC_LBRC:
+            case KC_RBRC:
+            case KC_9:
+            case KC_0:
+                return true;
+            default:
+                break;
+        }
+    }
+
+    return false;
+}
+
 static bool xtreemze_alt_repeat_mods_match(uint8_t mods, uint8_t required_mods, uint8_t allowed_mods, uint8_t options) {
     allowed_mods |= required_mods;
 
@@ -1889,12 +1932,19 @@ static bool xtreemze_alt_repeat_mods_match(uint8_t mods, uint8_t required_mods, 
     return (mods & required_mods) == required_mods && (mods & ~allowed_mods) == 0;
 }
 
-static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_repeat_dispatch_t *dispatch) {
+static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_repeat_dispatch_t *dispatch, uint16_t *translated_endpoint) {
     uint8_t remembered_mods = get_last_mods();
-    const uint16_t keycode = xtreemze_normalize_alt_repeat_keycode(get_last_keycode(), &remembered_mods);
+    const uint16_t remembered_keycode = get_last_keycode();
+    const uint16_t keycode = xtreemze_normalize_alt_repeat_keycode(remembered_keycode, &remembered_mods);
     int8_t best_fit = -1;
     bool winner_is_bidirectional = false;
     bool winner_is_alternate = false;
+    uint16_t winner_primary = KC_NO;
+    uint16_t winner_alternate = KC_NO;
+    uint16_t winner_primary_raw = KC_NO;
+    uint16_t winner_alternate_raw = KC_NO;
+
+    *translated_endpoint = KC_TRNS;
 
     for (uint8_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
         vial_alt_repeat_key_entry_t entry;
@@ -1916,6 +1966,10 @@ static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_
                 best_fit = fit;
                 winner_is_bidirectional = (entry.options & vial_arep_option_bidirectional) != 0;
                 winner_is_alternate = false;
+                winner_primary = primary;
+                winner_alternate = alternate;
+                winner_primary_raw = entry.keycode;
+                winner_alternate_raw = entry.alt_keycode;
             }
         }
         if ((entry.options & vial_arep_option_bidirectional) != 0 && alternate == keycode && xtreemze_alt_repeat_mods_match(remembered_mods, alternate_required_mods, entry.allowed_mods, entry.options)) {
@@ -1924,6 +1978,10 @@ static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_
                 best_fit = fit;
                 winner_is_bidirectional = true;
                 winner_is_alternate = true;
+                winner_primary = primary;
+                winner_alternate = alternate;
+                winner_primary_raw = entry.keycode;
+                winner_alternate_raw = entry.alt_keycode;
             }
         }
     }
@@ -1932,8 +1990,35 @@ static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_
         return false;
     }
 
+    const uint16_t remembered_direction = xtreemze_encoder_direction_keycode(keycode);
+    const uint16_t primary_direction = xtreemze_encoder_direction_keycode(winner_primary);
+    const uint16_t alternate_direction = xtreemze_encoder_direction_keycode(winner_alternate);
+    if (remembered_direction != KC_NO && primary_direction != KC_NO && alternate_direction != KC_NO) {
+        *translated_endpoint = requested_keycode == QK_REPEAT_KEY ? primary_direction : alternate_direction;
+        *dispatch = encoder_repeat_native_translated_alt_repeat;
+        return true;
+    }
+
+    if (xtreemze_encoder_symbol_keycode(winner_primary_raw) || xtreemze_encoder_symbol_keycode(winner_alternate_raw)) {
+        *translated_endpoint = requested_keycode == QK_REPEAT_KEY ? winner_primary_raw : winner_alternate_raw;
+        *dispatch = encoder_repeat_native_translated_alt_repeat;
+        return true;
+    }
+
     *dispatch = (requested_keycode == QK_REPEAT_KEY) != winner_is_alternate ? encoder_repeat_native_repeat : encoder_repeat_native_alt_repeat;
     return true;
+}
+
+static void xtreemze_encoder_repeat_translated_invoke(const keyevent_t *event, uint16_t endpoint) {
+    if (!event->pressed) {
+        repeat_key_invoke(event);
+        return;
+    }
+
+    const uint16_t source = get_last_keycode();
+    set_last_keycode(endpoint);
+    repeat_key_invoke(event);
+    set_last_keycode(source);
 }
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -1948,8 +2033,12 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     if (record->event.pressed) {
         encoder_repeat_dispatch[encoder] = encoder_repeat_passthrough;
-        if (!xtreemze_encoder_repeat_resolve(keycode, &encoder_repeat_dispatch[encoder])) {
+        uint16_t translated_endpoint = KC_TRNS;
+        if (!xtreemze_encoder_repeat_resolve(keycode, &encoder_repeat_dispatch[encoder], &translated_endpoint)) {
             return true;
+        }
+        if (encoder_repeat_dispatch[encoder] == encoder_repeat_native_translated_alt_repeat) {
+            encoder_repeat_translated_endpoint[encoder] = translated_endpoint;
         }
     }
 
@@ -1964,6 +2053,9 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         case encoder_repeat_native_alt_repeat:
             alt_repeat_key_invoke(&record->event);
+            return false;
+        case encoder_repeat_native_translated_alt_repeat:
+            xtreemze_encoder_repeat_translated_invoke(&record->event, encoder_repeat_translated_endpoint[encoder]);
             return false;
         case encoder_repeat_passthrough:
         default:

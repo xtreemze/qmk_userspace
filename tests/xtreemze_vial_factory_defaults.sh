@@ -126,10 +126,40 @@ for (const feature of ['VIA_ENABLE = yes', 'VIAL_ENABLE = yes', 'VIALRGB_ENABLE 
 for (const capacity of ['DYNAMIC_KEYMAP_LAYER_COUNT 13', 'DYNAMIC_KEYMAP_MACRO_COUNT 32', 'VIAL_TAP_DANCE_ENTRIES 32', 'VIAL_COMBO_ENTRIES 32', 'VIAL_KEY_OVERRIDE_ENTRIES 32', 'VIAL_ALT_REPEAT_KEY_ENTRIES 32']) {
     assert(config.includes(capacity), `Missing Vial capacity: ${capacity}`);
 }
-assert(config.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAF') || source.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xAF'), 'Factory seed marker must be bumped for this profile.');
 assert(definition.lighting === 'vialrgb', 'VialRGB must be exposed by the keyboard definition.');
 assert((definition.keycodes || []).includes('qmk_lighting'), 'QMK RGB keycodes must be visible in Vial.');
 assert((definition.menus || []).includes('qmk_rgb_matrix'), 'RGB Matrix controls must be visible in Vial.');
+
+function assertDeterministicPair(primary, alternate) {
+    const entry = profile.alt_repeat_key.find(candidate => candidate.keycode === primary && candidate.alt_keycode === alternate);
+    assert(entry, `Missing deterministic pair ${primary} (CW) <-> ${alternate} (CCW).`);
+    assert((entry.options & 0x08) !== 0, `Deterministic pair ${primary} <-> ${alternate} must be enabled.`);
+    assert((entry.options & 0x02) !== 0, `Deterministic pair ${primary} <-> ${alternate} must be bidirectional.`);
+}
+
+for (const [clockwise, counterClockwise] of [
+    ['KC_RIGHT', 'KC_LEFT'],
+    ['KC_UP', 'KC_DOWN'],
+    ['TD(11)', 'TD(10)'],
+    ['TD(12)', 'TD(9)'],
+    ['KC_PGUP', 'KC_PGDOWN'],
+    ['KC_END', 'KC_HOME'],
+    ['KC_K', 'KC_J'],
+    ['KC_L', 'KC_H'],
+    ['LCTL(KC_U)', 'LCTL(KC_D)'],
+    ['KC_W', 'KC_B'],
+    ['KC_TAB', 'LSFT(KC_TAB)'],
+    ['LGUI(KC_G)', 'SGUI(KC_G)'],
+    ['KC_DELETE', 'KC_BSPACE'],
+    ['KC_RBRACKET', 'KC_LBRACKET'],
+    ['LSFT(KC_RBRACKET)', 'LSFT(KC_LBRACKET)'],
+    ['LSFT(KC_DOT)', 'LSFT(KC_COMMA)'],
+    ['KC_RSPC', 'KC_LSPO'],
+    ['LSFT(KC_0)', 'LSFT(KC_9)'],
+]) {
+    assertDeterministicPair(clockwise, counterClockwise);
+}
+assert(config.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xB0') || source.includes('XTREEMZE_DEFAULTS_EE_MARKER 0xB0'), 'Factory seed marker must be bumped for the deterministic direction profile.');
 
 const keymapBlock = source.slice(source.indexOf('const uint16_t PROGMEM keymaps'), source.indexOf('#if defined(ENCODER_MAP_ENABLE)'));
 const layerMatches = [...keymapBlock.matchAll(/^    \[L(\d+)\] = \{\n([\s\S]*?)^    \},$/gm)];
