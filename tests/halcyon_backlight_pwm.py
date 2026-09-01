@@ -23,10 +23,8 @@ core = without_includes((QMK / 'quantum/backlight/backlight.c').read_text()).spl
 driver = without_includes((QMK / 'platforms/chibios/drivers/backlight_pwm.c').read_text())
 processor = without_includes((QMK / 'quantum/process_keycode/process_backlight.c').read_text())
 policy = '\n'.join(function(module, signature) for signature in ['static void halcyon_backlight_set', 'void backlight_wakeup', 'void backlight_suspend'])
-if 'bool process_record_kb(' in module:
-    policy += '\n' + function(module, 'bool process_record_kb')
-else:
-    policy += '\nbool process_record_kb(uint16_t key, keyrecord_t *record) { return process_record_user(key, record); }'
+assert 'bool pre_process_record_kb(' in module, 'wake-on-key must compose through pre_process_record_kb'
+policy += '\n' + function(module, 'bool pre_process_record_kb')
 harness = r'''
 #include <assert.h>
 #include <stdint.h>
@@ -46,6 +44,7 @@ static bool master = true;
 static bool backlight_off;
 static bool is_keyboard_master(void) { return master; }
 static bool process_record_user(uint16_t key, keyrecord_t *record) { (void)key; (void)record; return true; }
+static bool pre_process_record_user(uint16_t key, keyrecord_t *record) { (void)key; (void)record; return true; }
 static backlight_config_t stored;
 static unsigned writes;
 static void eeconfig_read_backlight(backlight_config_t *config) { *config = stored; }
@@ -99,7 +98,7 @@ int main(void) {
     // First brightness key after inactivity applies to saved brightness, not transient zero.
     backlight_toggle();
     backlight_suspend();
-    assert(process_record_kb(BL_UP, &press));
+    assert(pre_process_record_kb(BL_UP, &press));
     assert(!process_backlight(BL_UP, &press));
     assert(get_backlight_level() == 6 && stored.level == 6);
     // The slave follows QMK split synchronization; lifecycle helpers must not overwrite it.
@@ -108,7 +107,7 @@ int main(void) {
     backlight_suspend(); backlight_wakeup();
     assert(get_backlight_level() == 3 && writes == saved_writes);
     assert(process_backlight(BL_BRTG, &press)); // Breathing remains intentionally disabled.
-    puts("PWM GP27/slice5/B: levels 1/10 distinct; controls, timeout, manual-off and slave policy pass.");
+    puts("PWM GP27/slice5/B: levels 1/10 distinct; controls, timeout, pre-process wake, manual-off and slave policy pass.");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='halcyon-pwm-') as tmp:

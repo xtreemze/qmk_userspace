@@ -6,7 +6,6 @@
 #include "halcyon.h"
 #include "transactions.h"
 #include "split_util.h"
-#include "_wait.h"
 
 __attribute__((weak)) void module_suspend_power_down_kb(void);
 __attribute__((weak)) void module_suspend_wakeup_init_kb(void);
@@ -127,23 +126,26 @@ void housekeeping_task_kb(void) {
 
         if (!synced && is_transport_connected()) {
             transaction_rpc_send(MODULE_SYNC, sizeof(module), &module);
-            wait_ms(10);
             // Good moment to make sure the backlight wakes up after boot for both halves.
             backlight_wakeup();
             synced = true;
         }
-
-        display_module_housekeeping_task_kb(false);
-    } else {
-        display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
+    // Keep wake/suspend brightness state current before any display housekeeping.
+    // The TFT path may use that state while recovering or drawing this pass.
     if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
         if (backlight_off) {
             backlight_wakeup();
         }
     } else if (!backlight_off) {
         backlight_suspend();
+    }
+
+    if (is_keyboard_master()) {
+        display_module_housekeeping_task_kb(false);
+    } else {
+        display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
     module_housekeeping_task_kb();
