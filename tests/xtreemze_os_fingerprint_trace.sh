@@ -141,7 +141,8 @@ grep -Eq 'display_mode[[:space:]]*!=[[:space:]]*DISPLAY_MODE_TRACE_VIEW' <<<"$tr
 grep -q 'OS_TRACE_VIEW' "$vial_file" || fail "Expected a named Vial-assignable TRACE VIEW keycode."
 grep -q 'USER20' "$readme_file" || fail "Expected USER20 TRACE VIEW assignment to be documented."
 
-record_body="$(extract_function "$keymap_file" 'process_record_user(uint16_t keycode, keyrecord_t *record)')"
+# Include the return type so this cannot accidentally match pre_process_record_user().
+record_body="$(extract_function "$keymap_file" 'bool process_record_user(uint16_t keycode, keyrecord_t *record)')"
 grep -q 'OS_TRACE_VIEW' <<<"$record_body" || fail "Expected USER20 to handle TRACE VIEW explicitly."
 grep -q 'halcyon_display_toggle_trace_view' <<<"$record_body" || fail "Expected USER20 to toggle the display mode."
 if grep -Eq '\bqp_|\bwait_(ms|us)[[:space:]]*\(' <<<"$record_body"; then
