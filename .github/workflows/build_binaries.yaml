@@ -2,7 +2,9 @@ name: Build QMK firmware
 
 on:
   push:
+    branches: [halcyon]
   pull_request:
+    branches: [halcyon]
   workflow_dispatch:
 
 permissions:
