@@ -1,11 +1,38 @@
 name: Build QMK firmware
 
-on: [push, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  regressions:
+    name: 'Halcyon Regression Suite'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Userspace
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Vial-QMK
+        uses: actions/checkout@v4
+        with:
+          repository: vial-kb/vial-qmk
+          ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+          path: qmk_firmware
+
+      - name: Apply userspace QMK patch
+        run: |
+          git -C qmk_firmware apply --check ../patches/0001-os-detection-fingerprint-trace.patch
+          git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
+
+      - name: Run standalone regressions
+        run: bash tests/run_ci_regressions.sh
+
   build:
     name: 'QMK Userspace Build'
     uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
@@ -20,7 +47,7 @@ jobs:
   publish:
     name: 'QMK Userspace Publish'
     uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
-    if: needs.build.result == 'success'
-    needs: build
+    if: github.ref == 'refs/heads/halcyon' && needs.build.result == 'success' && needs.regressions.result == 'success'
+    needs: [build, regressions]
     with:
-      release_name: ${{ github.ref == 'refs/heads/halcyon' && 'latest' || 'halcyon-legacy-migration' }}
+      release_name: latest
