@@ -1,5 +1,6 @@
 VPATH += $(USER_PATH)/splitkb/
 SRC += $(USER_PATH)/splitkb/halcyon.c
+SRC += $(USER_PATH)/splitkb/halcyon_buttons.c
 HALCONFDIR += $(USER_PATH)/splitkb/halconf.h
 POST_CONFIG_H += $(USER_PATH)/splitkb/config.h
 
@@ -11,10 +12,11 @@ BACKLIGHT_DRIVER = pwm
 HLC_TRUE_VALUES := 1 yes true y
 HLC_NONE_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_NONE)))
 HLC_ENCODER_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_ENCODER)))
+HLC_ENCODER_REV2_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_ENCODER_REV2)))
 HLC_TFT_DISPLAY_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_TFT_DISPLAY)))
 HLC_CIRQUE_TRACKPAD_ENABLED := $(filter $(HLC_TRUE_VALUES),$(strip $(HLC_CIRQUE_TRACKPAD)))
 
-ifneq ($(HLC_ENCODER_ENABLED),)
+ifneq ($(strip $(HLC_ENCODER_ENABLED) $(HLC_ENCODER_REV2_ENABLED)),)
   ENCODER_ENABLE = yes
   include $(USER_PATH)/splitkb/hlc_encoder/rules.mk
 endif
@@ -31,8 +33,8 @@ ifneq ($(HLC_CIRQUE_TRACKPAD_ENABLED),)
   include $(USER_PATH)/splitkb/hlc_cirque_trackpad/rules.mk
 endif
 
-HLC_OPTIONS := $(HLC_NONE_ENABLED) $(HLC_CIRQUE_TRACKPAD_ENABLED) $(HLC_ENCODER_ENABLED) $(HLC_TFT_DISPLAY_ENABLED)
+HLC_OPTIONS := $(HLC_NONE_ENABLED) $(HLC_CIRQUE_TRACKPAD_ENABLED) $(HLC_ENCODER_ENABLED) $(HLC_ENCODER_REV2_ENABLED) $(HLC_TFT_DISPLAY_ENABLED)
 
 ifeq ($(strip $(HLC_OPTIONS)),)
-$(error Halcyon_modules used but wrong or no module specified. Please specify one by adding `-e <module_name>=1` to your compile command where <module_name> can be: HLC_NONE, HLC_CIRQUE_TRACKPAD, HLC_ENCODER or HLC_TFT_DISPLAY)
+$(error Halcyon_modules used but wrong or no module specified. Please specify one by adding `-e <module_name>=1` to your compile command where <module_name> can be: HLC_NONE, HLC_CIRQUE_TRACKPAD, HLC_ENCODER, HLC_ENCODER_REV2 or HLC_TFT_DISPLAY)
 endif
