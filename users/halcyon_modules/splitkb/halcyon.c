@@ -132,18 +132,22 @@ void housekeeping_task_kb(void) {
             backlight_wakeup();
             synced = true;
         }
-
-        display_module_housekeeping_task_kb(false);
-    } else {
-        display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
+    // Keep wake/suspend brightness state current before any display housekeeping.
+    // The TFT path may use that state while recovering or drawing this pass.
     if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
         if (backlight_off) {
             backlight_wakeup();
         }
     } else if (!backlight_off) {
         backlight_suspend();
+    }
+
+    if (is_keyboard_master()) {
+        display_module_housekeeping_task_kb(false);
+    } else {
+        display_module_housekeeping_task_kb(module_master == hlc_tft_display);
     }
 
     module_housekeeping_task_kb();
