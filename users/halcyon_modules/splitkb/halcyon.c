@@ -6,7 +6,6 @@
 #include "halcyon.h"
 #include "transactions.h"
 #include "split_util.h"
-#include "_wait.h"
 
 __attribute__((weak)) void module_suspend_power_down_kb(void);
 __attribute__((weak)) void module_suspend_wakeup_init_kb(void);
@@ -127,7 +126,6 @@ void housekeeping_task_kb(void) {
 
         if (!synced && is_transport_connected()) {
             transaction_rpc_send(MODULE_SYNC, sizeof(module), &module);
-            wait_ms(10);
             // Good moment to make sure the backlight wakes up after boot for both halves.
             backlight_wakeup();
             synced = true;
