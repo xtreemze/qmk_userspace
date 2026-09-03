@@ -1,0 +1,59 @@
+name: Project note / proposal / research
+
+description: Track an idea, research result, audit finding, risk, lesson, configuration note or related project.
+title: "[Project] "
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Enhancement proposal
+        - Research
+        - Audit finding
+        - Risk / unknown
+        - Lesson learned
+        - Way of working
+        - Upstream synchronization
+        - Related project
+        - Configuration / hardware note
+        - Documentation follow-up
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State the observed behavior, question, opportunity or decision that should be preserved in project memory.
+      placeholder: Include exact firmware/configuration paths, versions, commits or hardware arrangements when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and references
+      description: Add test results, reproduction notes, upstream commits, documentation, research links or comparable projects. Distinguish facts from hypotheses.
+
+  - type: textarea
+    id: implications
+    attributes:
+      label: Implications / options
+      description: What could this change, break, improve or teach us? List alternatives when a design decision is not settled.
+
+  - type: textarea
+    id: next
+    attributes:
+      label: Next action / acceptance
+      description: Define the next useful action and what evidence would allow the issue to be closed or converted into a PR.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Tracking checks
+      options:
+        - label: I checked for an existing issue or PR covering the same concern.
+          required: true
+        - label: I marked hardware-only observations as such rather than presenting them as source-level conclusions.
+          required: false

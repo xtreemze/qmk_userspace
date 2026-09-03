@@ -1,15 +1,19 @@
 # Halcyon Ferris rev1 - xtreemze_final
 
-The canonical factory profile is `xtreemzeVial.vil`, imported byte-for-byte from
-the user's 2026-08-26 export (SHA-256
-`1f6d264bbfa1b8e9bd55a51e6456c145b6f6903a011ab7ea283cc8171c5a9bf6`).
+The canonical factory profile is `xtreemzeVial.vil`. It originated from the
+user's 2026-08-26 export and was intentionally revised on 2026-08-30 to align
+bidirectional Vial alternate-repeat pairs with the deterministic encoder-direction
+resolver. The current tracked profile SHA-256 is
+`281a1e2ff27dc6fff2a34b60fec276280fec2723389b4706895e657db3fd3a3a`.
+The original 2026-08-26 export and its hash remain documented in
+`docs/halcyon-default-profile-2026-08-26.md` as a historical snapshot.
 
 - All 13 matrix layers and both encoder slots on every layer are compiled in.
 - All 32 slots for macros, tap dance, combos, key overrides and alt-repeat are
   seeded, including cleared entries. All 26 exported QMK settings and layout
   option `1` are applied. UID and protocol fields identify the compatible device;
   the export contains no separate RGB profiles or TFT brightness state.
-- **On the first boot of this profile revision, marker `0xAF` replaces the old
+- **On the first boot of this profile revision, marker `0xB0` replaces the old
   Vial dynamic data with these defaults. Export any newer on-device edits before
   flashing.** No manual EEPROM reset is needed. Later edits persist across boots.
 - The user data format remains `0x02`; saved custom RGB profiles and the stored
