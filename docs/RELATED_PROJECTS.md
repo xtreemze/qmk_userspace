@@ -9,6 +9,7 @@ This page records projects that materially influence the Halcyon fork. It is an 
 Role: primary Halcyon userspace upstream.
 
 - Default branch: `halcyon`.
+- Audited head on 2026-09-03: `0d2653b3ed58807a63915fa55d071f98d12a8991` (`fix: handle module buttons on either master half`). The fork's current integration lineage already includes this commit.
 - This fork should treat SplitKB's current Halcyon architecture, module ownership and hardware support as the upstream baseline unless a fork-specific behavior has an explicit reason to differ.
 - Synchronization work should review changes touching `users/halcyon_modules/`, supported Halcyon keyboard definitions, module buttons, display/backlight behavior, split transactions and module option parsing.
 - Record the exact upstream range in each sync PR; do not use a floating "latest" description as the durable record.
