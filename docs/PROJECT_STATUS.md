@@ -8,6 +8,7 @@ This document is a concise audit snapshot, not a permanent backlog. Durable work
 
 - Default/integration branch: `halcyon`.
 - Current integration lineage includes the resolved SplitKB Halcyon synchronization through upstream commit `0d2653b3ed58807a63915fa55d071f98d12a8991`.
+- Upstream check on 2026-09-03 confirms `splitkb/qmk_userspace:halcyon` still points to `0d2653b3ed58807a63915fa55d071f98d12a8991`; there is no newer SplitKB Halcyon commit pending integration at this snapshot.
 - Release-producing CI is gated by the repository regression suite and the QMK userspace build.
 - The workflow pins the Vial-QMK revision used for both regression and firmware build inputs.
 - The Ferris `xtreemze_final` profile has dedicated tests for Vial defaults, deterministic encoder repeat direction, OS-aware behavior, TFT behavior and backlight policy.
@@ -53,7 +54,7 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 3. **Pinned Vial-QMK review policy** — define when and how the pinned firmware dependency advances, including regression and exact-target build evidence.
 4. **USB resume/no-op investigation** — capture reproduction conditions, host power-state transitions, split transport state and recovery behavior before proposing firmware changes.
 5. **Documentation/configuration consistency audit** — identify additional values that can be derived automatically from `qmk.json`, the workflow, Vial export or compiled keymap and add cheap drift checks where useful.
-6. **Related projects and research index** — maintain references to relevant QMK, Vial, SplitKB Halcyon, ChibiOS and hardware-module work, with notes on concrete applicability to this fork.
+6. **Related-project research cadence** — keep `docs/RELATED_PROJECTS.md` current and open focused issues for external changes with concrete applicability to this fork.
 
 ## Review cadence
 
