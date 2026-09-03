@@ -31,10 +31,8 @@ jobs:
           ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
           path: qmk_firmware
 
-      - name: Apply userspace QMK patch
-        run: |
-          git -C qmk_firmware apply --check ../patches/0001-os-detection-fingerprint-trace.patch
-          git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
+      - name: Apply userspace QMK patches
+        run: bash scripts/apply-qmk-patches.sh qmk_firmware
 
       - name: Run standalone regressions
         run: bash tests/run_ci_regressions.sh
@@ -47,8 +45,7 @@ jobs:
       qmk_ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
       preparation_command: >-
         ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/ &&
-        git -C qmk_firmware apply --check ../patches/0001-os-detection-fingerprint-trace.patch &&
-        git -C qmk_firmware apply ../patches/0001-os-detection-fingerprint-trace.patch
+        bash scripts/apply-qmk-patches.sh qmk_firmware
 
   publish:
     name: 'QMK Userspace Publish'
