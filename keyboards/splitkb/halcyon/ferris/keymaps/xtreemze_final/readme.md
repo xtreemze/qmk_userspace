@@ -1,8 +1,12 @@
 # Halcyon Ferris rev1 - xtreemze_final
 
-The canonical factory profile is `xtreemzeVial.vil`, imported byte-for-byte from
-the user's 2026-08-26 export (SHA-256
-`1f6d264bbfa1b8e9bd55a51e6456c145b6f6903a011ab7ea283cc8171c5a9bf6`).
+The canonical factory profile is `xtreemzeVial.vil`. It originated from the
+user's 2026-08-26 export and was intentionally revised on 2026-08-30 to align
+bidirectional Vial alternate-repeat pairs with the deterministic encoder-direction
+resolver. The current tracked profile SHA-256 is
+`281a1e2ff27dc6fff2a34b60fec276280fec2723389b4706895e657db3fd3a3a`.
+The original 2026-08-26 export and its hash remain documented in
+`docs/halcyon-default-profile-2026-08-26.md` as a historical snapshot.
 
 - All 13 matrix layers and both encoder slots on every layer are compiled in.
 - All 32 slots for macros, tap dance, combos, key overrides and alt-repeat are
