@@ -15,6 +15,7 @@ This document is a concise audit snapshot, not a permanent backlog. Durable work
 - Legacy ELF binary equivalence remains an explicit manual certification because it requires chosen baseline and candidate binaries.
 - GitHub Issues are enabled and are now the durable surface for audit findings, research, risk tracking, hardware acceptance and project decisions.
 - The `halcyon` branch is currently unprotected; CI exists but repository settings do not yet enforce PR/check completion before integration.
+- Vial insecure mode is not enabled; the keymap defines an explicit Vial unlock combo, and production keymap rules do not enable console/debug features.
 
 ## Audit findings
 
@@ -36,6 +37,14 @@ The current Halcyon module exchange sets its historical one-shot synchronization
 Risk: stale `module_master` state after a failed first transaction, transport reconnect or slave-side reset, affecting second-display/module-role behavior.
 
 Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage. Both regression and exact firmware-build CI are green; physical recovery and degraded-link timing evidence remain in #7.
+
+### Split transaction identifiers are safe now but structurally sensitive to asymmetric features
+
+`MODULE_SYNC` is declared through `SPLIT_TRANSACTION_IDS_KB` and becomes a numeric member of QMK's `serial_transaction_id` enum after many conditionally compiled built-in transactions. The TFT and encoder release targets currently compile the same transaction-affecting feature set: encoder support, split layer/LED/mod state, backlight, RGB Matrix and OS detection; neither release target enables split pointing-device transactions. TFT-specific Quantum Painter flags do not alter the transaction enum.
+
+Risk: a future module-only feature can silently shift `MODULE_SYNC` to a different wire ID on one half while both images still compile independently.
+
+Status: current parity is a negative finding, not a defect. A build-derived transaction-ID parity guard is recorded as a candidate in #13; avoid a brittle hand-maintained macro list if exact preprocessed/build metadata can be compared instead.
 
 ### Persistent configuration can diverge between USB-master halves
 
@@ -71,11 +80,21 @@ Status: confirm the physical module revision and align release/build documentati
 
 ### CI inputs are not yet fully immutable or least-privilege
 
-Vial-QMK and the QMK reusable workflow files are pinned to exact SHAs. PR #14 pins this repository's direct checkout steps to the exact official `actions/checkout` v7.0.1 commit. However, the pinned QMK reusable build workflow itself invokes mutable `actions/checkout@v6`, `actions/upload-artifact@v7` and `ghcr.io/qmk/qmk_cli:latest`; the publish workflow invokes mutable `actions/checkout@v6`, `actions/download-artifact@v8` and `softprops/action-gh-release@v3`. The reusable workflow also requires a write-capable token ceiling.
+Vial-QMK and the QMK reusable workflow files are pinned to exact SHAs. PR #14 pins this repository's direct checkout steps to the exact official `actions/checkout` v7.0.1 commit and is green for both regressions and exact firmware builds. However, the pinned QMK reusable build workflow itself invokes mutable `actions/checkout@v6`, `actions/upload-artifact@v7` and `ghcr.io/qmk/qmk_cli:latest`; the publish workflow invokes mutable `actions/checkout@v6`, `actions/download-artifact@v8` and `softprops/action-gh-release@v3`. The reusable workflow also requires a write-capable token ceiling.
+
+A successful audited build pulled `qmk_cli:latest` as digest `sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a`, demonstrating that the effective toolchain is resolved at runtime rather than fixed by the reusable-workflow SHA.
 
 Risk: identical repository, Vial and reusable-workflow SHAs can execute different Action/container code over time, and mutable nested dependencies run with more repository authority than ordinary compilation intrinsically needs.
 
 Status: direct checkout pinning is in PR #14; write-token separation is #19; nested Action/container immutability and end-to-end reproducibility are #23.
+
+### Release history and binary provenance are not durable enough
+
+The current `latest` release is mutable, targets the branch name `halcyon`, has an empty release body, and contains only the display/encoder UF2 files. GitHub records asset SHA-256 digests, but the distributed files do not carry a durable manifest identifying the userspace commit, Vial-QMK SHA, local patches, module hardware assumption, build-container/toolchain identity, factory-profile revision or validation status. The publishing workflow replaces `latest`, so prior known-good binaries are not retained as immutable release assets.
+
+A green PR #6 artifact inspection found about 91,904 bytes of actual RP2040 UF2 payload for the TFT image and 73,984 bytes for the encoder image; current flash payload size is therefore not the immediate resource concern. Traceability and rollback are the stronger release risks.
+
+Status: immutable release history and generated provenance manifest are tracked in #25, with CI-environment immutability in #23.
 
 ### Integration branch does not enforce the CI gates
 
@@ -91,25 +110,35 @@ Risk: future Vial pin updates are harder to audit and may retain/delete unrelate
 
 Status: dependency compatibility note recorded in #11; split/retirement work tracked in #20 after workflow changes settle.
 
-### Hardware acceptance remains distinct from source validation
-
-The Ferris keymap documentation still lists physical TFT/backlight acceptance items, including brightness range, controls, encoders, idle wake and USB sleep/wake with different master/slave arrangements.
-
-Status: partially validated; remaining checks require physical hardware and are tracked in #7.
-
 ### Intermittent host resume no-op remains unresolved
 
 The reported failure after host standby/power-source changes can require a USB power cycle. Existing code already defers TFT wake and host-family policy work out of the wake edge, and PR #6 addresses a separate split-state recovery gap, but neither proves the root cause of a complete USB/HID no-op.
 
 Pinned Vial-QMK has an optional `OS_DETECTION_KEYBOARD_RESET` path that performs an MCU soft reset if USB falls back to INIT after previously reaching CONFIGURED and remains there beyond the detector debounce. This fork deliberately removed that behavior in commit `8855474134b244541d9336515c7593d62f249419` to preserve host-family state; the host-family design has since gained persistent storage and explicit resume stabilization.
 
+A post-pin upstream QMK RP2040 endpoint-buffer alignment fix was also reviewed. Pinned Vial lacks it, but the current keyboard/mouse/raw/shared endpoint sizes are already four-byte multiples, so it is weak evidence for this particular resume failure and should not be backported speculatively.
+
 Status: investigation tracked in #8. Use the QMK reset path as an isolated A/B diagnostic candidate, not a default change, and capture USB state/liveness evidence before deciding whether reset-based recovery is appropriate.
+
+### Canonical M10 is explicit but executes mutable remote content when submitted
+
+Canonical Vial macro M10 contains the literal command `curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/master/bootstrap.sh | bash`. The macro contains no Enter/Return action, so profile import, firmware boot and macro invocation do not execute it automatically; submission in a shell remains a separate explicit user action.
+
+Risk: once manually submitted, the executed script is whatever `master` serves at that later moment rather than content identified by the firmware/profile revision.
+
+Status: user-configuration hardening options are tracked in #26. Preserve the no-Enter safety boundary even if the remote script is pinned or otherwise verified.
+
+### Hardware acceptance remains distinct from source validation
+
+The Ferris keymap documentation still lists physical TFT/backlight acceptance items, including brightness range, controls, encoders, idle wake and USB sleep/wake with different master/slave arrangements.
+
+Status: partially validated; remaining checks require physical hardware and are tracked in #7.
 
 ### Binary equivalence is not part of CI
 
 `tests/xtreemze_legacy_binary_equivalence.py` intentionally remains outside the source-level regression runner because it needs explicit baseline and candidate ELF files.
 
-Status: accepted manual certification step; revisit if deterministic baseline artifacts become available to CI.
+Status: accepted manual certification step; revisit if deterministic baseline artifacts become available to CI. A reproducible toolchain and immutable release history (#23/#25) would make this substantially easier.
 
 ## Live project tracking
 
@@ -120,7 +149,7 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 - #10 — SplitKB Halcyon upstream synchronization watch and decision log.
 - #11 — pinned Vial-QMK dependency review policy and decision log.
 - #12 — related QMK/Vial/SplitKB/RP2040 research log.
-- #13 — documentation/configuration consistency audit.
+- #13 — documentation/configuration and split-transaction consistency audit.
 - PR #14 — immutable/supported direct Action pins; follow-up permission risk in #19.
 - #15 — physical Halcyon encoder module revision vs release target.
 - #16 — master-half persistence consistency for Vial and custom EEPROM state.
@@ -129,6 +158,8 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 - #20 — split local QMK patches by responsibility and retirement condition.
 - #21 — make factory-default marker certification failure-atomic across QMK Settings and other checked seed APIs.
 - #23 — make nested CI Actions and the QMK CLI build environment immutable/reproducible.
+- #25 — retain immutable release history and publish a firmware provenance manifest.
+- #26 — decide whether to pin/verify the mutable remote bootstrap target in M10 while preserving manual submission.
 
 ## Review cadence
 
