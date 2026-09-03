@@ -7,8 +7,12 @@ on:
     branches: [halcyon]
   workflow_dispatch:
 
+# The pinned QMK reusable build/publish workflows currently declare
+# contents: write internally. GitHub rejects callers that attempt to grant a
+# lower permission than the called workflow requests, so keep the workflow
+# ceiling compatible until that upstream workflow is replaced or updated.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   regressions:
@@ -37,8 +41,6 @@ jobs:
 
   build:
     name: 'QMK Userspace Build'
-    permissions:
-      contents: read
     uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     with:
       qmk_repo: vial-kb/vial-qmk
@@ -50,8 +52,6 @@ jobs:
 
   publish:
     name: 'QMK Userspace Publish'
-    permissions:
-      contents: write
     uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     if: github.ref == 'refs/heads/halcyon' && needs.build.result == 'success' && needs.regressions.result == 'success'
     needs: [build, regressions]
