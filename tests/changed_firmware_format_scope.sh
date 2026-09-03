@@ -43,6 +43,10 @@ EOF
 grep -q 'scripts/check-changed-firmware-format.sh' "$workflow" || fail "firmware build must invoke the changed-file formatter"
 grep -q 'github.event.pull_request.base.sha' "$workflow" || fail "workflow must pass the exact PR base SHA"
 grep -q 'github.event.pull_request.head.sha' "$workflow" || fail "workflow must pass the exact PR head SHA"
+grep -q 'github.event.pull_request.number' "$workflow" || fail "workflow must pass the PR number for merge-ref resolution"
+grep -q 'refs/pull/${pr_number}/merge' "$checker" || fail "checker must resolve the shallow PR range through the merge ref"
+grep -q 'actual_base.*base_sha' "$checker" || fail "checker must verify merge-ref base identity"
+grep -q 'actual_head.*head_sha' "$checker" || fail "checker must verify merge-ref head identity"
 grep -q 'issue #37' "$checker" || fail "mixed keymap.c exclusion must keep an explicit follow-up"
 
 printf 'Changed firmware format scope checks passed.\n'
