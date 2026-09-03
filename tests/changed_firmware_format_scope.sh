@@ -47,6 +47,10 @@ grep -q 'github.event.pull_request.number' "$workflow" || fail "workflow must pa
 grep -q 'refs/pull/${pr_number}/merge' "$checker" || fail "checker must resolve the shallow PR range through the merge ref"
 grep -q 'actual_base.*base_sha' "$checker" || fail "checker must verify merge-ref base identity"
 grep -q 'actual_head.*head_sha' "$checker" || fail "checker must verify merge-ref head identity"
+grep -q 'safe.directory.*repo_root' "$checker" || fail "container format check must trust only the mounted userspace root"
+if grep -q "safe.directory.*['\"]\*['\"]" "$checker"; then
+    fail "formatter must not trust every Git repository globally"
+fi
 grep -q 'issue #37' "$checker" || fail "mixed keymap.c exclusion must keep an explicit follow-up"
 
 printf 'Changed firmware format scope checks passed.\n'
