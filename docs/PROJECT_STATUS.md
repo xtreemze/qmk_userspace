@@ -15,9 +15,14 @@ This document is a concise audit snapshot, not a permanent backlog. Durable work
 
 ## Audit findings
 
-### Documentation drift: factory marker
+### Documentation drift: live factory-profile identity
 
-The firmware factory marker is `0xB0`, while the keymap README still documented `0xAF`. The accompanying project-operating-model change corrects the README and adds a source-level consistency regression so marker and canonical-profile hash drift fail CI.
+The live Ferris keymap README had two stale claims:
+
+- firmware and regression sources use factory marker `0xB0`, while the README still documented `0xAF`;
+- the README still described the current `xtreemzeVial.vil` as byte-for-byte identical to the 2026-08-26 export and listed that export's SHA-256, even though commit `0f0c6a238776e891064d8e171b4fe5fcd5e42c1d` intentionally revised the profile on 2026-08-30 to align deterministic encoder repeat pairs.
+
+The live README now documents marker `0xB0`, the current canonical profile SHA-256, and the later profile revision while preserving `docs/halcyon-default-profile-2026-08-26.md` as the historical August 26 snapshot. A source-level consistency regression checks the live marker and canonical-profile hash so this class of drift fails CI.
 
 Status: mitigated by the accompanying PR.
 
