@@ -44,6 +44,9 @@ jobs:
       qmk_repo: vial-kb/vial-qmk
       qmk_ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
       preparation_command: >-
+        bash scripts/check-changed-firmware-format.sh
+        "${{ github.event.pull_request.base.sha }}"
+        "${{ github.event.pull_request.head.sha }}" &&
         ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/ &&
         bash scripts/apply-qmk-patches.sh qmk_firmware
 
