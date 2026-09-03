@@ -9,7 +9,7 @@ the user's 2026-08-26 export (SHA-256
   seeded, including cleared entries. All 26 exported QMK settings and layout
   option `1` are applied. UID and protocol fields identify the compatible device;
   the export contains no separate RGB profiles or TFT brightness state.
-- **On the first boot of this profile revision, marker `0xAF` replaces the old
+- **On the first boot of this profile revision, marker `0xB0` replaces the old
   Vial dynamic data with these defaults. Export any newer on-device edits before
   flashing.** No manual EEPROM reset is needed. Later edits persist across boots.
 - The user data format remains `0x02`; saved custom RGB profiles and the stored
