@@ -7,6 +7,10 @@ on:
     branches: [halcyon]
   workflow_dispatch:
 
+# The pinned QMK reusable build/publish workflows currently declare
+# contents: write internally. GitHub rejects callers that attempt to grant a
+# lower permission than the called workflow requests, so keep the workflow
+# ceiling compatible until that upstream workflow is replaced or updated.
 permissions:
   contents: write
 
@@ -18,10 +22,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout Userspace
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout pinned Vial-QMK
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: vial-kb/vial-qmk
           ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
