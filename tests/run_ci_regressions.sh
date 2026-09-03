@@ -10,6 +10,7 @@ run() {
 }
 
 run bash tests/halcyon_tft_backlight_rules.sh
+run python3 tests/halcyon_module_sync.py
 run bash tests/halcyon_tft_layout_rules.sh
 run python3 tests/xtreemze_encoder_repeat_direction.py
 run bash tests/xtreemze_os_display_indicator.sh
