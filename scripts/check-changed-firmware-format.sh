@@ -60,34 +60,22 @@ fi
 
 base_sha="${1:-}"
 head_sha="${2:-}"
+pr_number="${3:-}"
 smoke_target="users/halcyon_modules/splitkb/halcyon.h"
 targets=("$smoke_target")
 
-ensure_commit() {
-    local sha="$1"
-    git cat-file -e "${sha}^{commit}" 2>/dev/null && return 0
+if [[ -n "$base_sha" && -n "$head_sha" && -n "$pr_number" ]]; then
+    pr_ref="refs/pull/${pr_number}/merge"
+    git fetch --no-tags --depth=2 origin "$pr_ref"
+    merge_sha="$(git rev-parse FETCH_HEAD)"
+    actual_base="$(git rev-parse "${merge_sha}^1")"
+    actual_head="$(git rev-parse "${merge_sha}^2")"
 
-    if git fetch --no-tags --depth=1 origin "$sha" >/dev/null 2>&1; then
-        git cat-file -e "${sha}^{commit}" 2>/dev/null && return 0
-    fi
-
-    # Same-repository and fork PRs are both exposed through refs/pull/*/merge.
-    # Fetching that ref at depth 2 makes both merge parents available without a
-    # full repository history fetch.
-    if [[ "${GITHUB_REF:-}" == refs/pull/*/merge ]]; then
-        git fetch --no-tags --depth=2 origin "$GITHUB_REF" >/dev/null 2>&1 || true
-        git cat-file -e "${sha}^{commit}" 2>/dev/null && return 0
-    fi
-
-    fail "cannot resolve PR commit $sha for changed-file formatting"
-}
-
-if [[ -n "$base_sha" && -n "$head_sha" ]]; then
-    ensure_commit "$base_sha"
-    ensure_commit "$head_sha"
+    [[ "$actual_base" == "$base_sha" ]] || fail "PR merge-ref base $actual_base does not match expected $base_sha"
+    [[ "$actual_head" == "$head_sha" ]] || fail "PR merge-ref head $actual_head does not match expected $head_sha"
 
     mapfile -d '' -t changed_files < <(
-        git diff --name-only -z --diff-filter=AMR "$base_sha" "$head_sha"
+        git diff --name-only -z --diff-filter=AMR "$actual_base" "$actual_head"
     )
 
     for path in "${changed_files[@]}"; do
@@ -95,8 +83,10 @@ if [[ -n "$base_sha" && -n "$head_sha" ]]; then
             targets+=("$path")
         fi
     done
+elif [[ -n "$base_sha" || -n "$head_sha" || -n "$pr_number" ]]; then
+    fail "PR formatting requires base SHA, head SHA and PR number together"
 else
-    printf 'No pull-request base/head range supplied; running formatter smoke check only.\n'
+    printf 'No pull-request range supplied; running formatter smoke check only.\n'
 fi
 
 command -v qmk >/dev/null 2>&1 || fail "qmk CLI is required for firmware formatting"
