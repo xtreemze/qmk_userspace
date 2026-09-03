@@ -72,8 +72,6 @@ typedef struct {
     bool is_master;
 } halcyon_host_telemetry_t;
 
-extern painter_device_t lcd;
-extern painter_device_t lcd_surface;
 const char *halcyon_display_layer_name_user(uint8_t layer);
 const char *halcyon_display_alt_repeat_text_user(void);
 bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry);
@@ -81,11 +79,6 @@ bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry);
 void halcyon_display_toggle_trace_view(void);
 #endif
 
-bool draw_grid(void);
-void update_grid(void);
-void init_grid(void);
-void add_cell_cluster(void);
-uint8_t get_random_color_index(void);
 bool update_display(void);
 void backlight_wakeup(void);
 void backlight_suspend(void);
