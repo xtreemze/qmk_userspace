@@ -48,7 +48,7 @@ grep -q 'refs/pull/${pr_number}/merge' "$checker" || fail "checker must resolve 
 grep -q 'actual_base.*base_sha' "$checker" || fail "checker must verify merge-ref base identity"
 grep -q 'actual_head.*head_sha' "$checker" || fail "checker must verify merge-ref head identity"
 grep -q 'safe.directory.*repo_root' "$checker" || fail "container format check must trust only the mounted userspace root"
-if grep -q "safe.directory.*['\"]\*['\"]" "$checker"; then
+if grep -Eq '^[[:space:]]*git config --global --add safe\.directory[[:space:]]+["'"']?\*(["'"']|$)' "$checker"; then
     fail "formatter must not trust every Git repository globally"
 fi
 grep -q 'issue #37' "$checker" || fail "mixed keymap.c exclusion must keep an explicit follow-up"
