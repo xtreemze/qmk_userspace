@@ -54,6 +54,8 @@ bool backlight_off = false;
 #    define BACKLIGHT_ON_STATE 1
 #endif
 
+#define HLC_MODULE_SYNC_INTERVAL_MS 500
+
 static void halcyon_backlight_set(bool enabled) {
 #ifdef BACKLIGHT_ENABLE
     // Only the USB master owns brightness. QMK synchronizes its effective level
@@ -121,14 +123,31 @@ void keyboard_post_init_kb(void) {
 }
 
 void housekeeping_task_kb(void) {
-    if (is_keyboard_master()) {
-        static bool synced = false;
+    static bool module_sync_established = false;
+    static bool module_sync_attempted = false;
+    static uint32_t last_module_sync_attempt = 0;
 
-        if (!synced && is_transport_connected()) {
-            transaction_rpc_send(MODULE_SYNC, sizeof(module), &module);
-            // Good moment to make sure the backlight wakes up after boot for both halves.
-            backlight_wakeup();
-            synced = true;
+    const bool master = is_keyboard_master();
+    const bool transport_connected = is_transport_connected();
+
+    // A disconnected transport or a role change invalidates the one-way module
+    // identity exchange. Retry immediately when this half next becomes a
+    // connected master. Periodic refresh also repairs a slave-side reset that
+    // does not produce a clean disconnect edge on the master.
+    if (!master || !transport_connected) {
+        module_sync_established = false;
+        module_sync_attempted = false;
+    } else if (!module_sync_attempted || timer_elapsed32(last_module_sync_attempt) >= HLC_MODULE_SYNC_INTERVAL_MS) {
+        module_sync_attempted = true;
+        last_module_sync_attempt = timer_read32();
+
+        if (transaction_rpc_send(MODULE_SYNC, sizeof(module), &module)) {
+            if (!module_sync_established) {
+                // Good moment to make sure the backlight wakes up after boot or
+                // a recovered split connection, without waking it every refresh.
+                backlight_wakeup();
+            }
+            module_sync_established = true;
         }
     }
 
@@ -142,7 +161,7 @@ void housekeeping_task_kb(void) {
         backlight_suspend();
     }
 
-    if (is_keyboard_master()) {
+    if (master) {
         display_module_housekeeping_task_kb(false);
     } else {
         display_module_housekeeping_task_kb(module_master == hlc_tft_display);
