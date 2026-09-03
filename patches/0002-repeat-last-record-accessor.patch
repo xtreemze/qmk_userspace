@@ -1,0 +1,33 @@
+From 721affff7b2ca2aafcef3092a707b0ff1196dfb1 Mon Sep 17 00:00:00 2001
+From: QMK upstream
+Date: Thu, 18 Jun 2026 17:41:12 +0000
+Subject: [PATCH] Backport Repeat Key get_last_record implementation
+
+Upstream QMK commit 721affff7b2ca2aafcef3092a707b0ff1196dfb1
+adds the implementation for the get_last_record() declaration already present
+in repeat_key.h. The Halcyon deterministic encoder translation consumes this
+accessor on the pinned Vial-QMK revision.
+
+Keep the pinned Vial declaration's non-const signature; later QMK API evolution
+can be reconciled when the Vial-QMK pin advances.
+---
+ quantum/repeat_key.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/quantum/repeat_key.c b/quantum/repeat_key.c
+index 56f242f8b8..f0cd550796 100644
+--- a/quantum/repeat_key.c
++++ b/quantum/repeat_key.c
+@@ -30,6 +30,10 @@ uint16_t get_last_keycode(void) {
+     return last_record.keycode;
+ }
+ 
++keyrecord_t* get_last_record(void) {
++    return &last_record;
++}
++
+ uint8_t get_last_mods(void) {
+     return last_mods;
+ }
+-- 
+2.51.0
