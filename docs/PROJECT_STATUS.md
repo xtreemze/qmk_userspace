@@ -37,6 +37,22 @@ Risk: stale `module_master` state after a failed first transaction, transport re
 
 Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage. Both regression and exact firmware-build CI are green; physical recovery evidence remains in #7.
 
+### Persistent configuration can diverge between USB-master halves
+
+Pinned Vial-QMK writes VIA/Vial keymap, encoder, dynamic-entry and QMK-setting changes through local NVM APIs on the USB-connected half; the inspected command paths do not mirror those writes to the peer. The fork's custom `xtreemze_user_data_t` is also local EEPROM and includes the factory marker, persisted host family, chord duration and saved RGB profiles. Its host-family persistence explicitly treats the USB master as the sole EEPROM writer, and RGB profile save actions write the local datablock.
+
+Risk: moving USB to the other half can select older/different Vial configuration or custom persistent state even when both halves run the same firmware SHA. This is especially significant because the release is designed to support either half as master.
+
+Status: architecture and physical reproduction tracked in #16. Do not solve this with raw EEPROM cloning; define ownership, schema-aware synchronization/conflict semantics, interruption handling and the exact state regions that should be shared.
+
+### Factory-default marker can certify a failed QMK-settings seed
+
+The macro seeder already refuses to certify a partial factory seed, but `seed_qmk_settings_defaults()` ignores `qmk_settings_set()` return values. Pinned Vial-QMK returns an error when a settings ID is unavailable or a setter rejects its payload.
+
+Risk: a future Vial-QMK pin can compile successfully while one canonical setting fails to seed; the firmware can then save the new factory marker and stop retrying, permanently accepting a partial default profile.
+
+Status: failure-atomicity tracked in #21. The factory marker should only advance when every required seed phase reports success.
+
 ### Custom EEPROM schema mismatch is destructive by default
 
 `load_user_data()` resets the entire custom user datablock when `XTREEMZE_USER_DATA_VERSION` differs. The current schema has remained at version `0x02` through recent changes, so this is a future migration risk rather than a current data-loss event.
@@ -63,7 +79,7 @@ Status: direct checkout pinning and compatibility documentation are in PR #14. T
 
 The `halcyon` branch reports `protected: false`. A direct push or administrative merge can therefore bypass the PR/check workflow even though pushes are release-producing.
 
-Status: repository ruleset/branch-protection action tracked in #17.
+Status: repository ruleset/branch-protection action tracked in #17. A duplicate audit issue was closed rather than maintaining two governance threads.
 
 ### Fork patch combines independent upstream divergences
 
@@ -103,9 +119,11 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 - #13 — documentation/configuration consistency audit.
 - PR #14 — immutable/supported direct Action pins; follow-up permission risk in #19.
 - #15 — physical Halcyon encoder module revision vs release target.
+- #16 — master-half persistence consistency for Vial and custom EEPROM state.
 - #17 — enforce PR and CI checks on `halcyon` with repository rules.
 - #19 — isolate repository write permission to the release/publish path.
 - #20 — split local QMK patches by responsibility and retirement condition.
+- #21 — make factory-default marker certification failure-atomic across QMK Settings and other checked seed APIs.
 
 ## Review cadence
 
