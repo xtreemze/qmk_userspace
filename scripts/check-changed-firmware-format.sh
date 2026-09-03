@@ -64,6 +64,11 @@ pr_number="${3:-}"
 smoke_target="users/halcyon_modules/splitkb/halcyon.h"
 targets=("$smoke_target")
 
+# The reusable QMK workflow runs inside a container while Actions checkout is
+# mounted from the host. Trust only this known repository root before invoking
+# Git; do not use the broad safe.directory='*' escape hatch.
+git config --global --add safe.directory "$repo_root"
+
 if [[ -n "$base_sha" && -n "$head_sha" && -n "$pr_number" ]]; then
     pr_ref="refs/pull/${pr_number}/merge"
     git fetch --no-tags --depth=2 origin "$pr_ref"
