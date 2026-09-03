@@ -10,7 +10,7 @@ This document is a concise audit snapshot, not a permanent backlog. Durable work
 - Current integration lineage includes the resolved SplitKB Halcyon synchronization through upstream commit `0d2653b3ed58807a63915fa55d071f98d12a8991`.
 - Upstream check on 2026-09-03 confirms `splitkb/qmk_userspace:halcyon` still points to `0d2653b3ed58807a63915fa55d071f98d12a8991`; there is no newer SplitKB Halcyon commit pending integration at this snapshot.
 - Release-producing CI is gated by the repository regression suite and the QMK userspace build.
-- The workflow pins the Vial-QMK revision and QMK reusable-workflow revisions used for regression/build/release inputs.
+- The workflow pins the Vial-QMK revision and QMK reusable-workflow revisions used for regression/build/release inputs, but the pinned reusable workflow still resolves mutable nested Actions and `qmk_cli:latest`; see #23.
 - The Ferris `xtreemze_final` profile has dedicated tests for Vial defaults, deterministic encoder repeat direction, OS-aware behavior, TFT behavior and backlight policy.
 - Legacy ELF binary equivalence remains an explicit manual certification because it requires chosen baseline and candidate binaries.
 - GitHub Issues are enabled and are now the durable surface for audit findings, research, risk tracking, hardware acceptance and project decisions.
@@ -35,7 +35,7 @@ The current Halcyon module exchange sets its historical one-shot synchronization
 
 Risk: stale `module_master` state after a failed first transaction, transport reconnect or slave-side reset, affecting second-display/module-role behavior.
 
-Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage. Both regression and exact firmware-build CI are green; physical recovery evidence remains in #7.
+Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage. Both regression and exact firmware-build CI are green; physical recovery and degraded-link timing evidence remain in #7.
 
 ### Persistent configuration can diverge between USB-master halves
 
@@ -53,13 +53,13 @@ Risk: a future Vial-QMK pin can compile successfully while one canonical setting
 
 Status: failure-atomicity tracked in #21. The factory marker should only advance when every required seed phase reports success.
 
-### Custom EEPROM schema mismatch is destructive by default
+### Custom EEPROM schema mismatch can cascade into full Vial reseeding
 
-`load_user_data()` resets the entire custom user datablock when `XTREEMZE_USER_DATA_VERSION` differs. The current schema has remained at version `0x02` through recent changes, so this is a future migration risk rather than a current data-loss event.
+`load_user_data()` resets the entire custom user datablock when `XTREEMZE_USER_DATA_VERSION` differs. Pinned Vial-QMK also truncates user-datablock transfers to `EECONFIG_USER_DATA_SIZE`; current code ignores the returned byte count. The present schema remains safely within the configured 128-byte region and at version `0x02`, so this is a forward migration risk rather than a current corruption event.
 
-Risk: a future version bump could silently discard compatible saved host-family, timing and RGB-profile fields.
+The blast radius is larger than the custom block: resetting it also zeroes `defaults_marker`. Later in the same boot, `sync_compiled_defaults_to_dynamic_keymap_once()` interprets that as an old factory revision and calls `dynamic_keymap_reset()` before reseeding compiled defaults. A future user-data version bump can therefore erase the user's Vial dynamic keymap, macros, tap dances, combos, overrides and settings even if the intended schema change concerned only host/RGB metadata.
 
-Status: policy/migration work tracked in #9. A future schema bump should preserve compatible fields or explicitly document intentional destruction.
+Status: migration, storage-capacity and marker-preservation policy are consolidated in #9. Before another schema bump, preserve compatible fields and the valid factory marker, add a compile-time capacity assertion, and regress that migration does not trigger Vial factory reseeding unless destructive reset is explicitly intended.
 
 ### Release target assumes an encoder module revision without recording it
 
@@ -69,11 +69,13 @@ Risk: firmware can build and pass logical encoder tests while using the wrong re
 
 Status: confirm the physical module revision and align release/build documentation in #15.
 
-### CI dependencies are mostly immutable, but direct checkout and token scope need hardening
+### CI inputs are not yet fully immutable or least-privilege
 
-Vial-QMK and the QMK reusable workflows are pinned to exact SHAs. The repository-owned checkout steps were still using a moving major tag and the workflow grants a write-capable token ceiling because the pinned QMK reusable workflows request `contents: write` internally.
+Vial-QMK and the QMK reusable workflow files are pinned to exact SHAs. PR #14 pins this repository's direct checkout steps to the exact official `actions/checkout` v7.0.1 commit. However, the pinned QMK reusable build workflow itself invokes mutable `actions/checkout@v6`, `actions/upload-artifact@v7` and `ghcr.io/qmk/qmk_cli:latest`; the publish workflow invokes mutable `actions/checkout@v6`, `actions/download-artifact@v8` and `softprops/action-gh-release@v3`. The reusable workflow also requires a write-capable token ceiling.
 
-Status: direct checkout pinning and compatibility documentation are in PR #14. The deeper least-privilege limitation is tracked in #19; regression/build paths should eventually run read-only with write permission isolated to publishing.
+Risk: identical repository, Vial and reusable-workflow SHAs can execute different Action/container code over time, and mutable nested dependencies run with more repository authority than ordinary compilation intrinsically needs.
+
+Status: direct checkout pinning is in PR #14; write-token separation is #19; nested Action/container immutability and end-to-end reproducibility are #23.
 
 ### Integration branch does not enforce the CI gates
 
@@ -99,7 +101,9 @@ Status: partially validated; remaining checks require physical hardware and are 
 
 The reported failure after host standby/power-source changes can require a USB power cycle. Existing code already defers TFT wake and host-family policy work out of the wake edge, and PR #6 addresses a separate split-state recovery gap, but neither proves the root cause of a complete USB/HID no-op.
 
-Status: investigation tracked in #8. Evidence should distinguish USB enumeration/endpoint state, firmware liveness, split transport, display/backlight state and master-half dependence.
+Pinned Vial-QMK has an optional `OS_DETECTION_KEYBOARD_RESET` path that performs an MCU soft reset if USB falls back to INIT after previously reaching CONFIGURED and remains there beyond the detector debounce. This fork deliberately removed that behavior in commit `8855474134b244541d9336515c7593d62f249419` to preserve host-family state; the host-family design has since gained persistent storage and explicit resume stabilization.
+
+Status: investigation tracked in #8. Use the QMK reset path as an isolated A/B diagnostic candidate, not a default change, and capture USB state/liveness evidence before deciding whether reset-based recovery is appropriate.
 
 ### Binary equivalence is not part of CI
 
@@ -111,8 +115,8 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 
 - #5 — Halcyon module synchronization recovery; implementation PR #6.
 - #7 — physical Ferris TFT/backlight/split/suspend-resume acceptance matrix.
-- #8 — intermittent USB resume no-op investigation.
-- #9 — non-destructive custom EEPROM schema migration policy.
+- #8 — intermittent USB resume no-op investigation and reset-path A/B diagnostic.
+- #9 — non-destructive custom EEPROM schema/capacity/marker migration policy.
 - #10 — SplitKB Halcyon upstream synchronization watch and decision log.
 - #11 — pinned Vial-QMK dependency review policy and decision log.
 - #12 — related QMK/Vial/SplitKB/RP2040 research log.
@@ -124,6 +128,7 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 - #19 — isolate repository write permission to the release/publish path.
 - #20 — split local QMK patches by responsibility and retirement condition.
 - #21 — make factory-default marker certification failure-atomic across QMK Settings and other checked seed APIs.
+- #23 — make nested CI Actions and the QMK CLI build environment immutable/reproducible.
 
 ## Review cadence
 
