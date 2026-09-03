@@ -1,0 +1,52 @@
+name: Firmware / hardware behavior report
+
+description: Capture a reproducible firmware, split, module, Vial, USB or hardware-interaction problem.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened, and what should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the shortest reliable sequence, including sleep/wake, reconnect, master-half changes or Vial actions when relevant.
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Firmware commit / artifact
+      placeholder: Commit SHA, PR, release or exact artifact name
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Hardware and host setup
+      description: Keyboard revision, module on each half, USB master half, host OS/device, connection/power arrangement and relevant Vial/QMK settings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, traces, screenshots, test output, binary comparison, timing observations or known-good/known-bad commits.
+
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Recovery / severity
+      description: Explain whether recovery requires a keypress, reconnect, power cycle, reflashing or EEPROM reset, and whether data can be lost.
+
+  - type: textarea
+    id: investigation
+    attributes:
+      label: Investigation notes / hypotheses
+      description: Keep hypotheses explicitly separate from observations. Add relevant upstream issues or source paths.
