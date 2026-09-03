@@ -6,6 +6,7 @@ This index separates stable usage documentation from fork-specific project memor
 
 - [Project guide](PROJECT_GUIDE.md) — collaboration model, validation policy, upstream synchronization, dependency/configuration policy, risk management and documentation standards.
 - [Project status and audit snapshot](PROJECT_STATUS.md) — current repository-wide findings, management blockers and follow-up backlog.
+- [Related projects and dependency watch](RELATED_PROJECTS.md) — QMK, Vial and SplitKB upstream roles, high-risk surfaces and adoption rules.
 - [Module documentation](MODULES.md) — Halcyon module behavior and configuration.
 - [Porting guide](PORTING.md) — adding Halcyon support to compatible keyboards/keymaps.
 
