@@ -10,10 +10,11 @@ This document is a concise audit snapshot, not a permanent backlog. Durable work
 - Current integration lineage includes the resolved SplitKB Halcyon synchronization through upstream commit `0d2653b3ed58807a63915fa55d071f98d12a8991`.
 - Upstream check on 2026-09-03 confirms `splitkb/qmk_userspace:halcyon` still points to `0d2653b3ed58807a63915fa55d071f98d12a8991`; there is no newer SplitKB Halcyon commit pending integration at this snapshot.
 - Release-producing CI is gated by the repository regression suite and the QMK userspace build.
-- The workflow pins the Vial-QMK revision used for both regression and firmware build inputs.
+- The workflow pins the Vial-QMK revision and QMK reusable-workflow revisions used for regression/build/release inputs.
 - The Ferris `xtreemze_final` profile has dedicated tests for Vial defaults, deterministic encoder repeat direction, OS-aware behavior, TFT behavior and backlight policy.
 - Legacy ELF binary equivalence remains an explicit manual certification because it requires chosen baseline and candidate binaries.
 - GitHub Issues are enabled and are now the durable surface for audit findings, research, risk tracking, hardware acceptance and project decisions.
+- The `halcyon` branch is currently unprotected; CI exists but repository settings do not yet enforce PR/check completion before integration.
 
 ## Audit findings
 
@@ -34,7 +35,7 @@ The current Halcyon module exchange sets its historical one-shot synchronization
 
 Risk: stale `module_master` state after a failed first transaction, transport reconnect or slave-side reset, affecting second-display/module-role behavior.
 
-Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage.
+Status: #5 with implementation in PR #6. The proposed path remains non-blocking, retries/refreshes at a bounded 500 ms cadence, invalidates state on disconnect/master-role loss and includes executable regression coverage. Both regression and exact firmware-build CI are green; physical recovery evidence remains in #7.
 
 ### Custom EEPROM schema mismatch is destructive by default
 
@@ -43,6 +44,34 @@ Status: #5 with implementation in PR #6. The proposed path remains non-blocking,
 Risk: a future version bump could silently discard compatible saved host-family, timing and RGB-profile fields.
 
 Status: policy/migration work tracked in #9. A future schema bump should preserve compatible fields or explicitly document intentional destruction.
+
+### Release target assumes an encoder module revision without recording it
+
+The shared Halcyon code supports both `HLC_ENCODER` and `HLC_ENCODER_REV2`. SplitKB added rev2 support and a Ferris-specific correction in March 2026; rev2 changes module encoder resolution. The current `qmk.json` release matrix and flashing documentation build only `HLC_ENCODER`.
+
+Risk: firmware can build and pass logical encoder tests while using the wrong resolution for a rev2 physical module, or regress an original module if changed without hardware identification.
+
+Status: confirm the physical module revision and align release/build documentation in #15.
+
+### CI dependencies are mostly immutable, but direct checkout and token scope need hardening
+
+Vial-QMK and the QMK reusable workflows are pinned to exact SHAs. The repository-owned checkout steps were still using a moving major tag and the workflow grants a write-capable token ceiling because the pinned QMK reusable workflows request `contents: write` internally.
+
+Status: direct checkout pinning and compatibility documentation are in PR #14. The deeper least-privilege limitation is tracked in #19; regression/build paths should eventually run read-only with write permission isolated to publishing.
+
+### Integration branch does not enforce the CI gates
+
+The `halcyon` branch reports `protected: false`. A direct push or administrative merge can therefore bypass the PR/check workflow even though pushes are release-producing.
+
+Status: repository ruleset/branch-protection action tracked in #17.
+
+### Fork patch combines independent upstream divergences
+
+`patches/0001-os-detection-fingerprint-trace.patch` contains both OS-fingerprint tracing and the unrelated missing `get_last_record()` implementation used by encoder translation. Current QMK has now implemented that accessor upstream, while current Vial still lacks the implementation and differs in mutability/signature.
+
+Risk: future Vial pin updates are harder to audit and may retain/delete unrelated local divergence as one conflict unit.
+
+Status: dependency compatibility note recorded in #11; split/retirement work tracked in #20 after workflow changes settle.
 
 ### Hardware acceptance remains distinct from source validation
 
@@ -72,6 +101,11 @@ Status: accepted manual certification step; revisit if deterministic baseline ar
 - #11 — pinned Vial-QMK dependency review policy and decision log.
 - #12 — related QMK/Vial/SplitKB/RP2040 research log.
 - #13 — documentation/configuration consistency audit.
+- PR #14 — immutable/supported direct Action pins; follow-up permission risk in #19.
+- #15 — physical Halcyon encoder module revision vs release target.
+- #17 — enforce PR and CI checks on `halcyon` with repository rules.
+- #19 — isolate repository write permission to the release/publish path.
+- #20 — split local QMK patches by responsibility and retirement condition.
 
 ## Review cadence
 
