@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   regressions:
@@ -18,10 +18,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout Userspace
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout pinned Vial-QMK
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: vial-kb/vial-qmk
           ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
@@ -37,6 +37,8 @@ jobs:
 
   build:
     name: 'QMK Userspace Build'
+    permissions:
+      contents: read
     uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     with:
       qmk_repo: vial-kb/vial-qmk
@@ -48,6 +50,8 @@ jobs:
 
   publish:
     name: 'QMK Userspace Publish'
+    permissions:
+      contents: write
     uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     if: github.ref == 'refs/heads/halcyon' && needs.build.result == 'success' && needs.regressions.result == 'success'
     needs: [build, regressions]
