@@ -61,7 +61,7 @@ if f"uses: actions/upload-artifact@{upload_sha}" not in build:
 if f"uses: actions/download-artifact@{download_sha}" not in publish:
     fail("firmware artifact download action must be pinned by commit SHA")
 if f"uses: actions/github-script@{github_script_sha}" not in publish:
-    fail("release/tag cleanup action must be pinned by commit SHA")
+    fail("release/tag update action must be pinned by commit SHA")
 if f"uses: softprops/action-gh-release@{release_sha}" not in publish:
     fail("release creation action must be pinned to the resolved v3 commit")
 
@@ -69,10 +69,38 @@ if re.search(r"uses:\s+(?:actions/(?:checkout|upload-artifact|download-artifact|
     fail("workflow must not reference mutable major tags for owned build/release actions")
 if "gh release" in publish:
     fail("publish must not depend on the mutable runner gh CLI for release lifecycle")
+if "deleteRelease(" in publish or "deleteRef(" in publish:
+    fail("publish must not delete the latest release/tag before replacement is validated")
+
+validation_marker = "- name: Validate firmware artifact"
+mutation_marker = f"uses: actions/github-script@{github_script_sha}"
+release_marker = f"uses: softprops/action-gh-release@{release_sha}"
+if validation_marker not in publish:
+    fail("publish must validate the downloaded firmware set before mutating latest")
+if not (publish.index(validation_marker) < publish.index(mutation_marker) < publish.index(release_marker)):
+    fail("firmware validation must precede tag/release mutation")
+
+expected_assets = [
+    "splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2",
+    "splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2",
+]
+for asset in expected_assets:
+    if asset not in publish:
+        fail(f"publish validation must require expected asset {asset}")
+
+if "updateRef({" not in publish or "force: true" not in publish or "createRef({" not in publish:
+    fail("moving latest tag must be updated or created at the exact integration SHA")
+if "sha: context.sha" not in publish:
+    fail("latest tag mutation must use the exact workflow commit")
+
 if "fail_on_unmatched_files: true" not in publish:
     fail("release creation must fail rather than silently publishing without firmware files")
 if "target_commitish: ${{ github.sha }}" not in publish:
     fail("moving latest release must target the exact workflow commit")
+if not re.search(r"(?m)^          files: \|\n            \*\*/\*\.uf2\s*$", publish):
+    fail("RP2040 release must publish only the UF2 artifact class")
+if re.search(r"(?m)^\s+\*\*/\*\.(?:hex|bin)\s*$", publish):
+    fail("release must not require unmatched HEX/BIN globs for RP2040 targets")
 
-print("CI boundary: build is read-only and digest-pinned; publish is local, write-scoped, and action-pinned.")
+print("CI boundary: build is read-only and digest-pinned; publish is validation-first, non-destructive, write-scoped, and action-pinned.")
 PY
