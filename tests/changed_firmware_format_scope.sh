@@ -41,12 +41,17 @@ EOF
 }
 
 grep -q 'scripts/check-changed-firmware-format.sh' "$workflow" || fail "firmware build must invoke the changed-file formatter"
-grep -q 'github.event.pull_request.base.sha' "$workflow" || fail "workflow must pass the exact PR base SHA"
+if grep -q 'github.event.pull_request.base.sha' "$workflow"; then
+    fail "formatter invocation must not trust the possibly stale PR event base SHA"
+fi
 grep -q 'github.event.pull_request.head.sha' "$workflow" || fail "workflow must pass the exact PR head SHA"
 grep -q 'github.event.pull_request.number' "$workflow" || fail "workflow must pass the PR number for merge-ref resolution"
-grep -q 'refs/pull/${pr_number}/merge' "$checker" || fail "checker must resolve the shallow PR range through the merge ref"
-grep -q 'actual_base.*base_sha' "$checker" || fail "checker must verify merge-ref base identity"
+grep -q 'refs/pull/${pr_number}/merge' "$checker" || fail "checker must resolve the current PR range through GitHub's merge ref"
 grep -q 'actual_head.*head_sha' "$checker" || fail "checker must verify merge-ref head identity"
+grep -q 'git diff.*actual_base.*actual_head' "$checker" || fail "checker must diff the merge-ref base against the verified PR head"
+if grep -q 'actual_base.*base_sha' "$checker"; then
+    fail "checker must not reject a valid regenerated merge ref because the event base SHA is stale"
+fi
 grep -q 'safe.directory.*repo_root' "$checker" || fail "container format check must trust only the mounted userspace root"
 if grep -Fq 'git config --global --add safe.directory "*"' "$checker" || \
    grep -Fq "git config --global --add safe.directory '*'" "$checker" || \
