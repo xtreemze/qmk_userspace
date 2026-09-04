@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "integration_commit": "6ef608a3a319a1140d9e5e76b78c09950c18b544",
+  "vial_qmk_sha": "dd43959ae5c08d8a28d38a1acf7b04e86b14a344",
+  "targets": {
+    "splitkb_halcyon_ferris_rev1_xtreemze_final_display": {
+      "text_bytes": 91768,
+      "data_bytes": 0,
+      "bss_bytes": 265064,
+      "flash_bytes": 91768,
+      "static_ram_bytes": 265064
+    },
+    "splitkb_halcyon_ferris_rev1_xtreemze_final_encoder": {
+      "text_bytes": 73860,
+      "data_bytes": 0,
+      "bss_bytes": 265096,
+      "flash_bytes": 73860,
+      "static_ram_bytes": 265096
+    }
+  }
+}
