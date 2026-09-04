@@ -7,12 +7,10 @@ on:
     branches: [halcyon]
   workflow_dispatch:
 
-# The pinned QMK reusable build/publish workflows currently declare
-# contents: write internally. GitHub rejects callers that attempt to grant a
-# lower permission than the called workflow requests, so keep the workflow
-# ceiling compatible until that upstream workflow is replaced or updated.
+# Compilation and regression checks are read-only. Only the release job below
+# receives write authority, because publishing updates the `latest` release/tag.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   regressions:
@@ -39,22 +37,69 @@ jobs:
 
   build:
     name: 'QMK Userspace Build'
-    uses: qmk/.github/.github/workflows/qmk_userspace_build.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
-    with:
-      qmk_repo: vial-kb/vial-qmk
-      qmk_ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
-      preparation_command: >-
-        bash scripts/check-changed-firmware-format.sh
-        "${{ github.event.pull_request.base.sha }}"
-        "${{ github.event.pull_request.head.sha }}"
-        "${{ github.event.pull_request.number }}" &&
-        ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/ &&
-        bash scripts/apply-qmk-patches.sh qmk_firmware
+    runs-on: ubuntu-24.04
+    container: ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Userspace
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Checkout pinned Vial-QMK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: vial-kb/vial-qmk
+          ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+          path: qmk_firmware
+          submodules: recursive
+
+      - name: Configure QMK CLI
+        run: |
+          qmk config userspace_compile.parallel=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
+          qmk config user.qmk_home=$GITHUB_WORKSPACE/qmk_firmware
+          qmk config user.overlay_dir=$GITHUB_WORKSPACE
+
+      - name: Validate userspace
+        run: qmk userspace-doctor
+
+      - name: Check formatting and apply userspace QMK patches
+        run: |
+          bash scripts/check-changed-firmware-format.sh \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            "${{ github.event.pull_request.number }}"
+          ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/
+          bash scripts/apply-qmk-patches.sh qmk_firmware
+
+      - name: Build
+        run: |
+          if qmk userspace-compile --help | grep -q "print-failures"; then
+              EXTRA_ARGS="-p"
+          fi
+          qmk userspace-compile -e DUMP_CI_METADATA=yes $EXTRA_ARGS || touch .failed
+          ./qmk_firmware/util/ci/generate_failure_markdown.sh > "$GITHUB_STEP_SUMMARY" || true
+          truncate --size='<960K' "$GITHUB_STEP_SUMMARY" || true
+          [ ! -f .failed ] || exit 1
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always() && !cancelled()
+        continue-on-error: true
+        with:
+          name: Firmware
+          path: |
+            *.bin
+            *.hex
+            *.uf2
 
   publish:
     name: 'QMK Userspace Publish'
     uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     if: github.ref == 'refs/heads/halcyon' && needs.build.result == 'success' && needs.regressions.result == 'success'
     needs: [build, regressions]
+    permissions:
+      contents: write
     with:
       release_name: latest
