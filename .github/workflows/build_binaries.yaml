@@ -83,6 +83,9 @@ jobs:
           truncate --size='<960K' "$GITHUB_STEP_SUMMARY" || true
           [ ! -f .failed ] || exit 1
 
+      - name: Report firmware resource usage
+        run: python3 scripts/report-firmware-resources.py
+
       - name: Upload binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always() && !cancelled()
@@ -93,6 +96,7 @@ jobs:
             *.bin
             *.hex
             *.uf2
+            firmware-resources.json
 
   publish:
     name: 'QMK Userspace Publish'
