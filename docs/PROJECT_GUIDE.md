@@ -33,7 +33,7 @@ Prefer small commits and reviewable diffs. Do not hide unrelated cleanup inside 
 
 ### Issues are the project-memory surface
 
-Once repository Issues are enabled, use issues for work that benefits from discussion or durable tracking rather than an immediate code diff. Appropriate categories include:
+Use GitHub Issues for work that benefits from discussion or durable tracking rather than an immediate code diff. Appropriate categories include:
 
 - enhancement proposals and design alternatives;
 - research and related-project comparisons;
@@ -43,6 +43,8 @@ Once repository Issues are enabled, use issues for work that benefits from discu
 - lessons learned and working agreements;
 - upstream synchronization planning;
 - follow-up work discovered during a PR.
+
+Use the structured **Hardware validation** issue form for physical acceptance evidence that CI cannot prove. Use the structured **Research / decision record** form for research, alternatives, risks, lessons learned and durable decisions. Free-form issues remain appropriate when neither form fits the work.
 
 Close issues with a short outcome summary and links to the PR, test evidence or external reference that resolved them. Keep unresolved questions visible rather than burying them in merged PR conversations.
 
@@ -111,7 +113,7 @@ Avoid history rewrites solely to make the fork look linear; traceability is more
 
 ## Risk management
 
-Track risks in issues once Issues are enabled. Use explicit states such as `identified`, `investigating`, `mitigated`, `accepted` or `closed` in the issue narrative when useful.
+Track risks in Issues. Use explicit states such as `identified`, `investigating`, `mitigated`, `accepted` or `closed` in the issue narrative when useful.
 
 Prioritize risks that can cause:
 
