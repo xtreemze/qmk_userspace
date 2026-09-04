@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "integration_commit": "6ef608a3a319a1140d9e5e76b78c09950c18b544",
+  "schema_version": 2,
+  "integration_commit": "3b093a1127547394cc74b09ff0289d7562eaaae1",
   "vial_qmk_sha": "dd43959ae5c08d8a28d38a1acf7b04e86b14a344",
   "targets": {
     "splitkb_halcyon_ferris_rev1_xtreemze_final_display": {
@@ -8,14 +8,38 @@
       "data_bytes": 0,
       "bss_bytes": 265064,
       "flash_bytes": 91768,
-      "static_ram_bytes": 265064
+      "static_ram_bytes": 265064,
+      "flash_binary_bytes": 91768,
+      "flash_capacity_bytes": 2097152,
+      "flash_headroom_bytes": 2005384,
+      "ram0_static_bytes": 82776,
+      "ram0_capacity_bytes": 262144,
+      "ram0_heap_capacity_bytes": 179368,
+      "core0_stack_reserved_bytes": 3072,
+      "core0_stack_capacity_bytes": 4096,
+      "core0_stack_region_free_bytes": 1024,
+      "core1_stack_reserved_bytes": 3072,
+      "core1_stack_capacity_bytes": 4096,
+      "core1_stack_region_free_bytes": 1024
     },
     "splitkb_halcyon_ferris_rev1_xtreemze_final_encoder": {
       "text_bytes": 73860,
       "data_bytes": 0,
       "bss_bytes": 265096,
       "flash_bytes": 73860,
-      "static_ram_bytes": 265096
+      "static_ram_bytes": 265096,
+      "flash_binary_bytes": 73860,
+      "flash_capacity_bytes": 2097152,
+      "flash_headroom_bytes": 2023292,
+      "ram0_static_bytes": 15712,
+      "ram0_capacity_bytes": 262144,
+      "ram0_heap_capacity_bytes": 246432,
+      "core0_stack_reserved_bytes": 3072,
+      "core0_stack_capacity_bytes": 4096,
+      "core0_stack_region_free_bytes": 1024,
+      "core1_stack_reserved_bytes": 3072,
+      "core1_stack_capacity_bytes": 4096,
+      "core1_stack_region_free_bytes": 1024
     }
   }
 }
