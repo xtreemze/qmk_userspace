@@ -30,8 +30,8 @@ if not re.search(r"(?m)^permissions:\n  contents: read$", prefix):
 build = job_block("build")
 publish = job_block("publish")
 
-if "qmk_userspace_build.yml@" in build:
-    fail("firmware compilation must not delegate to the mutable nested reusable build wrapper")
+if "qmk/.github/.github/workflows/" in text:
+    fail("build and publish must not delegate to externally nested reusable workflows")
 
 container = "ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a"
 if f"container: {container}" not in build:
@@ -45,19 +45,34 @@ if not re.search(r"(?m)^    permissions:\n      contents: read$", build):
     fail("firmware build must explicitly remain contents-read-only")
 if not re.search(r"(?m)^    permissions:\n      contents: write$", publish):
     fail("only the publish job should escalate contents permission to write")
+if "runs-on: ubuntu-24.04" not in build or "runs-on: ubuntu-24.04" not in publish:
+    fail("build and publish jobs must stay on the explicit Ubuntu 24.04 runner family")
 
 checkout_sha = "3d3c42e5aac5ba805825da76410c181273ba90b1"
 upload_sha = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
-publish_workflow_sha = "01daf5113fa50804558f21cc074ab99ba84ddeaf"
+download_sha = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+github_script_sha = "ed597411d8f924073f98dfc5c65a23a2325f34cd"
+release_sha = "efb35369e0ad2afab669f228072c1b0d510eae64"
 
 if f"uses: actions/checkout@{checkout_sha}" not in build:
     fail("local build checkout action must be pinned by commit SHA")
 if f"uses: actions/upload-artifact@{upload_sha}" not in build:
     fail("firmware artifact upload action must be pinned by commit SHA")
-if re.search(r"uses:\s+actions/(?:checkout|upload-artifact)@v", build):
-    fail("local build must not reference mutable major action tags")
-if f"uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@{publish_workflow_sha}" not in publish:
-    fail("publish workflow must remain pinned to the audited QMK workflow commit")
+if f"uses: actions/download-artifact@{download_sha}" not in publish:
+    fail("firmware artifact download action must be pinned by commit SHA")
+if f"uses: actions/github-script@{github_script_sha}" not in publish:
+    fail("release/tag cleanup action must be pinned by commit SHA")
+if f"uses: softprops/action-gh-release@{release_sha}" not in publish:
+    fail("release creation action must be pinned to the resolved v3 commit")
 
-print("CI build boundary: local build inputs are pinned and read-only; publish is the sole contents-write job.")
+if re.search(r"uses:\s+(?:actions/(?:checkout|upload-artifact|download-artifact|github-script)|softprops/action-gh-release)@v", text):
+    fail("workflow must not reference mutable major tags for owned build/release actions")
+if "gh release" in publish:
+    fail("publish must not depend on the mutable runner gh CLI for release lifecycle")
+if "fail_on_unmatched_files: true" not in publish:
+    fail("release creation must fail rather than silently publishing without firmware files")
+if "target_commitish: ${{ github.sha }}" not in publish:
+    fail("moving latest release must target the exact workflow commit")
+
+print("CI boundary: build is read-only and digest-pinned; publish is local, write-scoped, and action-pinned.")
 PY

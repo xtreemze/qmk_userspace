@@ -96,10 +96,63 @@ jobs:
 
   publish:
     name: 'QMK Userspace Publish'
-    uses: qmk/.github/.github/workflows/qmk_userspace_publish.yml@01daf5113fa50804558f21cc074ab99ba84ddeaf
     if: github.ref == 'refs/heads/halcyon' && needs.build.result == 'success' && needs.regressions.result == 'success'
     needs: [build, regressions]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
-    with:
-      release_name: latest
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: Firmware
+
+      - name: Delete moving latest release and tag
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag: 'latest',
+              });
+              await github.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: release.id,
+              });
+              core.info(`Deleted existing latest release ${release.id}.`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.info('No existing latest release to delete.');
+            }
+
+            try {
+              await github.rest.git.deleteRef({
+                owner,
+                repo,
+                ref: 'tags/latest',
+              });
+              core.info('Deleted existing latest tag.');
+            } catch (error) {
+              if (error.status !== 404 && error.status !== 422) throw error;
+              core.info('No existing latest tag to delete.');
+            }
+
+      - name: Generate moving latest release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          token: ${{ github.token }}
+          name: Latest QMK Firmware
+          tag_name: latest
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          files: |
+            **/*.hex
+            **/*.bin
+            **/*.uf2
