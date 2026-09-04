@@ -1,0 +1,84 @@
+name: Hardware validation
+about: Record physical acceptance evidence for firmware behavior that CI cannot prove
+title: "Hardware validation: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for physical keyboard evidence. Source tests, mocked behavior and successful compilation are complementary evidence, not substitutes for hardware acceptance.
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware commit or PR
+      description: Exact userspace commit SHA or pull request being tested.
+      placeholder: 0123456789abcdef...
+    validations:
+      required: true
+
+  - type: input
+    id: dependency
+    attributes:
+      label: Vial-QMK / QMK revision
+      description: Exact dependency SHA used for the build.
+      placeholder: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+    validations:
+      required: true
+
+  - type: dropdown
+    id: master
+    attributes:
+      label: USB master half
+      options:
+        - Left
+        - Right
+        - Both tested
+        - Not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware configuration
+      description: Keyboard revision, installed Halcyon modules/revisions, cable/power arrangement, and any relevant physical configuration.
+    validations:
+      required: true
+
+  - type: textarea
+    id: host
+    attributes:
+      label: Host environment
+      description: OS/version, computer model, USB path/hub/dock, power-source state, and other relevant host details.
+    validations:
+      required: true
+
+  - type: textarea
+    id: procedure
+    attributes:
+      label: Procedure
+      description: Exact steps performed, including reboot, suspend/resume, reconnect, master-half swap, Vial edits, or other lifecycle transitions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior and evidence
+      description: Include pass/fail, recovery required, photos/video/logs where useful, and whether the result reproduced.
+    validations:
+      required: true
+
+  - type: textarea
+    id: followup
+    attributes:
+      label: Follow-up / remaining uncertainty
+      description: Record unresolved questions, additional matrix rows, or implementation work that should be tracked separately.

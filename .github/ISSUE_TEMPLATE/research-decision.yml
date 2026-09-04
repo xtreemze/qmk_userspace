@@ -1,0 +1,67 @@
+name: Research / decision record
+about: Track research, design alternatives, related projects, risks, lessons learned, and durable decisions
+title: "Research: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue as durable project memory. Link exact sources and distinguish verified facts, hypotheses, decisions, and hardware acceptance gaps.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or objective
+      description: What decision, uncertainty, improvement, or risk is being investigated?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Current context and invariant
+      description: Describe current behavior and the property that must remain true while evaluating alternatives.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and sources
+      description: Link exact commits, files, documentation, upstream issues/PRs, hardware evidence, measurements, or related projects. Prefer immutable references where possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Compare plausible approaches, including upstream reuse and doing nothing. Record tradeoffs and compatibility implications.
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risks and unknowns
+      description: Include persistence, split-state, USB lifecycle, timing, resource, dependency, hardware, migration, and release risks where relevant.
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Current decision / recommendation
+      description: State the present conclusion, or explicitly mark the issue as still investigating.
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation required
+      description: Separate source-level tests, exact firmware builds, binary evidence, and physical hardware acceptance.
+
+  - type: textarea
+    id: followup
+    attributes:
+      label: Follow-up work
+      description: Link or describe focused PRs/issues, upstream proposals, documentation changes, or retirement conditions.
