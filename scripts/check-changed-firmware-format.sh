@@ -58,27 +58,29 @@ if [[ "${1:-}" == "--classify" ]]; then
     exit 0
 fi
 
-base_sha="${1:-}"
-head_sha="${2:-}"
-pr_number="${3:-}"
+head_sha="${1:-}"
+pr_number="${2:-}"
 smoke_target="users/halcyon_modules/splitkb/halcyon.h"
 targets=("$smoke_target")
 
-# The reusable QMK workflow runs inside a container while Actions checkout is
-# mounted from the host. Trust only this known repository root before invoking
-# Git; do not use the broad safe.directory='*' escape hatch.
+# The QMK build runs inside a container while Actions checkout is mounted from
+# the host. Trust only this known repository root before invoking Git; do not
+# use the broad safe.directory='*' escape hatch.
 git config --global --add safe.directory "$repo_root"
 
-if [[ -n "$base_sha" && -n "$head_sha" && -n "$pr_number" ]]; then
+if [[ -n "$head_sha" && -n "$pr_number" ]]; then
     pr_ref="refs/pull/${pr_number}/merge"
     git fetch --no-tags --depth=2 origin "$pr_ref"
     merge_sha="$(git rev-parse FETCH_HEAD)"
     actual_base="$(git rev-parse "${merge_sha}^1")"
     actual_head="$(git rev-parse "${merge_sha}^2")"
 
-    [[ "$actual_base" == "$base_sha" ]] || fail "PR merge-ref base $actual_base does not match expected $base_sha"
+    # GitHub can advance the base branch and regenerate refs/pull/N/merge while
+    # the pull_request event payload still carries the earlier base SHA. The
+    # PR head, however, is immutable for this workflow run and must match.
     [[ "$actual_head" == "$head_sha" ]] || fail "PR merge-ref head $actual_head does not match expected $head_sha"
 
+    printf 'Resolved PR %s merge range: %s..%s\n' "$pr_number" "$actual_base" "$actual_head"
     mapfile -d '' -t changed_files < <(
         git diff --name-only -z --diff-filter=AMR "$actual_base" "$actual_head"
     )
@@ -88,8 +90,8 @@ if [[ -n "$base_sha" && -n "$head_sha" && -n "$pr_number" ]]; then
             targets+=("$path")
         fi
     done
-elif [[ -n "$base_sha" || -n "$head_sha" || -n "$pr_number" ]]; then
-    fail "PR formatting requires base SHA, head SHA and PR number together"
+elif [[ -n "$head_sha" || -n "$pr_number" ]]; then
+    fail "PR formatting requires head SHA and PR number together"
 else
     printf 'No pull-request range supplied; running formatter smoke check only.\n'
 fi
