@@ -12,17 +12,28 @@ QMK_JSON = ROOT / "qmk.json"
 BASELINE = ROOT / "tests" / "firmware_resource_baseline.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "build_binaries.yaml"
 
+EXPECTED_FLASH_CAPACITY = 2 * 1024 * 1024
+EXPECTED_RAM0_CAPACITY = 256 * 1024
+EXPECTED_STACK_REGION_CAPACITY = 4 * 1024
+
 
 def fail(message: str) -> None:
     raise SystemExit(f"FAIL: {message}")
+
+
+def require_non_negative_int(row: dict[str, object], target: str, field: str) -> int:
+    value = row.get(field)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        fail(f"baseline {target}.{field} must be a non-negative integer")
+    return value
 
 
 def main() -> None:
     qmk = json.loads(QMK_JSON.read_text(encoding="utf-8"))
     baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
 
-    if baseline.get("schema_version") != 1:
-        fail("firmware resource baseline schema_version must be 1")
+    if baseline.get("schema_version") != 2:
+        fail("firmware resource baseline schema_version must be 2")
 
     integration_commit = baseline.get("integration_commit")
     if not isinstance(integration_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", integration_commit):
@@ -55,18 +66,55 @@ def main() -> None:
         extra = sorted(set(baseline_targets) - expected_targets)
         fail(f"resource baseline target set differs from qmk.json; missing={missing}, extra={extra}")
 
-    required_fields = ("text_bytes", "data_bytes", "bss_bytes", "flash_bytes", "static_ram_bytes")
-    for target, row in baseline_targets.items():
-        if not isinstance(row, dict):
+    required_fields = (
+        "text_bytes",
+        "data_bytes",
+        "bss_bytes",
+        "flash_bytes",
+        "static_ram_bytes",
+        "flash_binary_bytes",
+        "flash_capacity_bytes",
+        "flash_headroom_bytes",
+        "ram0_static_bytes",
+        "ram0_capacity_bytes",
+        "ram0_heap_capacity_bytes",
+        "core0_stack_reserved_bytes",
+        "core0_stack_capacity_bytes",
+        "core0_stack_region_free_bytes",
+        "core1_stack_reserved_bytes",
+        "core1_stack_capacity_bytes",
+        "core1_stack_region_free_bytes",
+    )
+
+    for target, row_value in baseline_targets.items():
+        if not isinstance(target, str) or not isinstance(row_value, dict):
             fail(f"baseline row for {target} must be an object")
-        for field in required_fields:
-            value = row.get(field)
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                fail(f"baseline {target}.{field} must be a non-negative integer")
-        if row["flash_bytes"] != row["text_bytes"] + row["data_bytes"]:
+        row = row_value
+        values = {field: require_non_negative_int(row, target, field) for field in required_fields}
+
+        if values["flash_bytes"] != values["text_bytes"] + values["data_bytes"]:
             fail(f"baseline {target} flash_bytes must equal text_bytes + data_bytes")
-        if row["static_ram_bytes"] != row["data_bytes"] + row["bss_bytes"]:
+        if values["static_ram_bytes"] != values["data_bytes"] + values["bss_bytes"]:
             fail(f"baseline {target} static_ram_bytes must equal data_bytes + bss_bytes")
+
+        if values["flash_capacity_bytes"] != EXPECTED_FLASH_CAPACITY:
+            fail(f"baseline {target} flash capacity must match the pinned RP2040 2 MiB linker region")
+        if values["flash_binary_bytes"] + values["flash_headroom_bytes"] != values["flash_capacity_bytes"]:
+            fail(f"baseline {target} flash binary + headroom must equal flash capacity")
+
+        if values["ram0_capacity_bytes"] != EXPECTED_RAM0_CAPACITY:
+            fail(f"baseline {target} ram0 capacity must match the pinned RP2040 256 KiB region")
+        if values["ram0_static_bytes"] + values["ram0_heap_capacity_bytes"] != values["ram0_capacity_bytes"]:
+            fail(f"baseline {target} ram0 static + heap capacity must equal ram0 capacity")
+
+        for core in (0, 1):
+            reserved = values[f"core{core}_stack_reserved_bytes"]
+            capacity = values[f"core{core}_stack_capacity_bytes"]
+            free = values[f"core{core}_stack_region_free_bytes"]
+            if capacity != EXPECTED_STACK_REGION_CAPACITY:
+                fail(f"baseline {target} core{core} stack capacity must match the pinned 4 KiB region")
+            if reserved + free != capacity:
+                fail(f"baseline {target} core{core} stack reserved + free must equal capacity")
 
     workflow_text = WORKFLOW.read_text(encoding="utf-8")
     vial_refs = set(re.findall(r"(?m)^\s+ref:\s+([0-9a-f]{40})\s*$", workflow_text))
@@ -77,7 +125,7 @@ def main() -> None:
         )
 
     print(
-        f"Firmware resource baseline: {len(expected_targets)} targets, integration {integration_commit[:12]}, "
+        f"Firmware resource baseline v2: {len(expected_targets)} targets, integration {integration_commit[:12]}, "
         f"Vial-QMK {vial_qmk_sha[:12]}."
     )
 
