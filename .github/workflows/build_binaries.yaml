@@ -107,11 +107,58 @@ jobs:
         with:
           name: Firmware
 
-      - name: Delete moving latest release and tag
+      - name: Validate firmware artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2
+            splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2
+          )
+
+          for file in "${expected[@]}"; do
+            test -s "$file" || {
+              echo "Missing or empty expected firmware asset: $file" >&2
+              exit 1
+            }
+          done
+
+          mapfile -t actual < <(find . -maxdepth 1 -type f -name '*.uf2' -printf '%f\n' | sort)
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          if ! diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}"); then
+            echo 'Firmware artifact contains an unexpected UF2 set; refusing to mutate latest release.' >&2
+            exit 1
+          fi
+
+      - name: Move latest tag and clean stale assets
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const { owner, repo } = context.repo;
+            const expectedAssets = new Set([
+              'splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2',
+              'splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2',
+            ]);
+
+            try {
+              await github.rest.git.updateRef({
+                owner,
+                repo,
+                ref: 'tags/latest',
+                sha: context.sha,
+                force: true,
+              });
+              core.info(`Moved latest tag to ${context.sha}.`);
+            } catch (error) {
+              if (error.status !== 404 && error.status !== 422) throw error;
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: 'refs/tags/latest',
+                sha: context.sha,
+              });
+              core.info(`Created latest tag at ${context.sha}.`);
+            }
 
             try {
               const { data: release } = await github.rest.repos.getReleaseByTag({
@@ -119,27 +166,19 @@ jobs:
                 repo,
                 tag: 'latest',
               });
-              await github.rest.repos.deleteRelease({
-                owner,
-                repo,
-                release_id: release.id,
-              });
-              core.info(`Deleted existing latest release ${release.id}.`);
+              for (const asset of release.assets) {
+                if (!expectedAssets.has(asset.name)) {
+                  await github.rest.repos.deleteReleaseAsset({
+                    owner,
+                    repo,
+                    asset_id: asset.id,
+                  });
+                  core.info(`Deleted stale latest asset ${asset.name}.`);
+                }
+              }
             } catch (error) {
               if (error.status !== 404) throw error;
-              core.info('No existing latest release to delete.');
-            }
-
-            try {
-              await github.rest.git.deleteRef({
-                owner,
-                repo,
-                ref: 'tags/latest',
-              });
-              core.info('Deleted existing latest tag.');
-            } catch (error) {
-              if (error.status !== 404 && error.status !== 422) throw error;
-              core.info('No existing latest tag to delete.');
+              core.info('No existing latest release object; pinned release action will create it.');
             }
 
       - name: Generate moving latest release
@@ -153,6 +192,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            **/*.hex
-            **/*.bin
             **/*.uf2
