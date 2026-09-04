@@ -6,6 +6,9 @@ keymap_dir="$repo_root/keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final"
 keymap_file="$keymap_dir/keymap.c"
 profile_file="$keymap_dir/xtreemzeVial.vil"
 readme_file="$keymap_dir/readme.md"
+workflow_file="$repo_root/.github/workflows/build_binaries.yaml"
+qmk_json="$repo_root/qmk.json"
+related_projects_file="$repo_root/docs/RELATED_PROJECTS.md"
 
 fail() {
     printf 'FAIL: %s\n' "$*" >&2
@@ -35,4 +38,59 @@ fi
 grep -Fq "\`$profile_sha\`" "$readme_file" ||
     fail "Keymap README must document canonical profile SHA-256 $profile_sha."
 
-printf 'Documentation consistency: factory marker %s and canonical profile SHA-256 are current.\n' "$marker"
+mapfile -t vial_pins < <(
+    sed -nE 's/^[[:space:]]*(ref|qmk_ref):[[:space:]]+([0-9a-f]{40})[[:space:]]*$/\2/p' "$workflow_file" | sort -u
+)
+[[ "${#vial_pins[@]}" == '1' ]] ||
+    fail 'Regression checkout and reusable build must resolve one exact Vial-QMK revision.'
+vial_pin="${vial_pins[0]}"
+
+grep -Eq "^[[:space:]]+ref:[[:space:]]+$vial_pin[[:space:]]*$" "$workflow_file" ||
+    fail "Regression checkout must use Vial-QMK pin $vial_pin."
+grep -Eq "^[[:space:]]+qmk_ref:[[:space:]]+$vial_pin[[:space:]]*$" "$workflow_file" ||
+    fail "Reusable firmware build must use Vial-QMK pin $vial_pin."
+grep -Fq "Pinned production revision: \`$vial_pin\`" "$related_projects_file" ||
+    fail "Related-project documentation must record Vial-QMK pin $vial_pin."
+
+python3 - "$qmk_json" "$readme_file" <<'PY'
+import json
+import pathlib
+import sys
+
+qmk_json = pathlib.Path(sys.argv[1])
+readme = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+data = json.loads(qmk_json.read_text(encoding="utf-8"))
+targets = data.get("build_targets")
+
+if not isinstance(targets, list) or not targets:
+    raise SystemExit("FAIL: qmk.json must define at least one build target.")
+
+for index, entry in enumerate(targets):
+    if not isinstance(entry, list) or len(entry) != 3:
+        raise SystemExit(f"FAIL: build target {index} does not have [keyboard, keymap, env] shape.")
+
+    keyboard, keymap, env = entry
+    if not isinstance(env, dict):
+        raise SystemExit(f"FAIL: build target {index} environment must be an object.")
+
+    target_name = env.get("TARGET")
+    module_flags = [name for name, value in env.items() if name.startswith("HLC_") and value == "1"]
+    if not isinstance(target_name, str) or not target_name:
+        raise SystemExit(f"FAIL: build target {index} is missing TARGET.")
+    if len(module_flags) != 1:
+        raise SystemExit(f"FAIL: build target {target_name} must enable exactly one HLC_* module flag.")
+
+    expected_command = (
+        f"qmk compile -kb {keyboard} -km {keymap} "
+        f"-e {module_flags[0]}=1 -e TARGET={target_name}"
+    )
+    if expected_command not in readme:
+        raise SystemExit(
+            "FAIL: keymap README must document the exact qmk.json build command for "
+            f"{target_name}."
+        )
+
+print(f"Documentation consistency: {len(targets)} qmk.json build targets are documented exactly.")
+PY
+
+printf 'Documentation consistency: factory marker %s, canonical profile SHA-256, and Vial-QMK pin %s are current.\n' "$marker" "$vial_pin"
