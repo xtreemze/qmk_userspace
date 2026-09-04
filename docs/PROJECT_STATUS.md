@@ -7,7 +7,7 @@ This page is a current-state summary. Durable findings, decisions, research, ris
 ## Integration baseline
 
 - Integration branch: `halcyon`.
-- Snapshot head: `373825f4f4def2b92651dc5bfd02ee27deef2d33`.
+- Functional state in this snapshot was audited through `373825f4f4def2b92651dc5bfd02ee27deef2d33`; later documentation-only commits do not change the firmware/CI claims below.
 - SplitKB Halcyon upstream was checked on 2026-09-04 and remains `0d2653b3ed58807a63915fa55d071f98d12a8991`; that commit is already in this fork, so no upstream synchronization is pending. See #10.
 - Production Vial-QMK is pinned to `dd43959ae5c08d8a28d38a1acf7b04e86b14a344`. See #11.
 - QMK reusable build/publish workflows are pinned to `01daf5113fa50804558f21cc074ab99ba84ddeaf`. The upstream `qmk/.github:main` branch still points to that commit; nested mutable dependencies remain tracked in #23.
