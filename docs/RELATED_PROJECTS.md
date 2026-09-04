@@ -1,6 +1,6 @@
 # Related projects and dependency watch
 
-Snapshot date: 2026-09-03
+Snapshot date: 2026-09-04
 
 This page records projects that materially influence the Halcyon fork. It is an orientation and watch list, not a substitute for reviewing exact commits before changing a pin or synchronizing upstream.
 
@@ -21,6 +21,7 @@ Watch when: SplitKB pushes new Halcyon commits, adds/revises modules, changes sp
 Role: firmware dependency used by the Vial-enabled `halcyon` branch.
 
 - Default branch: `vial`.
+- Pinned production revision: `dd43959ae5c08d8a28d38a1acf7b04e86b14a344`. Regression checkout and the reusable firmware build must resolve this same revision; `tests/xtreemze_docs_consistency.sh` checks that this documented value matches the workflow.
 - Release-producing CI in this repository intentionally uses a pinned Vial-QMK revision rather than tracking the branch tip.
 - High-risk surfaces for this fork include Vial dynamic-keymap storage/layout, repeat and alternate-repeat behavior, QMK settings, EEPROM formats, split transactions, OS detection, backlight/PWM processing and QMK hook ownership.
 - A pin update should be a dedicated reviewed change with the full repository regression gate and exact Ferris module builds. Any fork patch must be re-applied with `git apply --check` before compilation.
@@ -55,6 +56,6 @@ Do not copy a related project's implementation solely because it is newer. For e
 3. state which local invariant it affects;
 4. compare it with the pinned Vial-QMK and current SplitKB Halcyon state;
 5. isolate the change in a PR with targeted regressions;
-6. record unresolved trade-offs or future investigation in an issue once Issues are enabled.
+6. record unresolved trade-offs or future investigation in a GitHub issue.
 
 Prefer deleting a fork-specific workaround when an upstream implementation fully supersedes it and the regression/hardware evidence supports that removal.
