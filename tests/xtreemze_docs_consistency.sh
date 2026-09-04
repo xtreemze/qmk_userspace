@@ -39,16 +39,18 @@ grep -Fq "\`$profile_sha\`" "$readme_file" ||
     fail "Keymap README must document canonical profile SHA-256 $profile_sha."
 
 mapfile -t vial_pins < <(
-    sed -nE 's/^[[:space:]]*(ref|qmk_ref):[[:space:]]+([0-9a-f]{40})[[:space:]]*$/\2/p' "$workflow_file" | sort -u
+    sed -nE 's/^[[:space:]]+ref:[[:space:]]+([0-9a-f]{40})[[:space:]]*$/\1/p' "$workflow_file" | sort -u
 )
 [[ "${#vial_pins[@]}" == '1' ]] ||
-    fail 'Regression checkout and reusable build must resolve one exact Vial-QMK revision.'
+    fail 'Regression and firmware-build checkouts must resolve one exact Vial-QMK revision.'
 vial_pin="${vial_pins[0]}"
 
-grep -Eq "^[[:space:]]+ref:[[:space:]]+$vial_pin[[:space:]]*$" "$workflow_file" ||
-    fail "Regression checkout must use Vial-QMK pin $vial_pin."
-grep -Eq "^[[:space:]]+qmk_ref:[[:space:]]+$vial_pin[[:space:]]*$" "$workflow_file" ||
-    fail "Reusable firmware build must use Vial-QMK pin $vial_pin."
+vial_repo_count="$(grep -Ec '^[[:space:]]+repository:[[:space:]]+vial-kb/vial-qmk[[:space:]]*$' "$workflow_file")"
+vial_ref_count="$(grep -Ec "^[[:space:]]+ref:[[:space:]]+$vial_pin[[:space:]]*$" "$workflow_file")"
+[[ "$vial_repo_count" == '2' ]] ||
+    fail "Expected exactly two Vial-QMK checkout repository declarations; found $vial_repo_count."
+[[ "$vial_ref_count" == '2' ]] ||
+    fail "Regression and local firmware build must both use Vial-QMK pin $vial_pin."
 grep -Fq "Pinned production revision: \`$vial_pin\`" "$related_projects_file" ||
     fail "Related-project documentation must record Vial-QMK pin $vial_pin."
 
