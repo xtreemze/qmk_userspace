@@ -67,7 +67,6 @@ jobs:
       - name: Check formatting and apply userspace QMK patches
         run: |
           bash scripts/check-changed-firmware-format.sh \
-            "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}" \
             "${{ github.event.pull_request.number }}"
           ln -s "$GITHUB_WORKSPACE/converters/promicro_to_halcyon/" qmk_firmware/platforms/chibios/converters/
