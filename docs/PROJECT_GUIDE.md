@@ -87,6 +87,7 @@ Do not describe source-level tests as physical acceptance.
 - Binary-equivalence claims require explicit baseline and candidate binaries.
 - USB suspend/resume, split transport, module-side behavior, TFT output, encoder feel and other physical effects require hardware evidence when they are part of the acceptance criteria.
 - Record the keyboard half/module arrangement, host OS, firmware commit and relevant configuration for hardware observations.
+- Use `scripts/collect-hardware-acceptance.sh` from a real checkout to generate a Markdown evidence snapshot with the exact userspace commit, pinned Vial-QMK revision, declared release targets, host context and the physical acceptance matrix. Attach or paste the completed snapshot into the relevant issue or PR. The script records provenance; it does not turn an unperformed hardware check into a pass.
 
 ## Upstream synchronization
 
