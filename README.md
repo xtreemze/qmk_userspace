@@ -1,6 +1,6 @@
 # Halcyon Ferris Firmware
 
-A production-oriented **Vial/QMK userspace for the splitkb Halcyon Ferris**, built around deterministic input behavior, persistent configuration, a purpose-built TFT interface, and auditable firmware releases.
+A production-oriented **Vial/QMK userspace for the splitkb Halcyon Ferris**, built around deterministic input behavior, persistent configuration, a purpose-built TFT interface, and an auditable firmware release process.
 
 [![Build QMK firmware](https://github.com/xtreemze/qmk_userspace/actions/workflows/build_binaries.yaml/badge.svg?branch=halcyon)](https://github.com/xtreemze/qmk_userspace/actions/workflows/build_binaries.yaml)
 [![Latest firmware](https://img.shields.io/badge/firmware-latest-2ea44f)](https://github.com/xtreemze/qmk_userspace/releases/tag/latest)
@@ -61,15 +61,15 @@ For implementation details, see the [Ferris keymap documentation](keyboards/spli
 
 ```mermaid
 flowchart LR
-    V[Canonical Vial profile\nxtreemzeVial.vil]
-    G[Factory-default generator]
-    U[Halcyon userspace\nFerris xtreemze_final]
-    P[Ordered Vial-QMK\ncompatibility patches]
-    Q[Pinned Vial-QMK]
-    T[TFT UF2]
-    E[Encoder UF2]
-    C[Regression + build CI]
-    R[Validated latest release]
+    V["Canonical Vial profile<br/>xtreemzeVial.vil"]
+    G["Factory-default generator"]
+    U["Halcyon userspace<br/>Ferris xtreemze_final"]
+    P["Ordered Vial-QMK<br/>compatibility patches"]
+    Q["Pinned Vial-QMK"]
+    T["TFT UF2"]
+    E["Encoder UF2"]
+    C["Regression + build CI"]
+    R["Validated latest release"]
 
     V --> G --> U
     P --> Q
@@ -159,8 +159,10 @@ This repository is a QMK userspace overlay. For an exact local build, use the sa
 git clone -b halcyon https://github.com/xtreemze/qmk_userspace.git
 cd qmk_userspace
 
-# Clone the firmware dependency
+# Clone and pin the firmware dependency used by release CI
 git clone --recursive https://github.com/vial-kb/vial-qmk qmk_firmware
+git -C qmk_firmware checkout dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+git -C qmk_firmware submodule update --init --recursive
 
 # Configure QMK to use this repository as an overlay
 qmk config user.qmk_home="$(realpath qmk_firmware)"
