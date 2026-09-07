@@ -1,197 +1,271 @@
-# Splitkb Halcyon Modules QMK Userspace
+# Halcyon Ferris Firmware
 
-This is the splitkb userspace repository. It allows for an external set of QMK keymaps with **Halcyon modules** to be defined and compiled without having to fork the main QMK or Vial repositories. 
+A production-oriented **Vial/QMK userspace for the splitkb Halcyon Ferris**, built around deterministic input behavior, persistent configuration, a purpose-built TFT interface, and an auditable firmware release process.
 
-*If you want to compile standard firmware without any Halcyon modules, you can use the [main qmk_userspace repo](https://github.com/qmk/qmk_userspace). If you use the Halcyon to Promicro adapter board without any Halcyon modules you can use the converter without this repository.*
+[![Build QMK firmware](https://github.com/xtreemze/qmk_userspace/actions/workflows/build_binaries.yaml/badge.svg?branch=halcyon)](https://github.com/xtreemze/qmk_userspace/actions/workflows/build_binaries.yaml)
+[![Latest firmware](https://img.shields.io/badge/firmware-latest-2ea44f)](https://github.com/xtreemze/qmk_userspace/releases/tag/latest)
+[![Vial](https://img.shields.io/badge/configuration-Vial-5b5bd6)](https://get.vial.today/)
 
-## Supported Keyboards
+<p align="center">
+  <img src="docs/images/finished_vial.png" alt="Halcyon Ferris Vial layout" width="760">
+</p>
 
-Supported controllers:
+<p align="center">
+  <a href="https://github.com/xtreemze/qmk_userspace/releases/tag/latest"><strong>Firmware</strong></a>
+  ·
+  <a href="keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/readme.md"><strong>Ferris keymap</strong></a>
+  ·
+  <a href="keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/xtreemzeVial.vil"><strong>Vial profile</strong></a>
+  ·
+  <a href="docs/PROJECT_STATUS.md"><strong>Project status</strong></a>
+  ·
+  <a href="docs/README.md"><strong>Documentation</strong></a>
+</p>
 
-| Controller name |
-| :--- |
-| Halcyon Wired controller |
+---
 
+## What this repository is
 
-Supported keyboards:
+This is a maintained fork of the SplitKB Halcyon QMK userspace. The broader Halcyon keyboard/module support remains available, but the active production firmware in this fork is the **Ferris rev1 `xtreemze_final` profile**.
 
-| Keyboard name | Keyboard variable |
-| :--- | :--- |
-| Halcyon Kyria (rev4) | `splitkb/halcyon/kyria/rev4` |
-| Halcyon Elora (rev2) | `splitkb/halcyon/elora/rev2` |
-| Halcyon Corne (rev2) | `splitkb/halcyon/corne/rev2` |
-| Halcyon Ferris (rev1) | `splitkb/halcyon/ferris/rev1` |
-| Halcyon Lily58 (rev2) | `splitkb/halcyon/lily58/rev2` |
-| Aurora Sweep (rev1)* | `splitkb/aurora/sweep/rev1` |
-| Aurora Lily58 (rev1)* | `splitkb/aurora/lily58/rev1` |
-| Aurora Corne (rev1)* | `splitkb/aurora/corne/rev1` |
-| Aurora Helix (rev1)* | `splitkb/aurora/helix/rev1` |
-| Aurora Sofle v2 (rev1)* | `splitkb/aurora/sofle_v2/rev1` |
-| Kyria (rev3)* | `splitkb/kyria/rev3` |
+The project treats the keyboard as a small embedded system rather than a static keymap. Behavior that is important in daily use is made explicit, versioned, tested where possible, and separated from hardware claims that CI cannot prove.
 
-*Requires the Halcyon converter
+The two release targets are:
 
+| Half / module | Build target | Release artifact |
+| --- | --- | --- |
+| TFT half | `HLC_TFT_DISPLAY=1` | `splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2` |
+| Encoder half | `HLC_ENCODER=1` | `splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2` |
 
-Supported converters:
+Both targets use the same canonical Vial profile and shared firmware policy. They differ only where module hardware requires it.
 
-| Converter name | Converter variable | Convert command |
-| :--- | :--- | :--- |
-| Halcyon | `halcyon` | `CONVERT_TO=halcyon` |
+## What is different here
 
+| Area | This fork |
+| --- | --- |
+| **Configuration** | Canonical Vial export is committed, compiled into firmware defaults, and checked for drift. |
+| **Layers** | 13 matrix layers with encoder behavior compiled for every layer. |
+| **Encoder Repeat** | Repeat / Alternate Repeat direction is deterministic for bidirectional Vial pairs instead of depending on which member was pressed last. |
+| **TFT** | Layer-specific labels and procedural animated motifs, host/diagnostic surfaces, and module-aware state. |
+| **Backlight** | Persistent TFT brightness/toggle behavior with synchronized split handling and transient suspend/idle blanking. |
+| **RGB state** | Persistent per-layer, modifier and chord profiles exposed through Vial custom keycodes. |
+| **Host shortcuts** | Guarded OS-family detection for Apple-vs-Ctrl shortcut behavior rather than immediately trusting transient detector output. |
+| **Persistence** | Factory seeding, user data and migration behavior are documented and regression-checked where practical. |
+| **Dependencies** | Release-producing Vial-QMK and build tooling are pinned; fork-specific compatibility changes live as ordered patches. |
+| **Validation** | Source regressions, exact firmware builds, resource reporting and physical hardware acceptance are treated as separate evidence classes. |
+| **Releases** | CI validates the exact UF2 set before updating the moving `latest` release. |
 
-Supported modules:
+For implementation details, see the [Ferris keymap documentation](keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/readme.md).
 
-| Module name | Module variable |
-| :--- | :--- |
-| [Halcyon TFT LCD Display Module](https://splitkb.com/products/halcyon-tft-lcd-display-module) | `HLC_TFT_DISPLAY` |
-| [Halcyon Rotary Encoder Module](https://splitkb.com/products/halcyon-rotary-encoder-module) | `HLC_ENCODER` |
-| [Halcyon Rotary Encoder Module Revision 2](https://splitkb.com/products/halcyon-rotary-encoder-module) | `HLC_ENCODER_REV2` |
-| [Halcyon Cirque Touchpad Module](https://splitkb.com/products/halcyon-cirque-touchpad-module) | `HLC_CIRQUE_TRACKPAD` |
+## Firmware architecture
 
-If you want to add a keyboard which doesn't have support for Halcyon modules yet, please follow the [porting guide](docs/PORTING.md). Please follow the [initial setup](#initial-setup--prerequisites) and [build target](#how-to-configure-your-build-targets) steps from this readme first.
+```mermaid
+flowchart LR
+    V["Canonical Vial profile<br/>xtreemzeVial.vil"]
+    G["Factory-default generator"]
+    U["Halcyon userspace<br/>Ferris xtreemze_final"]
+    P["Ordered Vial-QMK<br/>compatibility patches"]
+    Q["Pinned Vial-QMK"]
+    T["TFT UF2"]
+    E["Encoder UF2"]
+    C["Regression + build CI"]
+    R["Validated latest release"]
 
-This repository contains keymaps for both upstream QMK (default_hlc) and Vial (vial_hlc). For the officially supported keyboards we will always provide these two keymaps. 
+    V --> G --> U
+    P --> Q
+    U --> Q
+    Q --> T
+    Q --> E
+    U --> C
+    P --> C
+    C --> R
+    T --> R
+    E --> R
+```
 
+The repository is the source of truth for both the human-editable configuration and the generated/compiled defaults. Fork patches are intentionally separate from userspace code so their responsibility and eventual retirement remain auditable.
 
-## Initial Setup & Prerequisites
+## Current interaction model
 
-Before configuring your keymaps or building firmware, you need to set up your build environment. 
+The canonical Ferris profile exposes the following layer identities on the TFT:
 
-1. **Fork this repository** to your own GitHub account. 
-   - The default `halcyon` branch includes Vial support.
-   - If you prefer upstream QMK without Vial, fork the `halcyon-qmk` branch instead.
-2. **Clone the Vial repository** to your local machine:
-   - For Vial:
-     ```bash
-     git clone --recursive https://github.com/vial-kb/vial-qmk
-     ```
-   - For upstream QMK:
-     ```bash
-     git clone --recursive https://github.com/qmk/qmk_firmware
-     ```
-3. **Set up QMK** using your cloned repository (see [QMK Docs](https://docs.qmk.fm/#/newbs) for more details):
-   ```bash
-   qmk setup -H path/to/your/qmk/repository
-   ```
-   When prompted whether to keep the existing repository, select **3**.
-4. **Clone your forked userspace repository** to your local machine.
-   ```bash
-   git clone https://github.com/YOUR_GITHUB_USERNAME/qmk_userspace
-   ```
-5. **Enable userspace in QMK config**: 
-   Navigate into your cloned userspace directory and run:
-   ```bash
-   cd path/to/your/forked/qmk_userspace
-   qmk config user.overlay_dir="$(realpath .)"
-   ```
-   This tells QMK where to find your userspace, regardless of your current working directory.
+| Layer | TFT label | Primary role |
+| ---: | --- | --- |
+| 0 | `MOUSE` | Mouse, shortcuts and layer access |
+| 1 | `QWERTY` | Primary typing layer |
+| 2 | `COLEMAK` | Alternate typing layout |
+| 3 | `NUMSYMS` | Numbers, keypad and symbols |
+| 4 | `NUMFLIP` | Mirrored digits / saturation control |
+| 5 | `ONESHOT` | One-shot modifiers |
+| 6 | `EDITING` | Editing, shortcuts and macros |
+| 7 | `FNSYMS` | Function keys, symbols and navigation |
+| 8 | `FNFLIP` | Mirrored function layer / speed control |
+| 9 | `SYMBOLS` | Shifted symbols / mode control |
+| 10 | `RGBHUE` | RGB hue encoder layer |
+| 11 | `RGBVAL` | RGB value encoder layer |
+| 12 | `BKLIGHT` | TFT backlight controls |
 
-*Note: If you have already forked the `qmk/qmk_userspace` repository previously, see the [Adding to an Existing Fork](#adding-halcyon-support-to-an-existing-userspace-fork) section below.*
+The full Vial configuration also includes macros, tap dance, combos, key overrides, Alternate Repeat entries and QMK settings. The committed `.vil` file is the canonical editable profile; the generated firmware defaults are derived from it.
 
+## Deterministic encoder Repeat
 
-## How to Configure Your Build Targets
+One of the central behavioral changes in this fork is a predictable encoder contract for Vial Alternate Repeat pairs.
 
-1. **Start fresh (Optional but recommended):** If you want to start completely from scratch without any default compile options, replace the `qmk.json` in the root folder with the provided `qmk_empty.json`.
-2. **Create your keymap:** Navigate to `keyboards/<keyboard_name>/keymaps` and copy/paste the `default_hlc` or the `vial_hlc` or `vial_hlc_legacy` folder, if you still want to use vial. Rename it to your desired keymap name.  
-    *(**Updating Keymaps:** If you modify an existing keymap (e.g., from the original Kyria, Elora, or Aurora), and want to use a Halcyon encoder module, make sure to **add the Halcyon Button mappings** and **Encoder mapping** as shown in [the porting guide](docs/PORTING.md#3-define-halcyon-button-mappings))*  
-    *(If you're unsure what the exact `keyboard_name` is, you can run `qmk list-keyboards | grep <keyboard>`)*  
-    *For existing Vial users, you should use the `vial_hlc_legacy` keymap as the location mapping is different in the newer version and this is not compatible with the new version. You would otherwise have to recreate your keymap in Vial. Otherwise you can use the newer `vial_hlc` keymap.*
-3. **Add your keymap to the build targets** by running the following command:
-   ```bash
-   qmk userspace-add -kb <your_keyboard> -km <your_keymap> -e <halcyon_module>=1 -e TARGET=<filename>
-   ```
-   * *This command will automatically update your `qmk.json` file.*
-   * **`filename`**: Choose a descriptive filename so you can easily differentiate between module firmware (e.g., `halcyon_kyria_default_encoder`).
-   * **`halcyon_module`**: Replace this with one of the following environment variables depending on your hardware:
+For a Vial pair such as:
 
-   | Module Variable | Description |
-   | :--- | :--- |
-   | `HLC_NONE` | You have a module installed on the *other* half, but not this half. |
-   | `HLC_ENCODER` | You have an encoder module installed. |
-   | `HLC_ENCODER_REV2` | You have a second revision encoder module installed. |
-   | `HLC_TFT_DISPLAY` | You have a TFT RGB display installed. |
-   | `HLC_CIRQUE_TRACKPAD` | You have a Cirque trackpad installed. |
+```text
+Key:     Up
+Alt Key: Down
+```
 
-#### Useful Userspace Commands
-* **List configured targets:** `qmk userspace-list`
-* **Show generated compile commands:** `qmk userspace-compile -n`
-* **Remove a target:** `qmk userspace-remove -kb <your_keyboard> -km <your_keymap> -e <halcyon_module>=1 -e TARGET=<filename>`. You can also remove a target by removing the specific lines in the `qmk.json` file.
+encoder direction remains tied to the pair orientation rather than the last direction pressed:
 
+```text
+CW  -> Vial primary / Key side
+CCW -> Vial alternate / Alt Key side
+```
 
-## Changing module behavior
+This removes the direction reversal that normally occurs when Repeat semantics are driven only by the remembered last key. The implementation still uses QMK/Vial Repeat semantics; it adds a deterministic resolver for encoder-originated requests.
 
-Please see the [seperate docs](docs/MODULES.md).
+## TFT, backlight and runtime behavior
 
+The TFT is a first-class firmware surface rather than a static logo display. It provides layer identity, animated procedural geometry and diagnostic/status views while keeping display work out of timing-sensitive wake callbacks.
 
-## How to Build with GitHub Actions
+Backlight control uses the Halcyon TFT PWM path with persistent QMK brightness state. Idle and suspend blanking are transient: the saved level and explicit on/off state are restored when appropriate rather than rewritten on every sleep cycle.
 
-If you don't want to build locally, GitHub can compile the firmware for you automatically.
+Because backlight behavior participates in split synchronization, **both halves should be flashed together when using this firmware line**.
 
-1. Go to the **Actions** tab of your forked GitHub repository and click **"I understand my workflows, go ahead and enable them"**.
-2. Commit and push your local changes to your fork.
-3. Check the **Actions** tab to watch the build process run.
-4. Once completed, navigate to the **Releases** tab on your repository to download your latest compiled firmware `.hex` or `.uf2` files.
+Physical behavior such as split reconnect, either-half USB master operation, suspend/resume and exact TFT electrical behavior is tracked separately from source/build validation. See the [project status](docs/PROJECT_STATUS.md) and hardware-validation issues for the current acceptance boundary.
 
+## Download and flash
 
-## How to Build Locally
+The moving [`latest` release](https://github.com/xtreemze/qmk_userspace/releases/tag/latest) publishes the two production UF2 files only after the regression and build jobs succeed and the release job verifies the expected artifact set.
 
-Assuming you have completed the initial setup and configured your build targets, you can compile locally.
+Use:
 
-**To build all userspace targets at once:**
+- `*_display.uf2` for the half fitted with the Halcyon TFT module;
+- `*_encoder.uf2` for the half fitted with the Halcyon rotary encoder module.
+
+> **Before flashing:** read the [Ferris keymap migration note](keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/readme.md). Intentional factory-profile revisions can reseed Vial dynamic data on first boot. Export any newer on-device Vial edits before flashing a firmware revision that changes the factory marker.
+
+The firmware does not require a manual EEPROM reset for the current factory-profile migration path.
+
+## Build locally
+
+This repository is a QMK userspace overlay. For an exact local build, use the same Vial-QMK revision and compatibility patches as CI.
+
 ```bash
+# Clone userspace
+git clone -b halcyon https://github.com/xtreemze/qmk_userspace.git
+cd qmk_userspace
+
+# Clone and pin the firmware dependency used by release CI
+git clone --recursive https://github.com/vial-kb/vial-qmk qmk_firmware
+git -C qmk_firmware checkout dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+git -C qmk_firmware submodule update --init --recursive
+
+# Configure QMK to use this repository as an overlay
+qmk config user.qmk_home="$(realpath qmk_firmware)"
+qmk config user.overlay_dir="$(realpath .)"
+
+# Apply the fork's ordered compatibility patches
+bash scripts/apply-qmk-patches.sh qmk_firmware
+
+# Build both production targets
 qmk userspace-compile
 ```
 
-**To compile a specific target manually:**
+The exact targets declared in `qmk.json` are equivalent to:
+
 ```bash
-qmk compile -kb <your_keyboard> -km <your_keymap> -e <your_module>=1 -e TARGET=<filename>
+qmk compile -kb splitkb/halcyon/ferris/rev1 -km xtreemze_final \
+  -e HLC_TFT_DISPLAY=1 \
+  -e TARGET=splitkb_halcyon_ferris_rev1_xtreemze_final_display
+
+qmk compile -kb splitkb/halcyon/ferris/rev1 -km xtreemze_final \
+  -e HLC_ENCODER=1 \
+  -e TARGET=splitkb_halcyon_ferris_rev1_xtreemze_final_encoder
 ```
-*Tip: use `qmk userspace-compile -n` to get the exact compile command*
 
-## Extra Info & Advanced Configuration
+For release-equivalent dependency details, consult `.github/workflows/build_binaries.yaml` rather than assuming the current head of Vial-QMK is compatible.
 
-### Modifying GitHub Actions
-If you wish to point GitHub Actions to a different QMK repository (such as the main QMK repo instead of Vial), or a different branch, you can modify `.github/workflows/build_binaries.yml`.
+## Validation
 
-For example, to override the `build` job to use the QMK branch (which is already done in the `halcyon-qmk` branch):
-```yaml
-    with:
-      qmk_repo: qmk/qmk_firmware
-      qmk_ref: master
+Run the repository-level source regression suite with:
+
+```bash
+bash tests/run_ci_regressions.sh
 ```
-*Note: Our Halcyon module code should work fine with the main QMK repository, but it may break if QMK introduces upstream breaking changes. We track QMK updates in the `halcyon-qmk` branch.*
 
-### Adding Halcyon support to an Existing Userspace Fork
+The CI pipeline also builds both exact production targets and reports retained firmware resource usage.
 
-If you already have a custom userspace fork of `qmk/qmk_userspace`, you can merge the Splitkb additions manually.
+A successful source test or firmware build is **not** treated as proof of physical hardware behavior. The project distinguishes:
 
-#### Option A: Adding the Splitkb Upstream Branch
+1. **source-level regression evidence** — deterministic tests over repository behavior;
+2. **build evidence** — successful compilation of the exact release targets against the pinned firmware dependency;
+3. **binary evidence** — explicit artifact/hash/equivalence checks when required;
+4. **hardware evidence** — observations from the actual split keyboard, modules, USB lifecycle and persistent state.
 
-1. Add this repository as a remote:
-   ```bash
-   git remote add splitkb https://github.com/splitkb/qmk_userspace.git
-   ```
-2. Fetch the upstream branches:
-   ```bash
-   git fetch splitkb
-   ```
-3. Create a local branch based on the appropriate upstream branch:
-   - **Vial:**
-     ```bash
-     git checkout -b halcyon splitkb/halcyon
-     ```
-   - **Upstream QMK:**
-     ```bash
-     git checkout -b halcyon-qmk splitkb/halcyon-qmk
-     ```
-4. Make your changes and push your branch:
-   ```bash
-   git push -u origin <branch-name>
-   ```
-   Replace `<branch-name>` with either `halcyon` or `halcyon-qmk`.
+This distinction is intentional: USB resume, split transport, display electronics and persistent state across real power cycles cannot be certified by a mocked unit test alone.
 
-#### Option B: Copying files to your existing branch
-1. Clone or download the files from the Splitkb fork.
-2. Copy and/or merge `users/halcyon_modules/rules.mk` and the entire `users/halcyon_modules/splitkb/` folder into your personal user folder.
+## Repository map
 
-**⚠️ Warning:** We use some quantum functions in our userspace. If your existing userspace relies heavily on custom quantum functions, you may encounter compile conflicts. If you restrict yourself to `_user` functions, you should be fine.
+```text
+.
+├── keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/
+│   ├── keymap.c                 # Ferris firmware implementation + generated defaults
+│   ├── xtreemzeVial.vil         # canonical editable Vial profile
+│   ├── vial.json                # Vial device definition
+│   ├── config.h / rules.mk      # target configuration
+│   └── readme.md                # detailed firmware behavior and build notes
+├── users/halcyon_modules/       # reusable SplitKB Halcyon module support
+├── patches/                     # ordered patches for the pinned firmware tree
+├── scripts/                     # generation, validation, release and hardware-evidence tooling
+├── tests/                       # standalone regression suite
+├── docs/                        # project guide, status, migration and dependency records
+├── qmk.json                     # exact production target declaration
+└── .github/workflows/           # pinned build / validation / release pipeline
+```
+
+## Project documentation
+
+Start with the [documentation index](docs/README.md).
+
+- [Project guide](docs/PROJECT_GUIDE.md) — sources of truth, collaboration model, validation policy, upstream synchronization and risk management.
+- [Project status](docs/PROJECT_STATUS.md) — current audit snapshot, integrated work and open priorities.
+- [Ferris firmware notes](keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/readme.md) — profile migration, TFT identities, backlight behavior, RGB keys, host policy and exact build commands.
+- [Related projects](docs/RELATED_PROJECTS.md) — QMK, Vial and SplitKB upstream relationships and dependency-watch policy.
+- [Module documentation](docs/MODULES.md) — reusable Halcyon module behavior.
+- [Porting guide](docs/PORTING.md) — adding Halcyon module support to compatible boards/keymaps.
+- [Fork patch policy](patches/README.md) — compatibility patches applied to the pinned firmware dependency.
+
+## Upstream Halcyon support
+
+This fork still contains the broader SplitKB Halcyon userspace for boards such as Kyria, Elora, Corne, Ferris and Lily58, plus supported Aurora boards through the Halcyon converter. It also retains support for the TFT, rotary encoder and Cirque module families.
+
+For a general-purpose Halcyon userspace rather than this Ferris production firmware, prefer the upstream [splitkb/qmk_userspace](https://github.com/splitkb/qmk_userspace) project and use this fork only where its additional behavior is specifically required.
+
+## Development model
+
+`halcyon` is the integration branch. Changes are expected to arrive through focused pull requests; durable research, risks, hardware observations and decisions belong in Issues.
+
+The repository is designed for parallel human/AI execution:
+
+- keep PRs narrow and independently reviewable;
+- do not rewrite shared integration history;
+- preserve upstream architecture unless a fork-specific divergence is intentional and documented;
+- update user-facing documentation with behavior changes;
+- record hardware acceptance separately from automated claims;
+- prefer deterministic checks for values that can be derived from source.
+
+See [PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) for the complete working agreement.
+
+## Lineage
+
+This repository builds on:
+
+- [QMK Firmware](https://github.com/qmk/qmk_firmware) — keyboard firmware platform;
+- [Vial-QMK](https://github.com/vial-kb/vial-qmk) — runtime configuration and dynamic keymap features;
+- [SplitKB QMK userspace](https://github.com/splitkb/qmk_userspace) — Halcyon controller/module and keyboard integration.
+
+The fork-specific goal is not to replace those projects. It is to keep one concrete Halcyon Ferris configuration **predictable, inspectable and maintainable** as firmware behavior becomes more sophisticated.
