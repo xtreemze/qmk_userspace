@@ -85,6 +85,14 @@ jobs:
       - name: Report firmware resource usage
         run: python3 scripts/report-firmware-resources.py
 
+      - name: Generate firmware provenance manifest
+        run: |
+          python3 scripts/generate-release-manifest.py \
+            --userspace-sha "$GITHUB_SHA" \
+            --vial-qmk-sha dd43959ae5c08d8a28d38a1acf7b04e86b14a344 \
+            --qmk-cli-image ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a \
+            *.uf2
+
       - name: Upload binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always() && !cancelled()
@@ -96,6 +104,7 @@ jobs:
             *.hex
             *.uf2
             firmware-resources.json
+            firmware-release-manifest.json
 
   publish:
     name: 'QMK Userspace Publish'
@@ -125,6 +134,10 @@ jobs:
               exit 1
             }
           done
+          test -s firmware-release-manifest.json || {
+            echo 'Missing or empty firmware-release-manifest.json' >&2
+            exit 1
+          }
 
           mapfile -t actual < <(find . -maxdepth 1 -type f -name '*.uf2' -printf '%f\n' | sort)
           mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
@@ -141,6 +154,7 @@ jobs:
             const expectedAssets = new Set([
               'splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2',
               'splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2',
+              'firmware-release-manifest.json',
             ]);
 
             try {
@@ -196,3 +210,4 @@ jobs:
           prerelease: false
           files: |
             **/*.uf2
+            firmware-release-manifest.json
