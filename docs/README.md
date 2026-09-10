@@ -4,6 +4,7 @@ This index separates stable usage documentation from fork-specific project memor
 
 ## Start here
 
+- [Contribution workflow](../CONTRIBUTING.md) — where code changes, research, decisions, risks, audit findings, hardware evidence, and project-state updates belong.
 - [Project guide](PROJECT_GUIDE.md) — collaboration model, validation policy, upstream synchronization, dependency/configuration policy, risk management and documentation standards.
 - [Project status and audit snapshot](PROJECT_STATUS.md) — current repository-wide findings, management blockers and follow-up backlog.
 - [Related projects and dependency watch](RELATED_PROJECTS.md) — QMK, Vial and SplitKB upstream roles, high-risk surfaces and adoption rules.
@@ -35,3 +36,5 @@ Firmware builds, explicit binary comparisons and hardware acceptance remain sepa
 ## Keeping documentation current
 
 Behavior-changing PRs should update the corresponding documentation in the same change. Values that can be cheaply derived from source should be protected by regression checks; `tests/xtreemze_docs_consistency.sh` currently verifies the Ferris factory-default marker and canonical Vial-profile SHA-256 documented by the keymap README.
+
+Use [CONTRIBUTING.md](../CONTRIBUTING.md) as the short operational entry point and `PROJECT_GUIDE.md` as the complete policy. Durable decisions, risks, research, lessons learned, configuration findings, and audit results should remain discoverable through Issues rather than existing only in chat or merged PR discussion.
