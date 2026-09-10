@@ -12,7 +12,7 @@ This index separates stable usage documentation from fork-specific project memor
 
 ## Ferris `xtreemze_final`
 
-- [Interactive layer atlas](visualizer/) — behavior-first web visualizer for the 34-key Ferris geometry, all 13 layers, module controls and encoders; alpha legends are hidden by default.
+- [Interactive layer atlas](https://xtreemze.github.io/qmk_userspace/) — behavior-first web visualizer for the 34-key Ferris geometry, all 13 layers, module controls and encoders; alpha legends are hidden by default. [Source](visualizer/).
 - [Keymap documentation](../keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/readme.md) — canonical profile, layer identities, TFT/backlight behavior, OS-aware shortcuts, Vial custom keys and exact module build commands.
 - [Canonical Vial profile](../keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/xtreemzeVial.vil) — source configuration for compiled dynamic defaults.
 - [2026-08-26 default-profile audit](halcyon-default-profile-2026-08-26.md) — historical profile snapshot and migration context.
