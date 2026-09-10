@@ -85,25 +85,55 @@ flowchart LR
 
 The repository is the source of truth for both the human-editable configuration and the generated/compiled defaults. Fork patches are intentionally separate from userspace code so their responsibility and eventual retirement remain auditable.
 
-## Current interaction model
+## Daily layer workflow
 
-The canonical Ferris profile exposes the following layer identities on the TFT:
+Although the profile contains 13 layers, they are not intended to be treated as 13 equal modes. **Layer 1 (`QWERTY`) is the normal everyday working layer and the place to return for alpha typing.** Layer 0 is primarily a mouse/control hub, while the most frequently reached transient layers are 3, 6 and 7.
 
-| Layer | TFT label | Primary role |
-| ---: | --- | --- |
-| 0 | `MOUSE` | Mouse, shortcuts and layer access |
-| 1 | `QWERTY` | Primary typing layer |
-| 2 | `COLEMAK` | Alternate typing layout |
-| 3 | `NUMSYMS` | Numbers, keypad and symbols |
-| 4 | `NUMFLIP` | Mirrored digits / saturation control |
-| 5 | `ONESHOT` | One-shot modifiers |
-| 6 | `EDITING` | Editing, shortcuts and macros |
-| 7 | `FNSYMS` | Function keys, symbols and navigation |
-| 8 | `FNFLIP` | Mirrored function layer / speed control |
-| 9 | `SYMBOLS` | Shifted symbols / mode control |
-| 10 | `RGBHUE` | RGB hue encoder layer |
-| 11 | `RGBVAL` | RGB value encoder layer |
-| 12 | `BKLIGHT` | TFT backlight controls |
+A typical editing session looks like this:
+
+1. **Type on layer 1.** The alpha keys live here, with a dedicated right-thumb Space. The thumb Backspace keys are dual-role `LT(3, KC_BSPC)` keys: tap for Backspace, hold for layer 3.
+2. **Hold a Backspace thumb for numbers and common numeric work.** Layer 3 (`NUMSYMS`) places `1–5` on the left and `6–0` on the right, adds keypad-style digits/operators, Escape and Shift+Tab, and changes the right encoder to deterministic Repeat / Alternate Repeat.
+3. **Hold the layer-6 thumb for editing and modifiers.** Layer 6 (`EDITING`) exposes one-shot Ctrl/GUI/Shift/Alt combinations, Caps Word, custom shortcut functions and access to the modifier/symbol sublayers without abandoning the alpha home position.
+4. **Use the `F+D` or `J+K` combo for momentary layer 7.** Layer 7 (`FNSYMS`) is the function/navigation surface: F1–F12, brackets and common symbols, plus the Up/Left/Right/Down tap-dance navigation cluster. The right encoder performs GUI `-` / `+`, useful for application zoom where supported.
+5. **Use direct QWERTY combos for high-frequency actions.** `S+D` sends Escape and `K+L` sends Enter, keeping both actions on the home typing layer without dedicating full-size keys to them.
+
+The layout therefore favors **brief layer holds and home-row chords over persistent mode switching**. Most text entry should begin and remain on layer 1; secondary layers are brought in for the duration of an action and then released.
+
+### Layer hierarchy
+
+| Layer | TFT label | Typical use | Access pattern |
+| ---: | --- | --- | --- |
+| 0 | `MOUSE` | Mouse movement/buttons, diagnostics and direct access to specialist controls | Explicit control layer; `TO(1)` returns to typing |
+| **1** | **`QWERTY`** | **Primary alpha typing and everyday home state** | **Normal working layer** |
+| 2 | `COLEMAK` | Alternate alpha layout | Alternate typing mode |
+| **3** | **`NUMSYMS`** | **Numbers, keypad, Escape/Shift-Tab and encoder Repeat** | **Hold either layer-tap Backspace** |
+| 4 | `NUMFLIP` | Mirrored number arrangement; RGB saturation on encoder | Toggle from layer 3 when useful |
+| 5 | `ONESHOT` | One-shot modifier combinations | Reached through the editing-layer workflow |
+| **6** | **`EDITING`** | **Modifiers, Caps Word, shortcuts/macros and sublayer access** | **Momentary thumb hold from layer 1** |
+| **7** | **`FNSYMS`** | **F-keys, brackets/symbols and directional navigation** | **`F+D` or `J+K` momentary combo** |
+| 8 | `FNFLIP` | Mirrored function-key arrangement; RGB speed | Specialist/alternate function layout |
+| 9 | `SYMBOLS` | Shifted number-row symbols; RGB mode | Momentary specialist symbol layer |
+| 10 | `RGBHUE` | RGB hue adjustment | Control-layer access |
+| 11 | `RGBVAL` | RGB value/brightness adjustment | Control-layer access |
+| 12 | `BKLIGHT` | Halcyon TFT backlight level/toggle controls | Control-layer access |
+
+### Frequently used controls
+
+| Action | Normal interaction |
+| --- | --- |
+| Type letters | Layer 1 |
+| Space | Right thumb on layer 1 |
+| Backspace | Tap either `LT(3, KC_BSPC)` thumb |
+| Numbers | Hold a Backspace thumb for layer 3, then press the number |
+| Escape | `S+D` combo on the alpha layer |
+| Enter | `K+L` combo on the alpha layer |
+| Editing modifiers / Caps Word | Hold layer 6 and select the one-shot/editing action |
+| Arrow navigation / F-keys | Hold `F+D` or `J+K` to expose layer 7 |
+| Volume | Left encoder on the normal working layers |
+| Scroll | Right encoder on layer 1 |
+| Repeat / Alternate Repeat | Right encoder on layer 3; direction remains deterministic for configured bidirectional pairs |
+| Mouse control | Switch to layer 0; use `TO(1)` to return to the alpha workflow |
+| TFT backlight | Layer 12, with either encoder adjusting the backlight level |
 
 The full Vial configuration also includes macros, tap dance, combos, key overrides, Alternate Repeat entries and QMK settings. The committed `.vil` file is the canonical editable profile; the generated firmware defaults are derived from it.
 
