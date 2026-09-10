@@ -34,9 +34,15 @@ python3 -m http.server 8000
 
 Then open `/docs/visualizer/` on that local server. A web server is required because the atlas loads the canonical profile with `fetch()`.
 
-## Hosting
+## GitHub Pages
 
-The app is compatible with a static host such as GitHub Pages and has no build step. GitHub Pages is not currently enabled on this repository; enable it before advertising a production Pages URL.
+The repository workflow `.github/workflows/pages-visualizer.yml` publishes this directory as the complete Pages artifact whenever `docs/visualizer/**` changes on `halcyon`, and also supports manual dispatch.
+
+Configure the repository Pages source as **GitHub Actions**. Once enabled, the production site is expected at:
+
+`https://xtreemze.github.io/qmk_userspace/`
+
+The deployment uses the official Pages actions and has no frontend build step. Only `docs/visualizer/` is uploaded, so firmware sources and project documentation are not exposed as part of the site artifact.
 
 ## Planned extensions
 
