@@ -14,10 +14,23 @@ jobs:
     runs-on: ubuntu-24.04
     container: ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout userspace branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: feat/halcyon-settings-protocol
           fetch-depth: 0
+
+      - name: Checkout pinned Vial-QMK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: vial-kb/vial-qmk
+          ref: dd43959ae5c08d8a28d38a1acf7b04e86b14a344
+          path: qmk_firmware
+
+      - name: Configure QMK CLI
+        run: |
+          qmk config user.qmk_home=$GITHUB_WORKSPACE/qmk_firmware
+          qmk config user.overlay_dir=$GITHUB_WORKSPACE
 
       - name: Apply QMK clang-format
         run: |
