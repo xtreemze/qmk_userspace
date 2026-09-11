@@ -67,14 +67,14 @@ jobs:
 
       - name: Commit deterministic fixes
         run: |
-          if git diff --quiet; then
+          if git -C "$GITHUB_WORKSPACE" diff --quiet; then
             exit 0
           fi
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add \
+          git -C "$GITHUB_WORKSPACE" config user.name github-actions[bot]
+          git -C "$GITHUB_WORKSPACE" config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C "$GITHUB_WORKSPACE" add \
             keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
-          git commit -m "Fix and format Halcyon settings protocol"
-          git push origin HEAD:feat/halcyon-settings-protocol
+          git -C "$GITHUB_WORKSPACE" commit -m "Fix and format Halcyon settings protocol"
+          git -C "$GITHUB_WORKSPACE" push origin HEAD:feat/halcyon-settings-protocol
