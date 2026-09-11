@@ -1,11 +1,33 @@
 /* Physical corrections and richer configuration presentation layered on the core atlas. */
-.half{height:calc(var(--u)*5.28)}
-.half-board{clip-path:polygon(2% 24%,29% 1%,71% 8%,96% 18%,100% 72%,84% 88%,70% 100%,48% 91%,22% 100%,0 70%)}
+.half{height:calc(var(--u)*5.35)}
+.half-board{clip-path:polygon(2% 20%,29% 1%,71% 7%,96% 16%,100% 67%,91% 82%,80% 94%,69% 100%,49% 91%,24% 100%,0 67%)}
 
-/* vial.json places the two thumb keys on a lower 15° / 30° arc. Keep those
- * hardware angles, but clear the bottom alpha row instead of overlapping it. */
-.slot-thumb-outer{left:calc(var(--u)*3.18);top:calc(var(--u)*4.14);transform:rotate(15deg)}
-.slot-thumb-inner{left:calc(var(--u)*4.12);top:calc(var(--u)*3.94);transform:rotate(30deg)}
+/* Canonical Ferris Sweep physical geometry in normalized key units. The Halcyon
+ * matrix numbering is reversed across each alpha row compared with the upstream
+ * Sweep matrix, so c4 is the outermost key and c0 the innermost. Keeping these
+ * positions in one half and mirroring the parent preserves exact symmetry. */
+.slot-c4-r0{left:calc(var(--u)*0);top:calc(var(--u)*.93)}
+.slot-c4-r1{left:calc(var(--u)*0);top:calc(var(--u)*1.93)}
+.slot-c4-r2{left:calc(var(--u)*0);top:calc(var(--u)*2.93)}
+.slot-c3-r0{left:calc(var(--u)*1);top:calc(var(--u)*.31)}
+.slot-c3-r1{left:calc(var(--u)*1);top:calc(var(--u)*1.31)}
+.slot-c3-r2{left:calc(var(--u)*1);top:calc(var(--u)*2.31)}
+.slot-c2-r0{left:calc(var(--u)*2);top:0}
+.slot-c2-r1{left:calc(var(--u)*2);top:calc(var(--u)*1)}
+.slot-c2-r2{left:calc(var(--u)*2);top:calc(var(--u)*2)}
+.slot-c1-r0{left:calc(var(--u)*3);top:calc(var(--u)*.28)}
+.slot-c1-r1{left:calc(var(--u)*3);top:calc(var(--u)*1.28)}
+.slot-c1-r2{left:calc(var(--u)*3);top:calc(var(--u)*2.28)}
+.slot-c0-r0{left:calc(var(--u)*4);top:calc(var(--u)*.42)}
+.slot-c0-r1{left:calc(var(--u)*4);top:calc(var(--u)*1.42)}
+.slot-c0-r2{left:calc(var(--u)*4);top:calc(var(--u)*2.42)}
+
+/* Ferris thumb centers are below the alpha matrix at x=3.5/y=3.75 and
+ * x=4.5/y=4.0. The Halcyon Vial definition adds the physical 15°/30° angles.
+ * With 0.9u keycaps these polygons have positive clearance from the alpha row
+ * and from each other; no keycap overlap is permitted. */
+.slot-thumb-outer{left:calc(var(--u)*3.5);top:calc(var(--u)*3.75);transform:rotate(15deg)}
+.slot-thumb-inner{left:calc(var(--u)*4.5);top:calc(var(--u)*4);transform:rotate(30deg)}
 .right .slot-thumb-outer{transform:rotate(15deg)}
 .right .slot-thumb-inner{transform:rotate(30deg)}
 
@@ -64,11 +86,9 @@
   .behavior-card:last-child{grid-column:1/-1;border-top:1px solid var(--line)}
 }
 @media(max-width:700px){
-  .half{height:calc(var(--u)*5.28)}
+  .half{height:calc(var(--u)*5.35)}
   .behavior-head{display:block}
   .behavior-grid{grid-template-columns:1fr}
   .behavior-card,.behavior-card:nth-child(2){border-right:0;border-bottom:1px solid var(--line)}
   .behavior-card:last-child{grid-column:auto;border-top:0;border-bottom:0}
-  .slot-thumb-outer{top:calc(var(--u)*4.14)}
-  .slot-thumb-inner{top:calc(var(--u)*3.94)}
 }
