@@ -22,7 +22,8 @@ diff --git a/quantum/process_keycode/process_combo.c b/quantum/process_keycode/p
 diff --git a/quantum/process_keycode/process_combo.h b/quantum/process_keycode/process_combo.h
 --- a/quantum/process_keycode/process_combo.h
 +++ b/quantum/process_keycode/process_combo.h
-@@ -66,6 +66,7 @@ bool process_combo(uint16_t keycode, keyrecord_t *record);
+@@ -76,6 +76,7 @@
+ bool process_combo(uint16_t keycode, keyrecord_t *record);
  void combo_task(void);
  void process_combo_event(uint16_t combo_index, bool pressed);
 +void combo_triggered_user(uint16_t combo_index, uint16_t keycode);
