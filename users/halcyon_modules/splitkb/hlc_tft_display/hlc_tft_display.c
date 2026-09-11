@@ -68,6 +68,10 @@ static uint32_t last_os_fingerprint_frame   = 0;
 #define MOD_RECENT_MS 2200
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define MOD_INDICATOR_COLUMNS 2
+#define PATTERN_TILE_MIN 12
+#define PATTERN_TILE_MAX 48
+#define PATTERN_MOTION_MAX 6
+#define PATTERN_PULSE_MAX 4
 
 typedef halcyon_display_hsv_t hsv_triplet_t;
 
@@ -113,6 +117,22 @@ __attribute__((weak)) uint16_t halcyon_display_pattern_frame_ms_user(void) {
 
 __attribute__((weak)) uint16_t halcyon_display_mod_recent_ms_user(void) {
     return MOD_RECENT_MS;
+}
+
+__attribute__((weak)) const char *halcyon_display_layer_label_override_user(uint8_t layer) {
+    (void)layer;
+    return NULL;
+}
+
+__attribute__((weak)) const char *halcyon_display_modifier_label_override_user(uint8_t modifier) {
+    (void)modifier;
+    return NULL;
+}
+
+__attribute__((weak)) bool halcyon_display_pattern_override_user(uint8_t layer, halcyon_display_pattern_t *pattern) {
+    (void)layer;
+    (void)pattern;
+    return false;
 }
 
 static inline hsv_triplet_t layer_fg(uint8_t layer) {
@@ -244,6 +264,14 @@ static uint16_t build_mod_indicator_masks(uint8_t active_mods, uint16_t *active_
     return visible_mask;
 }
 
+static const char *display_modifier_label(uint8_t indicator) {
+    const char *const override = halcyon_display_modifier_label_override_user(indicator);
+    if (override != NULL && override[0] != '\0') {
+        return override;
+    }
+    return indicator < MOD_INDICATOR_COUNT ? mod_indicator_labels[indicator] : "Mod";
+}
+
 static void draw_mod_indicators(uint16_t visible_mod_mask, uint16_t active_mod_mask) {
     const uint8_t  rows      = (MOD_INDICATOR_COUNT + MOD_INDICATOR_COLUMNS - 1) / MOD_INDICATOR_COLUMNS;
     const uint16_t col_width = LCD_WIDTH / MOD_INDICATOR_COLUMNS;
@@ -263,7 +291,7 @@ static void draw_mod_indicators(uint16_t visible_mod_mask, uint16_t active_mod_m
         const bool          active = (active_mod_mask & bit) != 0;
         const hsv_triplet_t color  = mod_indicator_color(indicator, active);
 
-        qp_drawtext_recolor(lcd_surface, STATUS_X + (col * col_width), mod_top + (Retron27->line_height * row), Retron27, mod_indicator_labels[indicator], color.h, color.s, color.v, HSV_EF_BG);
+        qp_drawtext_recolor(lcd_surface, STATUS_X + (col * col_width), mod_top + (Retron27->line_height * row), Retron27, display_modifier_label(indicator), color.h, color.s, color.v, HSV_EF_BG);
         drawn++;
     }
 }
@@ -276,6 +304,14 @@ __attribute__((weak)) const char *halcyon_display_layer_name_user(uint8_t layer)
     }
 
     return "LAYX";
+}
+
+static const char *display_layer_label(uint8_t layer) {
+    const char *const override = halcyon_display_layer_label_override_user(layer);
+    if (override != NULL && override[0] != '\0') {
+        return override;
+    }
+    return halcyon_display_layer_name_user(layer);
 }
 
 __attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
@@ -319,24 +355,46 @@ static void draw_diamond(uint16_t cx, uint16_t cy, uint8_t radius, uint8_t h, ui
     }
 }
 
-// Restore the original 200 ms cadence: four-frame drift/pulse and alternating
-// color roles, retaining the existing palette and a unique motif for every layer.
-static int8_t pattern_motion_offset(uint8_t frame, uint16_t tile_index, uint8_t layer, bool vertical) {
+// The same thirteen procedural motifs remain the renderer's source of truth.
+// Host settings select the motif and tune its tile, drift and pulse parameters.
+static int8_t pattern_motion_offset(uint8_t frame, uint16_t tile_index, uint8_t layer, bool vertical, uint8_t amplitude) {
     const uint8_t step = (uint8_t)((frame + tile_index + (vertical ? layer : layer * 2U)) & 0x03U);
     switch (step) {
         case 1:
-            return 1;
+            return (int8_t)amplitude;
         case 3:
-            return -1;
+            return -(int8_t)amplitude;
         default:
             return 0;
     }
 }
 
+static bool display_pattern_valid(const halcyon_display_pattern_t *pattern) {
+    return pattern->motif < DISPLAY_LAYER_STYLE_COUNT && pattern->tile_width >= PATTERN_TILE_MIN && pattern->tile_width <= PATTERN_TILE_MAX &&
+           pattern->tile_height >= PATTERN_TILE_MIN && pattern->tile_height <= PATTERN_TILE_MAX && pattern->motion_amplitude <= PATTERN_MOTION_MAX &&
+           pattern->pulse_amplitude <= PATTERN_PULSE_MAX;
+}
+
+static halcyon_display_pattern_t layer_pattern(uint8_t layer) {
+    halcyon_display_pattern_t pattern = {
+        .motif = layer % DISPLAY_LAYER_STYLE_COUNT,
+        .tile_width = 24,
+        .tile_height = 24,
+        .motion_amplitude = 1,
+        .pulse_amplitude = 1,
+    };
+    halcyon_display_pattern_t requested;
+    if (halcyon_display_pattern_override_user(layer, &requested) && display_pattern_valid(&requested)) {
+        pattern = requested;
+    }
+    return pattern;
+}
+
 static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
-    const uint8_t       tile_w  = 24;
-    const uint8_t       tile_h  = 24;
-    const uint8_t       variant = layer % DISPLAY_LAYER_STYLE_COUNT;
+    const halcyon_display_pattern_t pattern = layer_pattern(layer);
+    const uint8_t       tile_w  = pattern.tile_width;
+    const uint8_t       tile_h  = pattern.tile_height;
+    const uint8_t       variant = pattern.motif;
     const hsv_triplet_t fg      = layer_fg(layer);
     const hsv_triplet_t bg      = layer_bg(layer);
 
@@ -346,11 +404,11 @@ static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
         for (uint16_t x = 0; x < LCD_WIDTH; x += tile_w) {
             const uint16_t tile_index = (x / tile_w) + (y / tile_h);
             const bool     phase      = ((tile_index + layer + (frame >> 1)) & 1U) != 0U;
-            const int8_t   dx         = pattern_motion_offset(frame, tile_index, layer, false);
-            const int8_t   dy         = pattern_motion_offset(frame, tile_index, layer, true);
+            const int8_t   dx         = pattern_motion_offset(frame, tile_index, layer, false, pattern.motion_amplitude);
+            const int8_t   dy         = pattern_motion_offset(frame, tile_index, layer, true, pattern.motion_amplitude);
             const uint16_t cx         = (uint16_t)((int16_t)x + tile_w / 2 + dx);
             const uint16_t cy         = (uint16_t)((int16_t)y + tile_h / 2 + dy);
-            const int8_t   pulse      = ((frame + tile_index + layer) & 0x03U) == 0 ? 1 : 0;
+            const uint8_t  pulse      = ((frame + tile_index + layer) & 0x03U) == 0 ? pattern.pulse_amplitude : 0;
             const uint8_t  ah         = phase ? fg.h : bg.h;
             const uint8_t  as         = phase ? fg.s : bg.s;
             const uint8_t  av         = phase ? fg.v : bg.v;
@@ -806,7 +864,7 @@ bool update_display(void) {
     if (background_redrawn || arp_changed || need_full_redraw) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
         const hsv_triplet_t layer_color = layer_fg(active_layer);
-        const char *const   layer_name  = halcyon_display_layer_name_user(active_layer);
+        const char *const   layer_name  = display_layer_label(active_layer);
         qp_drawtext_recolor(lcd_surface, STATUS_X, STATUS_LAYER_Y, Retron27, layer_name, layer_color.h, layer_color.s, layer_color.v, HSV_EF_BG);
         if (has_arp_text) {
             const int16_t arp_width = qp_textwidth(Retron27, arp_text);
