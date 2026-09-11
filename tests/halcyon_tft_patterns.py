@@ -32,8 +32,14 @@ harness = r'''
 #define LCD_WIDTH 135
 #define LCD_HEIGHT 240
 #define DISPLAY_LAYER_STYLE_COUNT 13
+#define PATTERN_ANIMATION_FRAME_MS 200
+#define MOD_RECENT_MS 2200
+#define HALCYON_DISPLAY_COLOR_LAYER_FG 0
+#define HALCYON_DISPLAY_COLOR_LAYER_BG 1
+#define HALCYON_DISPLAY_COLOR_MODIFIER 2
 static const int lcd_surface = 0;
-typedef struct { uint8_t h, s, v; } hsv_triplet_t;
+typedef struct { uint8_t h, s, v; } halcyon_display_hsv_t;
+typedef halcyon_display_hsv_t hsv_triplet_t;
 static uint8_t pixels[LCD_HEIGHT][LCD_WIDTH][3];
 static unsigned calls;
 static uint8_t cycle[4][LCD_HEIGHT][LCD_WIDTH][3];
@@ -79,8 +85,10 @@ with tempfile.TemporaryDirectory(prefix='halcyon-patterns-') as tmp:
 
 size = 135 * 240 * 3
 assert len(raw) == 13 * 4 * size
-fg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[0])]
-bg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[1])]
+hsv_pattern = r'\{\s*(\d+),\s*(\d+),\s*(\d+)\s*\}'
+fg = [bytes(map(int, m)) for m in re.findall(hsv_pattern, palette.split('static const hsv_triplet_t layer_bg_hsv')[0])]
+bg = [bytes(map(int, m)) for m in re.findall(hsv_pattern, palette.split('static const hsv_triplet_t layer_bg_hsv')[1].split('__attribute__')[0])]
+assert len(fg) == 13 and len(bg) == 13, (len(fg), len(bg), 'expected 13 foreground and background layer colors')
 base_bytes = bytes(map(int, base.split(',')))
 sequences = []
 for layer in range(13):

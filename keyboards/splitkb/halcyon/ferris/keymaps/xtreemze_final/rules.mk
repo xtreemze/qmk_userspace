@@ -32,3 +32,7 @@ SRC += halcyon_overrides.c
 # Versioned host-editable RGB profiles: global, per-layer, per-modifier and
 # per-Vial-combo, with migration from the legacy capture controls.
 SRC += rgb_profile_protocol.c
+
+# Halcyon-specific TFT palettes, modifier colors, display timing and live host
+# telemetry. Settings replicate across the split so either half can become USB master.
+SRC += halcyon_settings_protocol.c

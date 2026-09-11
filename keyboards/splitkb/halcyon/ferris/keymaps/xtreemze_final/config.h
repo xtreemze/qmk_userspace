@@ -38,12 +38,18 @@
 #define VIAL_ALT_REPEAT_KEY_ENTRIES 32
 
 /*
- * Reserve a stable EEPROM tail for the extended RGB profile protocol without
- * shifting VIA/Vial's existing dynamic-keymap addresses. Only the dynamic
- * macro buffer loses this tail capacity; all earlier Vial storage stays put.
+ * Keep keyboard-specific host settings in stable EEPROM tail regions without
+ * moving any existing VIA/Vial dynamic-keymap addresses. New reservations are
+ * allocated before the existing RGB profile store, so the RGB store address
+ * remains byte-for-byte compatible with already-flashed firmware.
  */
 #define XTREEMZE_RGB_PROFILE_EEPROM_SIZE 272
-#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR (TOTAL_EEPROM_BYTE_COUNT - XTREEMZE_RGB_PROFILE_EEPROM_SIZE - 1)
+#define XTREEMZE_HALCYON_SETTINGS_EEPROM_SIZE 160
+#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR (TOTAL_EEPROM_BYTE_COUNT - XTREEMZE_RGB_PROFILE_EEPROM_SIZE - XTREEMZE_HALCYON_SETTINGS_EEPROM_SIZE - 1)
+
+/* Chunked replication keeps Halcyon display settings coherent on the non-USB
+ * half and persists them there, so either half can become the next USB master. */
+#define SPLIT_TRANSACTION_IDS_USER XTREEMZE_HALCYON_SETTINGS_SYNC
 
 /* Preserve the effective host family through suspend/resume. Detector reports
  * are stabilized in userspace; do not turn USB reinitialization into a full
@@ -52,8 +58,8 @@
 
 /*
  * Persistent user datablock used by the legacy RGB capture engine and host
- * family state. Keep this size stable: the extended RGB profile store lives in
- * the separately reserved EEPROM tail above.
+ * family state. Keep this size stable: the extended RGB profile store and the
+ * Halcyon display settings store live in separately reserved EEPROM tails.
  *
  * Note: with EECONFIG_USER_DATA_SIZE > 0, eeconfig_read_user()/update_user()
  * are replaced by eeconfig_*_user_datablock() APIs.
