@@ -5,6 +5,7 @@
 
 #if defined(RGB_MATRIX_ENABLE) && defined(VIA_ENABLE)
 
+#include "halcyon_settings_protocol.h"
 #include "eeconfig.h"
 #include "eeprom.h"
 #include "rgb_matrix.h"
@@ -88,8 +89,6 @@ typedef struct {
     uint8_t reserved[14];
 } xtreemze_rgb_profile_store_t;
 
-/* Exact prefix of the v0x02 user datablock in keymap.c. It is used only to
- * migrate and synchronize the legacy on-keyboard capture controls. */
 typedef struct {
     uint8_t magic;
     uint8_t version;
@@ -110,19 +109,15 @@ static xtreemze_rgb_profile_store_t rgb_store;
 static bool rgb_store_loaded;
 static bool rgb_store_dirty;
 static uint32_t rgb_profile_generation;
-
 static bool combo_override_active;
 static uint8_t active_combo_index = 0xFF;
 static uint32_t combo_override_started;
-
 static bool preview_active;
 static xtreemze_rgb_profile_t preview_profile;
 static uint32_t preview_started;
-
 static bool legacy_passthrough_active;
 static uint32_t legacy_passthrough_started;
 static uint16_t legacy_passthrough_duration;
-
 static bool has_last_applied_profile;
 static xtreemze_rgb_profile_t last_applied_profile;
 static uint32_t last_applied_generation = UINT32_MAX;
@@ -159,28 +154,18 @@ static xtreemze_rgb_profile_t rgb_profile_capture_current(void) {
 }
 
 static bool rgb_profile_is_valid(const xtreemze_rgb_profile_t *profile, bool allow_unassigned) {
-    if (profile->mode == XTREEMZE_RGB_PROFILE_UNASSIGNED) {
-        return allow_unassigned;
-    }
-    if (profile->mode >= RGB_MATRIX_EFFECT_MAX) {
-        return false;
-    }
-    if (profile->v > RGB_MATRIX_MAXIMUM_BRIGHTNESS) {
-        return false;
-    }
+    if (profile->mode == XTREEMZE_RGB_PROFILE_UNASSIGNED) return allow_unassigned;
+    if (profile->mode >= RGB_MATRIX_EFFECT_MAX) return false;
+    if (profile->v > RGB_MATRIX_MAXIMUM_BRIGHTNESS) return false;
     return true;
 }
 
 static void rgb_profile_apply(const xtreemze_rgb_profile_t *profile) {
-    if (!rgb_profile_is_assigned(profile)) {
-        return;
-    }
-
+    if (!rgb_profile_is_assigned(profile)) return;
     if (profile->mode == 0) {
         rgb_matrix_disable_noeeprom();
         return;
     }
-
     rgb_matrix_enable_noeeprom();
     rgb_matrix_mode_noeeprom(profile->mode);
     rgb_matrix_sethsv_noeeprom(profile->h, profile->s, profile->v);
@@ -194,10 +179,7 @@ static void rgb_profile_invalidate_runtime(void) {
 
 static bool read_legacy_user_data(xtreemze_legacy_user_data_t *legacy) {
     memset(legacy, 0, sizeof(*legacy));
-    if (!eeconfig_is_user_datablock_valid()) {
-        return false;
-    }
-
+    if (!eeconfig_is_user_datablock_valid()) return false;
     eeconfig_read_user_datablock(legacy, 0, sizeof(*legacy));
     return legacy->magic == XTREEMZE_LEGACY_USER_DATA_MAGIC && legacy->version == XTREEMZE_LEGACY_USER_DATA_VERSION;
 }
@@ -213,16 +195,9 @@ static void rgb_store_set_defaults(void) {
     rgb_store.version = XTREEMZE_RGB_PROFILE_STORE_VERSION;
     rgb_store.combo_duration_ms = XTREEMZE_RGB_COMBO_MS_DEFAULT;
     rgb_store.global_profile = rgb_profile_capture_current();
-
-    for (uint8_t i = 0; i < XTREEMZE_RGB_LAYER_PROFILE_COUNT; ++i) {
-        rgb_profile_clear(&rgb_store.layer_profiles[i]);
-    }
-    for (uint8_t i = 0; i < XTREEMZE_RGB_MOD_PROFILE_COUNT; ++i) {
-        rgb_profile_clear(&rgb_store.mod_profiles[i]);
-    }
-    for (uint8_t i = 0; i < XTREEMZE_RGB_COMBO_PROFILE_COUNT; ++i) {
-        rgb_profile_clear(&rgb_store.combo_profiles[i]);
-    }
+    for (uint8_t i = 0; i < XTREEMZE_RGB_LAYER_PROFILE_COUNT; ++i) rgb_profile_clear(&rgb_store.layer_profiles[i]);
+    for (uint8_t i = 0; i < XTREEMZE_RGB_MOD_PROFILE_COUNT; ++i) rgb_profile_clear(&rgb_store.mod_profiles[i]);
+    for (uint8_t i = 0; i < XTREEMZE_RGB_COMBO_PROFILE_COUNT; ++i) rgb_profile_clear(&rgb_store.combo_profiles[i]);
 
     xtreemze_legacy_user_data_t legacy;
     if (read_legacy_user_data(&legacy)) {
@@ -235,10 +210,7 @@ static void rgb_store_set_defaults(void) {
 }
 
 static void rgb_store_ensure_loaded(void) {
-    if (rgb_store_loaded) {
-        return;
-    }
-
+    if (rgb_store_loaded) return;
     eeprom_read_block(&rgb_store, rgb_store_eeprom_address(), sizeof(rgb_store));
     if (rgb_store.magic != XTREEMZE_RGB_PROFILE_STORE_MAGIC || rgb_store.version != XTREEMZE_RGB_PROFILE_STORE_VERSION ||
         rgb_store.combo_duration_ms < XTREEMZE_RGB_COMBO_MS_MIN || rgb_store.combo_duration_ms > XTREEMZE_RGB_COMBO_MS_MAX ||
@@ -246,68 +218,44 @@ static void rgb_store_ensure_loaded(void) {
         rgb_store_set_defaults();
         rgb_store_save();
     }
-
     rgb_store_loaded = true;
     rgb_profile_invalidate_runtime();
 }
 
 static xtreemze_rgb_profile_t *rgb_profile_for_scope(uint8_t scope, uint8_t index) {
     switch (scope) {
-        case XTREEMZE_RGB_SCOPE_GLOBAL:
-            return index == 0 ? &rgb_store.global_profile : NULL;
-        case XTREEMZE_RGB_SCOPE_LAYER:
-            return index < XTREEMZE_RGB_LAYER_PROFILE_COUNT ? &rgb_store.layer_profiles[index] : NULL;
-        case XTREEMZE_RGB_SCOPE_MODIFIER:
-            return index < XTREEMZE_RGB_MOD_PROFILE_COUNT ? &rgb_store.mod_profiles[index] : NULL;
-        case XTREEMZE_RGB_SCOPE_COMBO:
-            return index < XTREEMZE_RGB_COMBO_PROFILE_COUNT ? &rgb_store.combo_profiles[index] : NULL;
-        default:
-            return NULL;
+        case XTREEMZE_RGB_SCOPE_GLOBAL: return index == 0 ? &rgb_store.global_profile : NULL;
+        case XTREEMZE_RGB_SCOPE_LAYER: return index < XTREEMZE_RGB_LAYER_PROFILE_COUNT ? &rgb_store.layer_profiles[index] : NULL;
+        case XTREEMZE_RGB_SCOPE_MODIFIER: return index < XTREEMZE_RGB_MOD_PROFILE_COUNT ? &rgb_store.mod_profiles[index] : NULL;
+        case XTREEMZE_RGB_SCOPE_COMBO: return index < XTREEMZE_RGB_COMBO_PROFILE_COUNT ? &rgb_store.combo_profiles[index] : NULL;
+        default: return NULL;
     }
 }
 
 static const xtreemze_rgb_profile_t *rgb_profile_resolve(uint8_t layer, uint8_t mods) {
     if (combo_override_active && active_combo_index < XTREEMZE_RGB_COMBO_PROFILE_COUNT) {
         const xtreemze_rgb_profile_t *combo = &rgb_store.combo_profiles[active_combo_index];
-        if (rgb_profile_is_assigned(combo)) {
-            return combo;
-        }
+        if (rgb_profile_is_assigned(combo)) return combo;
     }
-
-    if ((mods & MOD_MASK_CTRL) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[0])) {
-        return &rgb_store.mod_profiles[0];
-    }
-    if ((mods & MOD_MASK_GUI) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[1])) {
-        return &rgb_store.mod_profiles[1];
-    }
-    if ((mods & MOD_MASK_SHIFT) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[2])) {
-        return &rgb_store.mod_profiles[2];
-    }
-    if ((mods & MOD_MASK_ALT) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[3])) {
-        return &rgb_store.mod_profiles[3];
-    }
-    if (layer < XTREEMZE_RGB_LAYER_PROFILE_COUNT && rgb_profile_is_assigned(&rgb_store.layer_profiles[layer])) {
-        return &rgb_store.layer_profiles[layer];
-    }
+    if ((mods & MOD_MASK_CTRL) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[0])) return &rgb_store.mod_profiles[0];
+    if ((mods & MOD_MASK_GUI) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[1])) return &rgb_store.mod_profiles[1];
+    if ((mods & MOD_MASK_SHIFT) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[2])) return &rgb_store.mod_profiles[2];
+    if ((mods & MOD_MASK_ALT) != 0U && rgb_profile_is_assigned(&rgb_store.mod_profiles[3])) return &rgb_store.mod_profiles[3];
+    if (layer < XTREEMZE_RGB_LAYER_PROFILE_COUNT && rgb_profile_is_assigned(&rgb_store.layer_profiles[layer])) return &rgb_store.layer_profiles[layer];
     return &rgb_store.global_profile;
 }
 
 static void rgb_profile_refresh(void) {
     rgb_store_ensure_loaded();
-
     if (legacy_passthrough_active) {
-        if (timer_elapsed32(legacy_passthrough_started) <= legacy_passthrough_duration) {
-            return;
-        }
+        if (timer_elapsed32(legacy_passthrough_started) <= legacy_passthrough_duration) return;
         legacy_passthrough_active = false;
         rgb_profile_invalidate_runtime();
     }
-
     if (preview_active && timer_elapsed32(preview_started) > XTREEMZE_RGB_PROFILE_PREVIEW_MS) {
         preview_active = false;
         rgb_profile_invalidate_runtime();
     }
-
     if (combo_override_active && timer_elapsed32(combo_override_started) > rgb_store.combo_duration_ms) {
         combo_override_active = false;
         active_combo_index = 0xFF;
@@ -317,18 +265,9 @@ static void rgb_profile_refresh(void) {
     const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
     const uint8_t mods = get_mods() | get_oneshot_mods();
     const uint8_t combo = combo_override_active ? active_combo_index : 0xFF;
-
     const xtreemze_rgb_profile_t *target = preview_active ? &preview_profile : rgb_profile_resolve(layer, mods);
-    const bool state_changed =
-        last_applied_generation != rgb_profile_generation ||
-        last_applied_layer != layer ||
-        last_applied_mods != mods ||
-        last_applied_combo != combo ||
-        last_applied_preview != preview_active;
-
-    if (!state_changed && has_last_applied_profile && rgb_profile_equal(target, &last_applied_profile)) {
-        return;
-    }
+    const bool state_changed = last_applied_generation != rgb_profile_generation || last_applied_layer != layer || last_applied_mods != mods || last_applied_combo != combo || last_applied_preview != preview_active;
+    if (!state_changed && has_last_applied_profile && rgb_profile_equal(target, &last_applied_profile)) return;
 
     rgb_profile_apply(target);
     last_applied_profile = *target;
@@ -340,24 +279,14 @@ static void rgb_profile_refresh(void) {
     last_applied_preview = preview_active;
 }
 
-/* Runs after the legacy matrix_scan_user() profile resolver, making this
- * versioned profile store authoritative without having to fork the existing
- * keymap's mature host/encoder logic. */
 void housekeeping_task_user(void) {
     rgb_profile_refresh();
 }
 
-/* Added by patches/0004-combo-triggered-user-hook.patch. The callback fires
- * only when a combo is actually activated, so individual Vial combo slots map
- * deterministically to individual temporary RGB profiles. */
 void combo_triggered_user(uint16_t combo_index, uint16_t keycode) {
     (void)keycode;
     rgb_store_ensure_loaded();
-
-    if (combo_index >= XTREEMZE_RGB_COMBO_PROFILE_COUNT || !rgb_profile_is_assigned(&rgb_store.combo_profiles[combo_index])) {
-        return;
-    }
-
+    if (combo_index >= XTREEMZE_RGB_COMBO_PROFILE_COUNT || !rgb_profile_is_assigned(&rgb_store.combo_profiles[combo_index])) return;
     active_combo_index = (uint8_t)combo_index;
     combo_override_started = timer_read32();
     combo_override_active = true;
@@ -365,30 +294,16 @@ void combo_triggered_user(uint16_t combo_index, uint16_t keycode) {
     rgb_profile_invalidate_runtime();
 }
 
-/* Keep the existing physical capture keys useful. Layer/modifier capture is
- * persisted by keymap.c first; post-processing then mirrors the new value into
- * the extended store. RGB_TCHD temporarily yields to the legacy shared chord
- * profile so that diagnostic/manual trigger behavior is preserved. */
 void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (!record->event.pressed) {
-        return;
-    }
-
+    if (!record->event.pressed) return;
     const uint16_t rgb_slay = QK_KB_0 + 10;
     const uint16_t rgb_smod = QK_KB_0 + 11;
     const uint16_t rgb_tchd = QK_KB_0 + 13;
-
-    if (keycode != rgb_slay && keycode != rgb_smod && keycode != rgb_tchd) {
-        return;
-    }
-
+    if (keycode != rgb_slay && keycode != rgb_smod && keycode != rgb_tchd) return;
     rgb_store_ensure_loaded();
 
     xtreemze_legacy_user_data_t legacy;
-    if (!read_legacy_user_data(&legacy)) {
-        return;
-    }
-
+    if (!read_legacy_user_data(&legacy)) return;
     if (keycode == rgb_slay) {
         const uint8_t layer = get_highest_layer(layer_state | default_layer_state);
         if (layer < XTREEMZE_RGB_LAYER_PROFILE_COUNT) {
@@ -399,7 +314,6 @@ void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
         return;
     }
-
     if (keycode == rgb_smod) {
         memcpy(rgb_store.mod_profiles, legacy.mod_profiles, sizeof(rgb_store.mod_profiles));
         rgb_store_dirty = true;
@@ -407,21 +321,14 @@ void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
         rgb_store_save();
         return;
     }
-
     legacy_passthrough_duration = legacy.chord_override_ms;
-    if (legacy_passthrough_duration < XTREEMZE_RGB_COMBO_MS_MIN || legacy_passthrough_duration > XTREEMZE_RGB_COMBO_MS_MAX) {
-        legacy_passthrough_duration = XTREEMZE_RGB_COMBO_MS_DEFAULT;
-    }
+    if (legacy_passthrough_duration < XTREEMZE_RGB_COMBO_MS_MIN || legacy_passthrough_duration > XTREEMZE_RGB_COMBO_MS_MAX) legacy_passthrough_duration = XTREEMZE_RGB_COMBO_MS_DEFAULT;
     legacy_passthrough_started = timer_read32();
     legacy_passthrough_active = true;
 }
 
 static void rgb_command_get_capabilities(uint8_t *data, uint8_t length) {
-    if (length < 11) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (length < 11) { data[0] = id_unhandled; return; }
     data[2] = XTREEMZE_RGB_PROFILE_PROTOCOL_VERSION;
     data[3] = XTREEMZE_RGB_SCOPE_FLAGS;
     data[4] = XTREEMZE_RGB_LAYER_PROFILE_COUNT;
@@ -430,21 +337,13 @@ static void rgb_command_get_capabilities(uint8_t *data, uint8_t length) {
     data[7] = RGB_MATRIX_MAXIMUM_BRIGHTNESS;
     data[8] = RGB_MATRIX_EFFECT_MAX - 1;
     data[9] = XTREEMZE_RGB_FIELD_FLAGS;
-    data[10] = 1; /* precedence version: combo > ctrl > gui > shift > alt > layer > global */
+    data[10] = 1;
 }
 
 static void rgb_command_get_profile(uint8_t *data, uint8_t length) {
-    if (length < 9) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (length < 9) { data[0] = id_unhandled; return; }
     xtreemze_rgb_profile_t *profile = rgb_profile_for_scope(data[2], data[3]);
-    if (profile == NULL) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (profile == NULL) { data[0] = id_unhandled; return; }
     data[4] = profile->mode;
     data[5] = profile->h;
     data[6] = profile->s;
@@ -453,26 +352,11 @@ static void rgb_command_get_profile(uint8_t *data, uint8_t length) {
 }
 
 static void rgb_command_set_profile(uint8_t *data, uint8_t length) {
-    if (length < 9) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (length < 9) { data[0] = id_unhandled; return; }
     xtreemze_rgb_profile_t *target = rgb_profile_for_scope(data[2], data[3]);
-    const xtreemze_rgb_profile_t requested = {
-        .mode = data[4],
-        .h = data[5],
-        .s = data[6],
-        .v = data[7],
-        .speed = data[8],
-    };
+    const xtreemze_rgb_profile_t requested = {.mode = data[4], .h = data[5], .s = data[6], .v = data[7], .speed = data[8]};
     const bool is_global = data[2] == XTREEMZE_RGB_SCOPE_GLOBAL;
-
-    if (target == NULL || !rgb_profile_is_valid(&requested, !is_global)) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (target == NULL || !rgb_profile_is_valid(&requested, !is_global)) { data[0] = id_unhandled; return; }
     *target = requested;
     rgb_store_dirty = true;
     preview_active = false;
@@ -480,39 +364,26 @@ static void rgb_command_set_profile(uint8_t *data, uint8_t length) {
 }
 
 static void rgb_command_preview(uint8_t *data, uint8_t length) {
-    if (length < 7) {
-        data[0] = id_unhandled;
-        return;
-    }
-
-    const xtreemze_rgb_profile_t requested = {
-        .mode = data[2],
-        .h = data[3],
-        .s = data[4],
-        .v = data[5],
-        .speed = data[6],
-    };
-    if (!rgb_profile_is_valid(&requested, false)) {
-        data[0] = id_unhandled;
-        return;
-    }
-
+    if (length < 7) { data[0] = id_unhandled; return; }
+    const xtreemze_rgb_profile_t requested = {.mode = data[2], .h = data[3], .s = data[4], .v = data[5], .speed = data[6]};
+    if (!rgb_profile_is_valid(&requested, false)) { data[0] = id_unhandled; return; }
     preview_profile = requested;
     preview_started = timer_read32();
     preview_active = true;
     rgb_profile_invalidate_runtime();
 }
 
-/* Dedicated raw command handler. Unknown commands retain VIA's normal
- * id_unhandled behavior. */
+/* One keyboard-level raw HID router owns the custom command namespace. */
 void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
+    if (xtreemze_halcyon_settings_raw_hid_receive(data, length)) {
+        return;
+    }
     if (length < 2 || data[0] != XTREEMZE_RGB_PROFILE_COMMAND) {
         data[0] = id_unhandled;
         return;
     }
 
     rgb_store_ensure_loaded();
-
     switch (data[1]) {
         case XTREEMZE_RGB_GET_CAPABILITIES:
             rgb_command_get_capabilities(data, length);
@@ -524,31 +395,20 @@ void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
             rgb_command_set_profile(data, length);
             break;
         case XTREEMZE_RGB_SAVE:
-            if (rgb_store_dirty) {
-                rgb_store_save();
-            }
+            if (rgb_store_dirty) rgb_store_save();
             break;
         case XTREEMZE_RGB_PREVIEW:
             rgb_command_preview(data, length);
             break;
         case XTREEMZE_RGB_GET_COMBO_DURATION:
-            if (length < 4) {
-                data[0] = id_unhandled;
-                break;
-            }
+            if (length < 4) { data[0] = id_unhandled; break; }
             data[2] = (uint8_t)(rgb_store.combo_duration_ms >> 8);
             data[3] = (uint8_t)(rgb_store.combo_duration_ms & 0xFF);
             break;
         case XTREEMZE_RGB_SET_COMBO_DURATION: {
-            if (length < 4) {
-                data[0] = id_unhandled;
-                break;
-            }
+            if (length < 4) { data[0] = id_unhandled; break; }
             const uint16_t duration = ((uint16_t)data[2] << 8) | data[3];
-            if (duration < XTREEMZE_RGB_COMBO_MS_MIN || duration > XTREEMZE_RGB_COMBO_MS_MAX) {
-                data[0] = id_unhandled;
-                break;
-            }
+            if (duration < XTREEMZE_RGB_COMBO_MS_MIN || duration > XTREEMZE_RGB_COMBO_MS_MAX) { data[0] = id_unhandled; break; }
             rgb_store.combo_duration_ms = duration;
             rgb_store_dirty = true;
             break;
