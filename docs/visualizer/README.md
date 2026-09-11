@@ -4,25 +4,37 @@ This directory contains the dependency-free interactive visualizer for the produ
 
 ## Design
 
-The atlas treats the 34-key Ferris as a layered control surface rather than a conventional keycap diagram:
+The atlas treats the 34-key Ferris as a layered physical control surface rather than a conventional keycap diagram:
 
 - alphabetic legends are hidden by default;
-- the exact Ferris matrix geometry is preserved;
+- the physical column stagger and thumb arc follow the adjacent `vial.json` device definition;
+- one half is modeled once and the opposite half is rendered as its exact horizontal mirror, matching the symmetric Ferris hardware;
 - transparent keys are visually subordinate;
 - tap/hold, momentary, toggle and one-shot semantics are surfaced before raw keycodes;
-- left/right Halcyon module controls are separated from the 34-key typing surface;
+- the Halcyon TFT and encoder modules are integrated into their physical half rather than shown as unrelated controls;
+- the TFT includes a lightweight animated-GIF display emulator with the active layer identity overlaid from the live profile;
 - both encoder directions are shown for every layer;
-- all 13 layers retain their firmware layer number and TFT identity while being grouped by task.
+- all 13 layers retain their firmware layer number and TFT identity while being grouped by task;
+- the presentation adapts from a side-by-side desktop view to vertically stacked mirrored halves on narrow screens without horizontal page overflow;
+- `prefers-reduced-motion` replaces the TFT animation with a static display treatment.
 
 ## Source of truth
 
-`index.html` reads the canonical profile directly from:
+The atlas reads the canonical profile directly from:
 
 `keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/xtreemzeVial.vil`
 
-on the `halcyon` branch. It treats the file as JSON data only; macro payloads are not evaluated or executed. The physical matrix interpretation follows the coordinates in the adjacent `vial.json` device definition.
+on the `halcyon` branch. It treats the file as JSON data only; macro payloads are not evaluated or executed.
 
-This deliberately avoids maintaining a second hand-authored copy of the keymap.
+The physical interpretation is intentionally separate from the keymap values. `vial.json` remains the device-definition source for Ferris matrix coordinates and module placement. The web renderer encodes that geometry as one reusable half and mirrors it for the other side, preventing independent left/right positioning from drifting apart.
+
+This avoids maintaining a second hand-authored copy of the keymap while keeping the hardware presentation deterministic.
+
+## Files
+
+- `index.html` — semantic page structure and accessible controls.
+- `atlas.css` — responsive physical geometry and presentation.
+- `atlas.js` — live profile loading, key semantics, mirrored-half rendering, module/encoder views, and TFT emulator.
 
 ## Run locally
 
@@ -38,7 +50,7 @@ Then open `/docs/visualizer/` on that local server. A web server is required bec
 
 The repository workflow `.github/workflows/pages-visualizer.yml` publishes this directory as the complete Pages artifact whenever `docs/visualizer/**` changes on `halcyon`, and also supports manual dispatch.
 
-Configure the repository Pages source as **GitHub Actions**. Once enabled, the production site is expected at:
+Configure the repository Pages source as **GitHub Actions**. The production site is:
 
 `https://xtreemze.github.io/qmk_userspace/`
 
