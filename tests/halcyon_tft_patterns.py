@@ -85,8 +85,10 @@ with tempfile.TemporaryDirectory(prefix='halcyon-patterns-') as tmp:
 
 size = 135 * 240 * 3
 assert len(raw) == 13 * 4 * size
-fg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[0])]
-bg = [bytes(map(int, m)) for m in re.findall(r'\{ (\d+), (\d+), (\d+) \}', palette.split('static const hsv_triplet_t layer_bg_hsv')[1].split('__attribute__')[0])]
+hsv_pattern = r'\{\s*(\d+),\s*(\d+),\s*(\d+)\s*\}'
+fg = [bytes(map(int, m)) for m in re.findall(hsv_pattern, palette.split('static const hsv_triplet_t layer_bg_hsv')[0])]
+bg = [bytes(map(int, m)) for m in re.findall(hsv_pattern, palette.split('static const hsv_triplet_t layer_bg_hsv')[1].split('__attribute__')[0])]
+assert len(fg) == 13 and len(bg) == 13, (len(fg), len(bg), 'expected 13 foreground and background layer colors')
 base_bytes = bytes(map(int, base.split(',')))
 sequences = []
 for layer in range(13):
