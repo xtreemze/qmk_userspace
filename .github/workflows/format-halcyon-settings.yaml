@@ -19,6 +19,7 @@ jobs:
         with:
           ref: feat/halcyon-settings-protocol
           fetch-depth: 0
+          path: userspace
 
       - name: Checkout pinned Vial-QMK
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -30,14 +31,14 @@ jobs:
       - name: Configure QMK CLI
         run: |
           qmk config user.qmk_home=$GITHUB_WORKSPACE/qmk_firmware
-          qmk config user.overlay_dir=$GITHUB_WORKSPACE
+          qmk config user.overlay_dir=$GITHUB_WORKSPACE/userspace
 
       - name: Correct protocol state invariants
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.c")
+          path = Path("userspace/keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.c")
           text = path.read_text()
 
           old_sync = "sync_persist = sync_persist || persist;"
@@ -62,19 +63,19 @@ jobs:
       - name: Apply QMK clang-format
         run: |
           qmk format-c \
-            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
-            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
+            userspace/users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
+            userspace/users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
 
       - name: Commit deterministic fixes
         run: |
-          if git -C "$GITHUB_WORKSPACE" diff --quiet; then
+          if git -C "$GITHUB_WORKSPACE/userspace" diff --quiet; then
             exit 0
           fi
-          git -C "$GITHUB_WORKSPACE" config user.name github-actions[bot]
-          git -C "$GITHUB_WORKSPACE" config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git -C "$GITHUB_WORKSPACE" add \
+          git -C "$GITHUB_WORKSPACE/userspace" config user.name github-actions[bot]
+          git -C "$GITHUB_WORKSPACE/userspace" config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C "$GITHUB_WORKSPACE/userspace" add \
             keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
-          git -C "$GITHUB_WORKSPACE" commit -m "Fix and format Halcyon settings protocol"
-          git -C "$GITHUB_WORKSPACE" push origin HEAD:feat/halcyon-settings-protocol
+          git -C "$GITHUB_WORKSPACE/userspace" commit -m "Fix and format Halcyon settings protocol"
+          git -C "$GITHUB_WORKSPACE/userspace" push origin HEAD:feat/halcyon-settings-protocol
