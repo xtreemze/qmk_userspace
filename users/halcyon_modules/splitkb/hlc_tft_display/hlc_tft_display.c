@@ -69,11 +69,7 @@ static uint32_t last_os_fingerprint_frame = 0;
 #define MOD_TS_UNSET 0xFFFFFFFFUL
 #define MOD_INDICATOR_COLUMNS 2
 
-typedef struct {
-    uint8_t h;
-    uint8_t s;
-    uint8_t v;
-} hsv_triplet_t;
+typedef halcyon_display_hsv_t hsv_triplet_t;
 
 #define DISPLAY_LAYER_STYLE_COUNT 13
 
@@ -109,12 +105,38 @@ static const hsv_triplet_t layer_bg_hsv[DISPLAY_LAYER_STYLE_COUNT] = {
     { 146, 24, 66 },
 };
 
+__attribute__((weak)) bool halcyon_display_color_override_user(uint8_t domain, uint8_t index, bool active, halcyon_display_hsv_t *color) {
+    (void)domain;
+    (void)index;
+    (void)active;
+    (void)color;
+    return false;
+}
+
+__attribute__((weak)) uint16_t halcyon_display_pattern_frame_ms_user(void) {
+    return PATTERN_ANIMATION_FRAME_MS;
+}
+
+__attribute__((weak)) uint16_t halcyon_display_mod_recent_ms_user(void) {
+    return MOD_RECENT_MS;
+}
+
 static inline hsv_triplet_t layer_fg(uint8_t layer) {
-    return layer_fg_hsv[layer % DISPLAY_LAYER_STYLE_COUNT];
+    const uint8_t index = layer % DISPLAY_LAYER_STYLE_COUNT;
+    hsv_triplet_t color;
+    if (halcyon_display_color_override_user(HALCYON_DISPLAY_COLOR_LAYER_FG, index, true, &color)) {
+        return color;
+    }
+    return layer_fg_hsv[index];
 }
 
 static inline hsv_triplet_t layer_bg(uint8_t layer) {
-    return layer_bg_hsv[layer % DISPLAY_LAYER_STYLE_COUNT];
+    const uint8_t index = layer % DISPLAY_LAYER_STYLE_COUNT;
+    hsv_triplet_t color;
+    if (halcyon_display_color_override_user(HALCYON_DISPLAY_COLOR_LAYER_BG, index, true, &color)) {
+        return color;
+    }
+    return layer_bg_hsv[index];
 }
 
 static inline uint16_t mod_indicator_bit(uint8_t indicator) {
@@ -122,6 +144,11 @@ static inline uint16_t mod_indicator_bit(uint8_t indicator) {
 }
 
 static hsv_triplet_t mod_indicator_color(uint8_t indicator, bool active) {
+    hsv_triplet_t color;
+    if (halcyon_display_color_override_user(HALCYON_DISPLAY_COLOR_MODIFIER, indicator, active, &color)) {
+        return color;
+    }
+
     if (!active) {
         return (hsv_triplet_t){ 98, 23, 146 };
     }
@@ -153,7 +180,7 @@ static hsv_triplet_t mod_indicator_color(uint8_t indicator, bool active) {
 }
 
 static bool mod_is_recent(uint32_t ts) {
-    return ts != MOD_TS_UNSET && timer_elapsed32(ts) < MOD_RECENT_MS;
+    return ts != MOD_TS_UNSET && timer_elapsed32(ts) < halcyon_display_mod_recent_ms_user();
 }
 
 static uint16_t build_mod_indicator_masks(uint8_t active_mods, uint16_t *active_indicator_mask) {
@@ -348,78 +375,76 @@ static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
             const uint8_t bs = phase ? bg.s : fg.s;
             const uint8_t bv = phase ? bg.v : fg.v;
 
-            // Filled diamond motifs exchange bright/muted roles while drifting and pulsing.
             switch (variant) {
-                case 0: // MOUSE
+                case 0:
                     draw_diamond(cx, cy, 6 + pulse, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 1: // QWERTY
+                case 1:
                     draw_diamond(cx, cy - 6, 3, ah, as, av);
                     draw_diamond(cx - 6, cy, 3, ah, as, av);
                     draw_diamond(cx + 6, cy, 3, ah, as, av);
                     draw_diamond(cx, cy + 6, 3, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 2: // COLEMAK
+                case 2:
                     draw_diamond(cx, cy, 7 + pulse, ah, as, av);
                     draw_diamond(cx, cy, 5, HSV_EF_BG);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 3: // NUMSYMS
+                case 3:
                     draw_diamond(cx - 5, cy, 4, ah, as, av);
                     draw_diamond(cx + 5, cy, 4, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 4: // NUMFLIP
+                case 4:
                     draw_diamond(cx, cy - 5, 4, ah, as, av);
                     draw_diamond(cx, cy + 5, 4, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
                     break;
-                case 5: // ONESHOT
+                case 5:
                     draw_diamond(cx, cy, 3, ah, as, av);
                     draw_diamond(cx - 7, cy - 7, 2, bh, bs, bv);
                     draw_diamond(cx + 7, cy - 7, 2, bh, bs, bv);
                     draw_diamond(cx - 7, cy + 7, 2, bh, bs, bv);
                     draw_diamond(cx + 7, cy + 7, 2, bh, bs, bv);
                     break;
-                case 6: // EDITING
+                case 6:
                     draw_diamond(cx - 6, cy - 6, 3, ah, as, av);
                     draw_diamond(cx + 6, cy + 6, 3, ah, as, av);
                     draw_diamond(cx + 6, cy - 6, 2, bh, bs, bv);
                     draw_diamond(cx - 6, cy + 6, 2, bh, bs, bv);
                     break;
-                case 7: // FNSYMS
+                case 7:
                     draw_diamond(cx, cy, 5, ah, as, av);
                     draw_diamond(x + 2, cy, 2, bh, bs, bv);
                     draw_diamond(x + tile_w - 3, cy, 2, bh, bs, bv);
                     break;
-                case 8: // FNFLIP
+                case 8:
                     draw_diamond(cx, y + 3, 2, ah, as, av);
                     draw_diamond(cx, y + tile_h - 4, 2, ah, as, av);
                     draw_diamond(cx, cy, 4, bh, bs, bv);
                     break;
-                case 9: // SYMBOLS
+                case 9:
                     draw_diamond(cx, cy, 3, ah, as, av);
                     draw_diamond(cx - 6, cy, 2, bh, bs, bv);
                     draw_diamond(cx + 6, cy, 2, bh, bs, bv);
                     draw_diamond(cx, cy - 6, 2, bh, bs, bv);
                     draw_diamond(cx, cy + 6, 2, bh, bs, bv);
                     break;
-                case 10: // RGBHUE
+                case 10:
                     draw_diamond(cx, cy, 6 + pulse, ah, as, av);
                     draw_diamond(cx - 8, cy, 2, bh, bs, bv);
                     draw_diamond(cx + 8, cy, 2, bh, bs, bv);
                     break;
-                case 11: // RGBVAL
+                case 11:
                     draw_diamond(cx, cy, 4, ah, as, av);
                     draw_diamond(cx - 8, cy - 8, 2, bh, bs, bv);
                     draw_diamond(cx + 8, cy - 8, 2, bh, bs, bv);
                     draw_diamond(cx - 8, cy + 8, 2, bh, bs, bv);
                     draw_diamond(cx + 8, cy + 8, 2, bh, bs, bv);
                     break;
-                // Layer 12 keeps its own diagonal-pair motif.
-                default: // BKLIGHT
+                default:
                     draw_diamond(cx - 5, cy - 5, 3, ah, as, av);
                     draw_diamond(cx + 5, cy + 5, 3, ah, as, av);
                     draw_diamond(cx, cy, 2, bh, bs, bv);
@@ -438,56 +463,40 @@ static void ensure_display_font_loaded(void) {
 
 static const char *host_os_label(halcyon_display_os_t os) {
     switch (os) {
-        case HALCYON_DISPLAY_OS_MACOS:
-            return "macOS";
-        case HALCYON_DISPLAY_OS_IOS:
-            return "iOS";
-        case HALCYON_DISPLAY_OS_WINDOWS:
-            return "Windows";
-        case HALCYON_DISPLAY_OS_LINUX:
-            return "Linux";
+        case HALCYON_DISPLAY_OS_MACOS: return "macOS";
+        case HALCYON_DISPLAY_OS_IOS: return "iOS";
+        case HALCYON_DISPLAY_OS_WINDOWS: return "Windows";
+        case HALCYON_DISPLAY_OS_LINUX: return "Linux";
         case HALCYON_DISPLAY_OS_UNKNOWN:
-        default:
-            return "DETECTING";
+        default: return "DETECTING";
     }
 }
 
 static const char *host_os_compact_label(halcyon_display_os_t os) {
     switch (os) {
-        case HALCYON_DISPLAY_OS_WINDOWS:
-            return "WIN";
-        case HALCYON_DISPLAY_OS_UNKNOWN:
-            return "DETECT";
-        default:
-            return host_os_label(os);
+        case HALCYON_DISPLAY_OS_WINDOWS: return "WIN";
+        case HALCYON_DISPLAY_OS_UNKNOWN: return "DETECT";
+        default: return host_os_label(os);
     }
 }
 
 static const char *host_marker_label(halcyon_display_os_t os) {
     switch (os) {
-        case HALCYON_DISPLAY_OS_MACOS:
-            return "MAC";
-        case HALCYON_DISPLAY_OS_IOS:
-            return "IOS";
-        case HALCYON_DISPLAY_OS_WINDOWS:
-            return "WIN";
-        case HALCYON_DISPLAY_OS_LINUX:
-            return "LIN";
+        case HALCYON_DISPLAY_OS_MACOS: return "MAC";
+        case HALCYON_DISPLAY_OS_IOS: return "IOS";
+        case HALCYON_DISPLAY_OS_WINDOWS: return "WIN";
+        case HALCYON_DISPLAY_OS_LINUX: return "LIN";
         case HALCYON_DISPLAY_OS_UNKNOWN:
-        default:
-            return "?";
+        default: return "?";
     }
 }
 
 static const char *host_shortcut_label(halcyon_shortcut_family_t family) {
     switch (family) {
-        case HALCYON_SHORTCUT_APPLE:
-            return "APPLE";
-        case HALCYON_SHORTCUT_CTRL:
-            return "CTRL";
+        case HALCYON_SHORTCUT_APPLE: return "APPLE";
+        case HALCYON_SHORTCUT_CTRL: return "CTRL";
         case HALCYON_SHORTCUT_UNKNOWN:
-        default:
-            return "CTRL";
+        default: return "CTRL";
     }
 }
 
@@ -497,80 +506,59 @@ static const char *host_shortcut_compact_label(halcyon_shortcut_family_t family)
 
 static const char *host_source_label(halcyon_host_source_t source) {
     switch (source) {
-        case HALCYON_HOST_SOURCE_STORED:
-            return "STORED";
-        case HALCYON_HOST_SOURCE_LIVE:
-            return "QMK";
+        case HALCYON_HOST_SOURCE_STORED: return "STORED";
+        case HALCYON_HOST_SOURCE_LIVE: return "QMK";
         case HALCYON_HOST_SOURCE_DEFAULT:
-        default:
-            return "DEFAULT";
+        default: return "DEFAULT";
     }
 }
 
 static const char *host_source_compact_label(halcyon_host_source_t source) {
     switch (source) {
-        case HALCYON_HOST_SOURCE_STORED:
-            return "STOR";
-        case HALCYON_HOST_SOURCE_LIVE:
-            return "QMK";
+        case HALCYON_HOST_SOURCE_STORED: return "STOR";
+        case HALCYON_HOST_SOURCE_LIVE: return "QMK";
         case HALCYON_HOST_SOURCE_DEFAULT:
-        default:
-            return "DEF";
+        default: return "DEF";
     }
 }
 
 static const char *host_event_label(halcyon_host_event_t event) {
     switch (event) {
-        case HALCYON_HOST_EVENT_RESUME:
-            return "RESUME";
-        case HALCYON_HOST_EVENT_CHANGE:
-            return "CHANGE";
+        case HALCYON_HOST_EVENT_RESUME: return "RESUME";
+        case HALCYON_HOST_EVENT_CHANGE: return "CHANGE";
         case HALCYON_HOST_EVENT_BOOT:
-        default:
-            return "BOOT";
+        default: return "BOOT";
     }
 }
 
 static const char *host_event_compact_label(halcyon_host_event_t event) {
     switch (event) {
-        case HALCYON_HOST_EVENT_RESUME:
-            return "WAKE";
-        case HALCYON_HOST_EVENT_CHANGE:
-            return "CHG";
+        case HALCYON_HOST_EVENT_RESUME: return "WAKE";
+        case HALCYON_HOST_EVENT_CHANGE: return "CHG";
         case HALCYON_HOST_EVENT_BOOT:
-        default:
-            return "BOOT";
+        default: return "BOOT";
     }
 }
 
 static hsv_triplet_t host_accent(const halcyon_host_telemetry_t *telemetry) {
     hsv_triplet_t accent;
-
     switch (telemetry->os) {
         case HALCYON_DISPLAY_OS_MACOS:
         case HALCYON_DISPLAY_OS_IOS:
-            accent = (hsv_triplet_t){ 122, 82, 187 };
-            break;
+            accent = (hsv_triplet_t){122, 82, 187}; break;
         case HALCYON_DISPLAY_OS_WINDOWS:
-            accent = (hsv_triplet_t){ 59, 85, 192 };
-            break;
+            accent = (hsv_triplet_t){59, 85, 192}; break;
         case HALCYON_DISPLAY_OS_LINUX:
-            accent = (hsv_triplet_t){ 28, 107, 219 };
-            break;
+            accent = (hsv_triplet_t){28, 107, 219}; break;
         case HALCYON_DISPLAY_OS_UNKNOWN:
         default:
-            accent = (hsv_triplet_t){ 254, 115, 230 };
-            break;
+            accent = (hsv_triplet_t){254, 115, 230}; break;
     }
-
     if (telemetry->source == HALCYON_HOST_SOURCE_STORED) {
         accent.v = (uint8_t)((uint16_t)accent.v * 3U / 4U);
     } else if (telemetry->source == HALCYON_HOST_SOURCE_DEFAULT) {
-        accent.h = 254;
-        accent.s = 80;
-        accent.v = 150;
+        accent.h = 254; accent.s = 80; accent.v = 150;
     }
-
     return accent;
 }
 
@@ -586,7 +574,7 @@ static const char *fit_host_line(const char *full, const char *compact) {
 
 static void draw_host_overlay(uint32_t elapsed) {
     const hsv_triplet_t accent = host_accent(&host_overlay_telemetry);
-    const hsv_triplet_t text = { 29, 50, 211 };
+    const hsv_triplet_t text = {29, 50, 211};
     const bool final_pulse = elapsed >= HOST_PANEL_PULSE_MS;
     const uint8_t pulse_v = final_pulse && (elapsed / HOST_PANEL_FRAME_MS) % 2U != 0U ? (uint8_t)(accent.v * 3U / 4U) : accent.v;
     char policy_full[32];
@@ -607,9 +595,7 @@ static void draw_host_overlay(uint32_t elapsed) {
 
     if (elapsed < HOST_PANEL_INTRO_MS) {
         uint8_t radius = (uint8_t)(4U + elapsed / 12U);
-        if (radius > 19U) {
-            radius = 19U;
-        }
+        if (radius > 19U) radius = 19U;
         draw_diamond(LCD_WIDTH / 2, LCD_HEIGHT / 2, radius, accent.h, accent.s, pulse_v);
         return;
     }
@@ -617,7 +603,6 @@ static void draw_host_overlay(uint32_t elapsed) {
     draw_diamond(LCD_WIDTH / 2, 27, 6, accent.h, accent.s, pulse_v);
     draw_diamond(LCD_WIDTH / 2, LCD_HEIGHT - 28, 6, accent.h, accent.s, pulse_v);
     draw_centered_host_text(55, os_line, accent);
-
     if (elapsed >= HOST_PANEL_STABLE_MS) {
         draw_centered_host_text(108, policy_line, text);
         draw_centered_host_text(161, lifecycle_line, text);
@@ -630,13 +615,12 @@ static bool host_telemetry_equal(const halcyon_host_telemetry_t *a, const halcyo
 
 static halcyon_host_telemetry_t read_host_telemetry(halcyon_host_event_t event) {
     halcyon_host_telemetry_t telemetry = {
-        .os              = HALCYON_DISPLAY_OS_UNKNOWN,
+        .os = HALCYON_DISPLAY_OS_UNKNOWN,
         .shortcut_family = HALCYON_SHORTCUT_UNKNOWN,
-        .source          = HALCYON_HOST_SOURCE_DEFAULT,
-        .event           = event,
-        .is_master       = is_keyboard_master(),
+        .source = HALCYON_HOST_SOURCE_DEFAULT,
+        .event = event,
+        .is_master = is_keyboard_master(),
     };
-
     halcyon_display_host_telemetry_user(&telemetry);
     telemetry.event = event;
     return telemetry;
@@ -666,7 +650,6 @@ void halcyon_display_toggle_trace_view(void) {
         reset_normal_display_cache();
         return;
     }
-
     display_mode = DISPLAY_MODE_TRACE_VIEW;
     os_fingerprint_page_started = timer_read32();
     last_os_fingerprint_frame = os_fingerprint_page_started - OS_FINGERPRINT_FRAME_MS;
@@ -676,7 +659,6 @@ void halcyon_display_toggle_trace_view(void) {
 
 static bool update_host_overlay(void) {
     const halcyon_host_telemetry_t current = read_host_telemetry(pending_host_event);
-
     if (!has_observed_host_telemetry) {
         observed_host_telemetry = current;
         has_observed_host_telemetry = true;
@@ -685,29 +667,18 @@ static bool update_host_overlay(void) {
         pending_host_event = HALCYON_HOST_EVENT_CHANGE;
         host_event_pending = true;
     }
-
     if (host_event_pending) {
         host_event_pending = false;
-        if (display_mode != DISPLAY_MODE_TRACE_VIEW) {
-            start_host_overlay(pending_host_event, &current);
-        }
+        if (display_mode != DISPLAY_MODE_TRACE_VIEW) start_host_overlay(pending_host_event, &current);
     }
-
-    if (display_mode != DISPLAY_MODE_HOST_OVERLAY) {
-        return false;
-    }
-
+    if (display_mode != DISPLAY_MODE_HOST_OVERLAY) return false;
     const uint32_t elapsed = timer_elapsed32(host_overlay_started);
     if (elapsed >= HOST_OVERLAY_DURATION_MS) {
         display_mode = DISPLAY_MODE_NORMAL;
         reset_normal_display_cache();
         return false;
     }
-
-    if (timer_elapsed32(last_host_overlay_frame) < HOST_PANEL_FRAME_MS) {
-        return false;
-    }
-
+    if (timer_elapsed32(last_host_overlay_frame) < HOST_PANEL_FRAME_MS) return false;
     last_host_overlay_frame = timer_read32();
     ensure_display_font_loaded();
     draw_host_overlay(elapsed);
@@ -717,65 +688,42 @@ static bool update_host_overlay(void) {
 #ifdef XTREEMZE_OS_FINGERPRINT_TRACE
 static const char *fingerprint_os_label(os_variant_t os) {
     switch (os) {
-        case OS_LINUX:
-            return "LIN";
-        case OS_WINDOWS:
-            return "WIN";
-        case OS_MACOS:
-            return "MAC";
-        case OS_IOS:
-            return "IOS";
+        case OS_LINUX: return "LIN";
+        case OS_WINDOWS: return "WIN";
+        case OS_MACOS: return "MAC";
+        case OS_IOS: return "IOS";
         case OS_UNSURE:
-        default:
-            return "UN";
+        default: return "UN";
     }
 }
 
 static void draw_os_fingerprint_page(uint32_t elapsed) {
     const hsv_triplet_t accent = host_accent(&host_overlay_telemetry);
-    const hsv_triplet_t text = { 29, 50, 211 };
+    const hsv_triplet_t text = {29, 50, 211};
     const uint8_t trace_count = xtreemze_os_fingerprint_trace_count();
     char line[24];
-
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
-
     if (trace_count == 0) {
         draw_centered_host_text(70, "TRACE", accent);
         draw_centered_host_text(125, is_keyboard_master() ? "NO TRACE" : "SLAVE", text);
         return;
     }
-
     const uint8_t page = (uint8_t)((elapsed / OS_FINGERPRINT_PAGE_MS) % trace_count);
     xtreemze_os_fingerprint_entry_t entry;
-    if (!xtreemze_os_fingerprint_trace_read(page, &entry)) {
-        return;
-    }
-
+    if (!xtreemze_os_fingerprint_trace_read(page, &entry)) return;
     draw_centered_host_text(5, "TRACE", accent);
     snprintf(line, sizeof(line), "%s%u/%u", xtreemze_os_fingerprint_trace_overflowed() ? "!" : "", (unsigned int)page + 1U, (unsigned int)trace_count);
     draw_centered_host_text(36, line, accent);
-
-    snprintf(line, sizeof(line), "W %X", (unsigned int)entry.w_length);
-    draw_centered_host_text(70, line, text);
-    snprintf(line, sizeof(line), "N%u F%u", (unsigned int)entry.count, (unsigned int)entry.cnt_ff);
-    draw_centered_host_text(104, line, text);
-    snprintf(line, sizeof(line), "T%u Q%u", (unsigned int)entry.cnt_02, (unsigned int)entry.cnt_04);
-    draw_centered_host_text(138, line, text);
-    snprintf(line, sizeof(line), "C %s", fingerprint_os_label(entry.candidate_os));
-    draw_centered_host_text(172, line, accent);
-    snprintf(line, sizeof(line), "R %s", fingerprint_os_label(entry.detected_os));
-    draw_centered_host_text(206, line, accent);
+    snprintf(line, sizeof(line), "W %X", (unsigned int)entry.w_length); draw_centered_host_text(70, line, text);
+    snprintf(line, sizeof(line), "N%u F%u", (unsigned int)entry.count, (unsigned int)entry.cnt_ff); draw_centered_host_text(104, line, text);
+    snprintf(line, sizeof(line), "T%u Q%u", (unsigned int)entry.cnt_02, (unsigned int)entry.cnt_04); draw_centered_host_text(138, line, text);
+    snprintf(line, sizeof(line), "C %s", fingerprint_os_label(entry.candidate_os)); draw_centered_host_text(172, line, accent);
+    snprintf(line, sizeof(line), "R %s", fingerprint_os_label(entry.detected_os)); draw_centered_host_text(206, line, accent);
 }
 
 static bool update_os_fingerprint_page(void) {
-    if (display_mode != DISPLAY_MODE_TRACE_VIEW) {
-        return false;
-    }
-
-    if (timer_elapsed32(last_os_fingerprint_frame) < OS_FINGERPRINT_FRAME_MS) {
-        return false;
-    }
-
+    if (display_mode != DISPLAY_MODE_TRACE_VIEW) return false;
+    if (timer_elapsed32(last_os_fingerprint_frame) < OS_FINGERPRINT_FRAME_MS) return false;
     last_os_fingerprint_frame = timer_read32();
     ensure_display_font_loaded();
     draw_os_fingerprint_page(timer_elapsed32(os_fingerprint_page_started));
@@ -784,26 +732,18 @@ static bool update_os_fingerprint_page(void) {
 #endif
 
 static void draw_host_marker(const char *layer_name, bool has_arp_text) {
-    if (!has_observed_host_telemetry || has_arp_text) {
-        return;
-    }
-
+    if (!has_observed_host_telemetry || has_arp_text) return;
     const char *const marker = host_marker_label(observed_host_telemetry.os);
     const int16_t marker_width = qp_textwidth(Retron27, marker);
     const int16_t layer_width = qp_textwidth(Retron27, layer_name);
     const int16_t marker_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - marker_width;
-
-    if (marker_x <= (int16_t)STATUS_X + layer_width + 3) {
-        return;
-    }
-
+    if (marker_x <= (int16_t)STATUS_X + layer_width + 3) return;
     const hsv_triplet_t accent = host_accent(&observed_host_telemetry);
     qp_drawtext_recolor(lcd_surface, (uint16_t)marker_x, STATUS_LAYER_Y, Retron27, marker, accent.h, accent.s, accent.v, HSV_EF_BG);
 }
 
 bool update_display(void) {
     bool display_dirty = false;
-
     ensure_display_font_loaded();
 
     const uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
@@ -820,16 +760,13 @@ bool update_display(void) {
     const bool layer_changed = active_layer != last_display_layer;
     const bool need_full_redraw = first_run || layer_changed;
     const bool mod_overlay_expired = last_visible_mod_mask != 0U && visible_mod_mask == 0U;
-    const bool animation_due = timer_elapsed32(last_background_redraw) >= PATTERN_ANIMATION_FRAME_MS;
+    const bool animation_due = timer_elapsed32(last_background_redraw) >= halcyon_display_pattern_frame_ms_user();
     const bool need_background_redraw = first_run || active_layer != last_background_layer || animation_due;
     bool background_redrawn = false;
 
     if (need_background_redraw) {
-        if (first_run || layer_changed) {
-            pattern_animation_frame = active_layer;
-        } else {
-            pattern_animation_frame++;
-        }
+        if (first_run || layer_changed) pattern_animation_frame = active_layer;
+        else pattern_animation_frame++;
         draw_layer_background_pattern(active_layer, pattern_animation_frame);
         last_background_layer = active_layer;
         last_background_redraw = now;
@@ -839,32 +776,16 @@ bool update_display(void) {
 
     if (background_redrawn || arp_changed || need_full_redraw) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
-
         const hsv_triplet_t layer_color = layer_fg(active_layer);
-
         const char *const layer_name = halcyon_display_layer_name_user(active_layer);
-
-        qp_drawtext_recolor(
-            lcd_surface,
-            STATUS_X,
-            STATUS_LAYER_Y,
-            Retron27,
-            layer_name,
-            layer_color.h, layer_color.s, layer_color.v,
-            HSV_EF_BG
-        );
-
+        qp_drawtext_recolor(lcd_surface, STATUS_X, STATUS_LAYER_Y, Retron27, layer_name, layer_color.h, layer_color.s, layer_color.v, HSV_EF_BG);
         if (has_arp_text) {
             const int16_t arp_width = qp_textwidth(Retron27, arp_text);
             int16_t arp_x = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - arp_width;
-            if (arp_x < STATUS_X) {
-                arp_x = STATUS_X;
-            }
+            if (arp_x < STATUS_X) arp_x = STATUS_X;
             qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
         }
-
         draw_host_marker(layer_name, has_arp_text);
-
         last_display_layer = active_layer;
         display_dirty = true;
     }
@@ -883,66 +804,45 @@ bool update_display(void) {
     }
 
     last_visible_mod_mask = visible_mod_mask;
-
-    if (arp_changed) {
-        snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
-    }
-
+    if (arp_changed) snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
     return display_dirty;
 }
 
-// Called from halcyon.c
 void module_suspend_power_down_kb(void) {
     qp_power(lcd, false);
 }
 
-// Called from halcyon.c
 void module_suspend_wakeup_init_kb(void) {
-    // QMK invokes this callback from the USB wake ISR on ChibiOS. Defer the
-    // SPI transaction until housekeeping runs in normal thread context.
     display_wakeup_pending = true;
     host_resume_pending = true;
 }
 
-// Called from halcyon.c
 bool module_post_init_kb(void) {
     backlight_wakeup();
-
-    // Make the devices
     lcd = qp_st7789_make_spi_device(LCD_WIDTH, LCD_HEIGHT, LCD_CS_PIN, LCD_DC_PIN, LCD_RST_PIN, LCD_SPI_DIVISOR, LCD_SPI_MODE);
     lcd_surface = qp_make_rgb565_surface(LCD_WIDTH, LCD_HEIGHT, lcd_surface_fb);
-
-    // Initialise the LCD
     qp_init(lcd, LCD_ROTATION);
     qp_set_viewport_offsets(lcd, LCD_OFFSET_X, LCD_OFFSET_Y);
     qp_clear(lcd);
     qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_power(lcd, true);
     qp_flush(lcd);
-
-    // Initialise the LCD surface
     qp_init(lcd_surface, LCD_ROTATION);
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_surface_draw(lcd_surface, lcd, 0, 0, false);
     qp_flush(lcd);
-
-    if(!module_post_init_user()) { return false; }
-
+    if (!module_post_init_user()) return false;
     return true;
 }
 
-// Called from halcyon.c
 bool display_module_housekeeping_task_kb(bool second_display) {
     if (display_wakeup_pending) {
         display_wakeup_pending = false;
-
         if (!qp_power(lcd, true)) {
             display_wakeup_pending = true;
             return true;
         }
-
         qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-
         if (host_resume_pending) {
             host_resume_pending = false;
             pending_host_event = HALCYON_HOST_EVENT_RESUME;
@@ -950,14 +850,10 @@ bool display_module_housekeeping_task_kb(bool second_display) {
         }
     }
 
-    if(!display_module_housekeeping_task_user(second_display)) { return false; }
-
+    if (!display_module_housekeeping_task_user(second_display)) return false;
     bool display_dirty = update_host_overlay();
-
     if (display_mode == DISPLAY_MODE_HOST_OVERLAY) {
-        if (display_dirty) {
-            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-        }
+        if (display_dirty) qp_surface_draw(lcd_surface, lcd, 0, 0, false);
         return true;
     }
 
@@ -973,20 +869,13 @@ bool display_module_housekeeping_task_kb(bool second_display) {
 
 #ifdef XTREEMZE_OS_FINGERPRINT_TRACE
     display_dirty = update_os_fingerprint_page();
-
     if (display_mode == DISPLAY_MODE_TRACE_VIEW) {
-        if (display_dirty) {
-            qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-        }
+        if (display_dirty) qp_surface_draw(lcd_surface, lcd, 0, 0, false);
         return true;
     }
 #endif
 
     display_dirty = update_display();
-
-    if (display_dirty) {
-        qp_surface_draw(lcd_surface, lcd, 0, 0, false);
-    }
-
+    if (display_dirty) qp_surface_draw(lcd_surface, lcd, 0, 0, false);
     return true;
 }
