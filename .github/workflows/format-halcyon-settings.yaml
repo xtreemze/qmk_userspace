@@ -34,7 +34,7 @@ jobs:
 
       - name: Apply QMK clang-format
         run: |
-          qmk format-c -i \
+          qmk format-c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
             users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
 
