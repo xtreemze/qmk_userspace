@@ -1,0 +1,39 @@
+name: Format Halcyon settings branch
+
+on:
+  push:
+    branches:
+      - feat/halcyon-settings-protocol
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    container: ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/halcyon-settings-protocol
+          fetch-depth: 0
+
+      - name: Apply QMK clang-format
+        run: |
+          qmk format-c -i \
+            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
+            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
+
+      - name: Commit deterministic formatting
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c \
+            users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.h
+          git commit -m "Format Halcyon TFT sources"
+          git push origin HEAD:feat/halcyon-settings-protocol
