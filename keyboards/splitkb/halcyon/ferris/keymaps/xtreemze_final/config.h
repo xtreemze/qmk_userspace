@@ -46,9 +46,7 @@
 #define XTREEMZE_RGB_PROFILE_EEPROM_SIZE 272
 #define XTREEMZE_HALCYON_SETTINGS_EEPROM_SIZE 160
 #define XTREEMZE_HALCYON_DISPLAY_EEPROM_SIZE 256
-#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR                                                                                           \
-    (TOTAL_EEPROM_BYTE_COUNT - XTREEMZE_RGB_PROFILE_EEPROM_SIZE - XTREEMZE_HALCYON_SETTINGS_EEPROM_SIZE -                      \
-     XTREEMZE_HALCYON_DISPLAY_EEPROM_SIZE - 1)
+#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR (TOTAL_EEPROM_BYTE_COUNT - XTREEMZE_RGB_PROFILE_EEPROM_SIZE - XTREEMZE_HALCYON_SETTINGS_EEPROM_SIZE - XTREEMZE_HALCYON_DISPLAY_EEPROM_SIZE - 1)
 
 /* Chunked replication keeps both Halcyon settings stores coherent on the
  * non-USB half and persists them there, so either half can become USB master. */

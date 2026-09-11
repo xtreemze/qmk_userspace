@@ -370,18 +370,16 @@ static int8_t pattern_motion_offset(uint8_t frame, uint16_t tile_index, uint8_t 
 }
 
 static bool display_pattern_valid(const halcyon_display_pattern_t *pattern) {
-    return pattern->motif < DISPLAY_LAYER_STYLE_COUNT && pattern->tile_width >= PATTERN_TILE_MIN && pattern->tile_width <= PATTERN_TILE_MAX &&
-           pattern->tile_height >= PATTERN_TILE_MIN && pattern->tile_height <= PATTERN_TILE_MAX && pattern->motion_amplitude <= PATTERN_MOTION_MAX &&
-           pattern->pulse_amplitude <= PATTERN_PULSE_MAX;
+    return pattern->motif < DISPLAY_LAYER_STYLE_COUNT && pattern->tile_width >= PATTERN_TILE_MIN && pattern->tile_width <= PATTERN_TILE_MAX && pattern->tile_height >= PATTERN_TILE_MIN && pattern->tile_height <= PATTERN_TILE_MAX && pattern->motion_amplitude <= PATTERN_MOTION_MAX && pattern->pulse_amplitude <= PATTERN_PULSE_MAX;
 }
 
 static halcyon_display_pattern_t layer_pattern(uint8_t layer) {
     halcyon_display_pattern_t pattern = {
-        .motif = layer % DISPLAY_LAYER_STYLE_COUNT,
-        .tile_width = 24,
-        .tile_height = 24,
+        .motif            = layer % DISPLAY_LAYER_STYLE_COUNT,
+        .tile_width       = 24,
+        .tile_height      = 24,
         .motion_amplitude = 1,
-        .pulse_amplitude = 1,
+        .pulse_amplitude  = 1,
     };
     halcyon_display_pattern_t requested;
     if (halcyon_display_pattern_override_user(layer, &requested) && display_pattern_valid(&requested)) {
@@ -392,11 +390,11 @@ static halcyon_display_pattern_t layer_pattern(uint8_t layer) {
 
 static void draw_layer_background_pattern(uint8_t layer, uint8_t frame) {
     const halcyon_display_pattern_t pattern = layer_pattern(layer);
-    const uint8_t       tile_w  = pattern.tile_width;
-    const uint8_t       tile_h  = pattern.tile_height;
-    const uint8_t       variant = pattern.motif;
-    const hsv_triplet_t fg      = layer_fg(layer);
-    const hsv_triplet_t bg      = layer_bg(layer);
+    const uint8_t                   tile_w  = pattern.tile_width;
+    const uint8_t                   tile_h  = pattern.tile_height;
+    const uint8_t                   variant = pattern.motif;
+    const hsv_triplet_t             fg      = layer_fg(layer);
+    const hsv_triplet_t             bg      = layer_bg(layer);
 
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
 
