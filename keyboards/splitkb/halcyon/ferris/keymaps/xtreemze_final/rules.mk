@@ -28,3 +28,7 @@ LTO_ENABLE = yes
 
 # Keep legacy RGB/matrix coordinates local to this keymap, as in vial_hlc_legacy.
 SRC += halcyon_overrides.c
+
+# Versioned host-editable RGB profiles: global, per-layer, per-modifier and
+# per-Vial-combo, with migration from the legacy capture controls.
+SRC += rgb_profile_protocol.c
