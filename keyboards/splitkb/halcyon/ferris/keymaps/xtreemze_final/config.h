@@ -37,13 +37,24 @@
 #define VIAL_KEY_OVERRIDE_ENTRIES 32
 #define VIAL_ALT_REPEAT_KEY_ENTRIES 32
 
+/*
+ * Reserve a stable EEPROM tail for the extended RGB profile protocol without
+ * shifting VIA/Vial's existing dynamic-keymap addresses. Only the dynamic
+ * macro buffer loses this tail capacity; all earlier Vial storage stays put.
+ */
+#define XTREEMZE_RGB_PROFILE_EEPROM_SIZE 272
+#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR (TOTAL_EEPROM_BYTE_COUNT - XTREEMZE_RGB_PROFILE_EEPROM_SIZE - 1)
+
 /* Preserve the effective host family through suspend/resume. Detector reports
  * are stabilized in userspace; do not turn USB reinitialization into a full
  * keyboard soft reset. */
 #define SPLIT_DETECTED_OS_ENABLE
 
 /*
- * Persistent user datablock used for RGB profile engine state.
+ * Persistent user datablock used by the legacy RGB capture engine and host
+ * family state. Keep this size stable: the extended RGB profile store lives in
+ * the separately reserved EEPROM tail above.
+ *
  * Note: with EECONFIG_USER_DATA_SIZE > 0, eeconfig_read_user()/update_user()
  * are replaced by eeconfig_*_user_datablock() APIs.
  */
