@@ -6,8 +6,8 @@
 
 #define VIAL_KEYBOARD_UID {0x58, 0x19, 0xAE, 0x72, 0x1F, 0xA0, 0xC4, 0x36}
 
-#define VIAL_UNLOCK_COMBO_ROWS { 0, 5 }
-#define VIAL_UNLOCK_COMBO_COLS { 0, 0 }
+#define VIAL_UNLOCK_COMBO_ROWS {0, 5}
+#define VIAL_UNLOCK_COMBO_COLS {0, 0}
 #define VIA_EEPROM_LAYOUT_OPTIONS_DEFAULT 1
 
 #define RGB_MATRIX_FRAMEBUFFER_EFFECTS
@@ -22,7 +22,7 @@
 #define COMBO_TERM 30
 #define TAPPING_TERM 180
 #ifndef TAPPING_TERM_PER_KEY
-#define TAPPING_TERM_PER_KEY
+#    define TAPPING_TERM_PER_KEY
 #endif
 
 /* Vial dynamic keymap layer count must match the compiled keymap and encoder_map layer count. */
