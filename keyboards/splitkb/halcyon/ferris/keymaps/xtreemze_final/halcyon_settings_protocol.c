@@ -6,6 +6,7 @@
 #if defined(VIA_ENABLE) && defined(HALCYON_ENABLE)
 
 #include "halcyon_settings_protocol.h"
+#include "halcyon_display_protocol.h"
 #include "eeprom.h"
 #include "split_util.h"
 #include "timer.h"
@@ -283,6 +284,7 @@ static void sync_housekeeping(void) {
 bool module_post_init_user(void) {
     settings_store_ensure_loaded();
     transaction_register_rpc(XTREEMZE_HALCYON_SETTINGS_SYNC, settings_sync_slave_handler);
+    xtreemze_halcyon_display_protocol_init();
     last_master_state = is_keyboard_master();
     last_transport_connected = is_transport_connected();
     if (last_master_state && last_transport_connected) {
@@ -293,6 +295,7 @@ bool module_post_init_user(void) {
 
 bool module_housekeeping_task_user(void) {
     sync_housekeeping();
+    xtreemze_halcyon_display_protocol_housekeeping();
     return true;
 }
 
@@ -491,6 +494,9 @@ static void command_get_telemetry(uint8_t *data, uint8_t length) {
 }
 
 bool xtreemze_halcyon_settings_raw_hid_receive(uint8_t *data, uint8_t length) {
+    if (xtreemze_halcyon_display_raw_hid_receive(data, length)) {
+        return true;
+    }
     if (length < 2 || data[0] != XTREEMZE_HALCYON_SETTINGS_COMMAND) {
         return false;
     }
