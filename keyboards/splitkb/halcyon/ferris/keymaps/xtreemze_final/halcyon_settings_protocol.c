@@ -141,7 +141,7 @@ static inline void *settings_store_eeprom_address(void) {
 
 static bool timings_valid(uint16_t pattern_frame_ms, uint16_t mod_recent_ms) {
     return pattern_frame_ms >= XTREEMZE_HALCYON_PATTERN_MS_MIN && pattern_frame_ms <= XTREEMZE_HALCYON_PATTERN_MS_MAX &&
-           mod_recent_ms >= XTREEMZE_HALCYON_MOD_RECENT_MS_MIN && mod_recent_ms <= XTREEMZE_HALCYON_MOD_RECENT_MS_MAX;
+           mod_recent_ms <= XTREEMZE_HALCYON_MOD_RECENT_MS_MAX;
 }
 
 static bool settings_store_valid(const xtreemze_halcyon_settings_store_t *store) {
@@ -189,7 +189,7 @@ static void schedule_sync(bool persist) {
     sync_generation++;
     sync_chunk = 0;
     sync_pending = true;
-    sync_persist = sync_persist || persist;
+    sync_persist = persist;
 }
 
 static void settings_sync_slave_handler(uint8_t in_buflen, const void *in_data, uint8_t out_buflen, void *out_data) {
