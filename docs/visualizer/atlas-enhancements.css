@@ -1,0 +1,74 @@
+/* Physical corrections and richer configuration presentation layered on the core atlas. */
+.half{height:calc(var(--u)*5.28)}
+.half-board{clip-path:polygon(2% 24%,29% 1%,71% 8%,96% 18%,100% 72%,84% 88%,70% 100%,48% 91%,22% 100%,0 70%)}
+
+/* vial.json places the two thumb keys on a lower 15° / 30° arc. Keep those
+ * hardware angles, but clear the bottom alpha row instead of overlapping it. */
+.slot-thumb-outer{left:calc(var(--u)*3.18);top:calc(var(--u)*4.14);transform:rotate(15deg)}
+.slot-thumb-inner{left:calc(var(--u)*4.12);top:calc(var(--u)*3.94);transform:rotate(30deg)}
+.right .slot-thumb-outer{transform:rotate(15deg)}
+.right .slot-thumb-inner{transform:rotate(30deg)}
+
+.key-face{position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.key.semantic-tap-dance{border-style:double}
+.key.semantic-tap-dance .secondary{line-height:1.15}
+.combo-badge{position:absolute;top:-.3em;right:-.35em;display:grid;place-items:center;min-width:1.35em;height:1.35em;padding:0 .26em;border-radius:999px;background:#111923;border:1px solid var(--accent);color:var(--accent);font:800 .52rem/1 ui-monospace,SFMono-Regular,Consolas,monospace;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+
+.rgb-connect{cursor:pointer;color:var(--text)}
+.rgb-connect[data-state="connected"]{border-color:var(--rgb-connected,#7ce5b3);box-shadow:0 0 0 1px rgba(124,229,179,.13) inset}
+.rgb-connect[data-state="error"]{border-color:var(--danger)}
+
+/* Saved RGB profiles are whole-matrix mode/HSV/brightness/speed states. The
+ * atlas renders the exact stored HSV/brightness as a key-face glow; it does
+ * not pretend to spatially reproduce every QMK RGB Matrix animation mode. */
+.key.rgb-lit:not(.disabled){
+  border-color:rgb(var(--rgb) / calc(.45 + var(--rgb-strength)*.45));
+  background:
+    linear-gradient(180deg,
+      rgb(var(--rgb) / calc(.14 + var(--rgb-strength)*.34)),
+      rgb(var(--rgb) / calc(.06 + var(--rgb-strength)*.2))),
+    linear-gradient(180deg,var(--key2),var(--key));
+  box-shadow:
+    0 calc(var(--u)*.05) calc(var(--u)*.11) rgba(0,0,0,.28),
+    0 0 calc(5px + 15px*var(--rgb-strength)) rgb(var(--rgb) / calc(.08 + var(--rgb-strength)*.3)),
+    inset 0 0 10px rgb(var(--rgb) / calc(.05 + var(--rgb-strength)*.15));
+}
+.key.transparent.rgb-lit{opacity:calc(.32 + var(--rgb-strength)*.35)}
+
+.behavior-panel{margin-top:14px;border:1px solid var(--line);border-radius:18px;background:rgba(17,21,26,.9);overflow:hidden}
+.behavior-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:16px 17px;border-bottom:1px solid var(--line)}
+.behavior-head h2{margin:0;font-size:1rem;letter-spacing:-.02em}
+.behavior-head p{margin:4px 0 0;color:var(--muted);font-size:.78rem;line-height:1.45;max-width:72ch}
+.behavior-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(260px,.85fr)}
+.behavior-card{min-width:0;padding:15px 16px;border-right:1px solid var(--line)}
+.behavior-card:last-child{border-right:0}
+.behavior-card h3{margin:0 0 10px;font-size:.68rem;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+.behavior-empty{color:var(--muted);font-size:.78rem;line-height:1.45}
+.behavior-list{display:grid;gap:8px}
+.behavior-item{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#101419;font-size:.76rem;line-height:1.38}
+.behavior-item.is-current{border-color:#4b6078;background:#121a23}
+.behavior-title{display:flex;align-items:center;gap:7px;font-weight:760;color:var(--text)}
+.behavior-meta{margin-top:4px;color:var(--muted)}
+.behavior-sequence{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent)}
+.behavior-arrow{color:var(--muted);padding:0 .2em}
+.behavior-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.62rem;margin-left:auto;white-space:nowrap}
+.rgb-swatch{display:inline-block;width:.72rem;height:.72rem;border-radius:50%;background:rgb(var(--swatch-rgb,120 130 140));box-shadow:0 0 8px rgb(var(--swatch-rgb,120 130 140)/.45);vertical-align:-.08rem;margin-right:.35rem}
+.rgb-profile-line{display:flex;gap:10px;align-items:flex-start}
+.rgb-profile-line+.rgb-profile-line{margin-top:9px}
+.rgb-profile-copy strong{display:block;font-size:.78rem}.rgb-profile-copy span{display:block;color:var(--muted);font-size:.68rem;margin-top:2px;line-height:1.35}
+.rgb-note{margin-top:10px;color:var(--muted);font-size:.68rem;line-height:1.4}
+
+@media(max-width:980px){
+  .behavior-grid{grid-template-columns:1fr 1fr}
+  .behavior-card:nth-child(2){border-right:0}
+  .behavior-card:last-child{grid-column:1/-1;border-top:1px solid var(--line)}
+}
+@media(max-width:700px){
+  .half{height:calc(var(--u)*5.28)}
+  .behavior-head{display:block}
+  .behavior-grid{grid-template-columns:1fr}
+  .behavior-card,.behavior-card:nth-child(2){border-right:0;border-bottom:1px solid var(--line)}
+  .behavior-card:last-child{grid-column:auto;border-top:0;border-bottom:0}
+  .slot-thumb-outer{top:calc(var(--u)*4.14)}
+  .slot-thumb-inner{top:calc(var(--u)*3.94)}
+}
