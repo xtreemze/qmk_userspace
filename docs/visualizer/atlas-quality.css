@@ -1,5 +1,5 @@
 /* Final quality-control overrides: keep the workspace compact and interaction states unmistakable. */
 .hero{margin-bottom:clamp(18px,3vw,28px)}
 h1{font-size:clamp(2rem,5vw,4rem)}
-.layer-button:disabled{opacity:.5;cursor:progress;transform:none}
+.layer-button:disabled{opacity:1;color:var(--text);cursor:progress;transform:none}
 .key.is-selected{outline:2px solid var(--accent);outline-offset:1px}
