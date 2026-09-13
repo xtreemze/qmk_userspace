@@ -12,12 +12,13 @@
 <script src="atlas-enhancements.js" defer></script>
 </head>
 <body>
-<main class="shell" id="app">
+<a class="skip-link" href="#atlasWorkspace">Skip to layer atlas</a>
+<main class="shell" id="atlasWorkspace" aria-busy="true">
 <header class="hero">
   <div>
     <div class="eyebrow">splitkb Halcyon · Ferris rev1 · production profile</div>
     <h1>Layer Atlas</h1>
-    <p class="lede">A physical, behavior-first view of the 34-key Halcyon Ferris. The two keybeds are generated from the same geometry and mirrored exactly; the map then layers the live Vial profile, module behavior, encoder actions, configured dances and combos, and optional on-device RGB state on top.</p>
+    <p class="lede">Explore the physical 34-key layout, then inspect the active layer, encoder mappings, tap dances, combos, macros, and optional on-device RGB profiles.</p>
   </div>
   <div class="hero-facts" aria-label="Hardware summary">
     <div class="fact"><strong>34</strong><span>keys</span></div>
@@ -26,17 +27,38 @@
   </div>
 </header>
 
-<div class="toolbar">
-  <div id="layers" class="family" aria-label="Layers"></div>
-  <div class="switches">
-    <label class="switch"><input id="hideAlpha" type="checkbox" checked> Hide alpha legends</label>
-    <label class="switch"><input id="rawMode" type="checkbox"> Raw keycodes</label>
+<section class="control-deck" aria-labelledby="layerControlsTitle">
+  <div class="control-deck-head">
+    <div>
+      <div class="section-kicker">Explore configuration</div>
+      <h2 id="layerControlsTitle">Choose a layer</h2>
+    </div>
+    <p>Layer families stay grouped so related typing, navigation, editing, and hardware controls remain easy to scan.</p>
   </div>
-</div>
+  <div class="toolbar">
+    <nav class="layer-nav" aria-label="Layer selection">
+      <div id="layers" class="family"></div>
+    </nav>
+    <div class="toolbar-actions">
+      <div class="switches" aria-label="Display options">
+        <span class="control-label">Display</span>
+        <label class="switch"><input id="hideAlpha" type="checkbox" checked disabled> Hide alpha legends</label>
+        <label class="switch"><input id="rawMode" type="checkbox" disabled> Raw keycodes</label>
+      </div>
+      <div id="deviceActions" class="device-actions" aria-label="Connected keyboard actions">
+        <span class="control-label">Device</span>
+      </div>
+    </div>
+  </div>
+</section>
 
-<section class="stage" aria-live="polite">
+<section class="stage" aria-labelledby="layerTitle">
   <div class="stage-head">
-    <div><div id="layerTitle" class="layer-title">Loading profile…</div><div id="layerRole" class="layer-role"></div></div>
+    <div>
+      <div class="section-kicker">Active layer</div>
+      <div id="layerTitle" class="layer-title">Loading profile…</div>
+      <div id="layerRole" class="layer-role"></div>
+    </div>
     <div id="layerNumber" class="layer-number">L1</div>
   </div>
 
@@ -47,33 +69,58 @@
       <div id="right" class="half right" aria-label="Right keyboard half"></div>
     </div>
   </div>
-  <div class="keyboard-note">One physical Ferris Sweep geometry model, mirrored for the opposite half. The alpha stagger uses the canonical QMK key-unit coordinates; the Halcyon thumb keys sit below the alpha row at 3.5u/3.75u and 4.5u/4.0u with the Vial 15°/30° angles. Keycaps are never allowed to overlap.</div>
 
-  <div class="hardware-strip">
-    <div class="encoders">
-      <div class="encoder"><div class="encoder-name">Left encoder mapping</div><div id="enc0" class="encoder-map"></div></div>
-      <div class="encoder"><div class="encoder-name">Right encoder mapping</div><div id="enc1" class="encoder-map"></div></div>
-    </div>
-    <div class="module-summary">
-      <div class="module-stat"><span>Left module action</span><strong id="leftModule">—</strong></div>
-      <div class="module-stat"><span>Right module action</span><strong id="rightModule">—</strong></div>
-    </div>
-  </div>
+  <details class="geometry-note">
+    <summary>Physical geometry</summary>
+    <p>One Ferris Sweep geometry model is mirrored for the opposite half. The alpha stagger uses canonical QMK key-unit coordinates; Halcyon thumb keys sit below the alpha row at 3.5u/3.75u and 4.5u/4.0u with the Vial 15°/30° angles. Keycaps are never allowed to overlap.</p>
+  </details>
 
-  <div class="legend">
-    <span>faint = transparent / inherited</span>
-    <span>tap · hold shown separately</span>
-    <span>number badge = available combo(s)</span>
-    <span>select any key for exact source value</span>
-    <span>TFT animation is a visual emulator</span>
-  </div>
-  <div id="status" class="status">Reading canonical Vial profile…</div>
+  <section class="hardware-block" aria-labelledby="hardwareTitle">
+    <div class="section-heading">
+      <div>
+        <div class="section-kicker">Physical controls</div>
+        <h2 id="hardwareTitle">Hardware mappings</h2>
+      </div>
+      <p>Encoder directions and module actions for the active layer.</p>
+    </div>
+    <div class="hardware-strip">
+      <div class="encoders">
+        <div class="encoder"><div class="encoder-name">Left encoder mapping</div><div id="enc0" class="encoder-map"></div></div>
+        <div class="encoder"><div class="encoder-name">Right encoder mapping</div><div id="enc1" class="encoder-map"></div></div>
+      </div>
+      <div class="module-summary">
+        <div class="module-stat"><span>Left module action</span><strong id="leftModule">—</strong></div>
+        <div class="module-stat"><span>Right module action</span><strong id="rightModule">—</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <details class="legend-disclosure">
+    <summary>Legend & display notes</summary>
+    <div class="legend">
+      <span>faint / dashed = transparent or inherited</span>
+      <span>tap · hold shown separately</span>
+      <span>number badge = available combo(s)</span>
+      <span>select any key for exact source value</span>
+      <span>TFT animation is a visual emulator</span>
+    </div>
+  </details>
+  <div id="status" class="status" role="status" aria-live="polite">Reading canonical Vial profile…</div>
 </section>
 
-<div class="detail">
-  <div class="card"><h2>Selected control</h2><div id="detailMain" class="detail-main">Select a key or encoder direction.</div><div id="detailHint" class="layer-role"></div></div>
-  <div class="card"><h2>Source</h2><div id="detailRaw" class="raw">—</div></div>
-</div>
+<section class="detail" aria-labelledby="selectionTitle">
+  <div class="card selection-card" aria-live="polite">
+    <div class="section-kicker">Inspector</div>
+    <h2 id="selectionTitle">Selected control</h2>
+    <div id="detailMain" class="detail-main">Select a key or encoder direction.</div>
+    <div id="detailHint" class="layer-role"></div>
+  </div>
+  <div class="card source-card">
+    <div class="section-kicker">Configuration source</div>
+    <h2>Raw value</h2>
+    <div id="detailRaw" class="raw">—</div>
+  </div>
+</section>
 </main>
 
 </body>
