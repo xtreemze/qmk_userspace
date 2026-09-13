@@ -78,6 +78,14 @@ typedef struct {
     uint8_t v;
 } halcyon_display_hsv_t;
 
+typedef struct {
+    uint8_t motif;
+    uint8_t tile_width;
+    uint8_t tile_height;
+    uint8_t motion_amplitude;
+    uint8_t pulse_amplitude;
+} halcyon_display_pattern_t;
+
 typedef enum {
     HALCYON_DISPLAY_COLOR_LAYER_FG = 0,
     HALCYON_DISPLAY_COLOR_LAYER_BG,
@@ -91,9 +99,12 @@ bool        halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *teleme
 /* Keyboard/user hooks for runtime display customization. The module provides
  * weak defaults matching its compiled palette and cadence, while keyboard
  * firmware can supply persistent host-editable values. */
-bool     halcyon_display_color_override_user(uint8_t domain, uint8_t index, bool active, halcyon_display_hsv_t *color);
-uint16_t halcyon_display_pattern_frame_ms_user(void);
-uint16_t halcyon_display_mod_recent_ms_user(void);
+bool        halcyon_display_color_override_user(uint8_t domain, uint8_t index, bool active, halcyon_display_hsv_t *color);
+uint16_t    halcyon_display_pattern_frame_ms_user(void);
+uint16_t    halcyon_display_mod_recent_ms_user(void);
+const char *halcyon_display_layer_label_override_user(uint8_t layer);
+const char *halcyon_display_modifier_label_override_user(uint8_t modifier);
+bool        halcyon_display_pattern_override_user(uint8_t layer, halcyon_display_pattern_t *pattern);
 
 #ifdef XTREEMZE_OS_FINGERPRINT_TRACE
 void halcyon_display_toggle_trace_view(void);
