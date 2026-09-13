@@ -20,11 +20,13 @@ function groupLayers(){
   if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();
  });
 }
+function behaviorReady(){const list=$('comboList');return !!list&&list.children.length>0}
 function sync(){
  const status=$('status'),failed=status?.classList.contains('error'),ready=!failed&&status?.textContent.startsWith('Live source:');
  document.querySelectorAll('.layer-button').forEach(button=>{button.disabled=!ready;const active=Number(button.dataset.layer)===layer();active?button.setAttribute('aria-current','true'):button.removeAttribute('aria-current')});
  document.querySelectorAll('.layer-family').forEach(group=>group.classList.toggle('has-active',!!group.querySelector('[aria-current="true"]')));
  for(const id of ['hideAlpha','rawMode'])if($(id))$(id).disabled=!ready;
+ const rgb=$('connectRgb');if(rgb&&rgb.dataset.state!=='connected')rgb.disabled=!(ready&&behaviorReady());
  $('atlasWorkspace')?.setAttribute('aria-busy',String(!ready&&!failed));
  const detail=document.querySelector('.detail'),panel=$('behaviorPanel');if(detail&&panel&&detail.nextElementSibling!==panel)detail.after(panel);
  collapseCombos();
@@ -36,11 +38,18 @@ function collapseCombos(){
  const details=document.createElement('details');details.className='other-combos';const summary=document.createElement('summary');summary.textContent=other.length+' other configured combos';const list=document.createElement('div');list.className='behavior-list';other.forEach(item=>list.append(item));details.append(summary,list);host.append(details);
 }
 function select(target){const key=target?.closest?.('.half .key[data-coord],.encoder-map .key');if(!key)return;document.querySelectorAll('.key.is-selected').forEach(item=>item.classList.remove('is-selected'));key.classList.add('is-selected')}
+function clearSelection(){
+ document.querySelectorAll('.key.is-selected').forEach(item=>item.classList.remove('is-selected'));
+ if($('detailMain'))$('detailMain').textContent='Select a key or encoder direction.';
+ if($('detailHint'))$('detailHint').textContent='';
+ if($('detailRaw'))$('detailRaw').textContent='—';
+}
 function refresh(){groupLayers();sync()}
 function init(){
  refresh();const observer=new MutationObserver(refresh);
  for(const id of ['left','right','comboList','behaviorPanel','status']){const node=$(id);if(node)observer.observe(node,{childList:true,subtree:true,characterData:true,attributes:id==='status'})}
- document.addEventListener('click',event=>{select(event.target);if(event.target.closest?.('.layer-button'))setTimeout(refresh,0)});
+ document.addEventListener('click',event=>{select(event.target);if(event.target.closest?.('.layer-button')){clearSelection();setTimeout(refresh,0)}});
+ for(const id of ['hideAlpha','rawMode'])$(id)?.addEventListener('change',()=>{clearSelection();setTimeout(refresh,0)});
  setTimeout(refresh,0);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
