@@ -28,6 +28,8 @@ def main() -> None:
 
     # Loading must gate controls until both the canonical layout and behavior
     # definitions are available. This prevents early render/HID interaction races.
+    # Disabled layer controls retain full text contrast while the progress cursor
+    # communicates the transient loading state.
     assert 'id="hideAlpha" type="checkbox" checked disabled' in INDEX
     assert 'id="rawMode" type="checkbox" disabled' in INDEX
     assert "button.disabled=!ready" in QUALITY
@@ -35,7 +37,7 @@ def main() -> None:
     assert "function behaviorReady()" in QUALITY
     assert "rgb.disabled=!(ready&&behaviorReady())" in QUALITY
     assert "aria-busy',String(!ready&&!failed)" in QUALITY
-    assert '.layer-button:disabled{opacity:.5;cursor:progress;transform:none}' in QUALITY_STYLES
+    assert '.layer-button:disabled{opacity:1;color:var(--text);cursor:progress;transform:none}' in QUALITY_STYLES
 
     # Layer chooser is grouped and keyboard navigable rather than a flat button wall.
     assert "group.className='layer-family'" in QUALITY
