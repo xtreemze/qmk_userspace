@@ -24,11 +24,14 @@ def main() -> None:
     assert '<details class="legend-disclosure">' in INDEX
     assert 'atlas-quality.js' in INDEX
 
-    # Loading must gate controls until the canonical Vial profile is available.
+    # Loading must gate controls until both the canonical layout and behavior
+    # definitions are available. This prevents early render/HID interaction races.
     assert 'id="hideAlpha" type="checkbox" checked disabled' in INDEX
     assert 'id="rawMode" type="checkbox" disabled' in INDEX
     assert "button.disabled=!ready" in QUALITY
     assert "$(id).disabled=!ready" in QUALITY
+    assert "function behaviorReady()" in QUALITY
+    assert "rgb.disabled=!(ready&&behaviorReady())" in QUALITY
     assert "aria-busy',String(!ready&&!failed)" in QUALITY
 
     # Layer chooser is grouped and keyboard navigable rather than a flat button wall.
@@ -39,9 +42,12 @@ def main() -> None:
     assert "aria-current" in QUALITY
     assert '.family{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}' in STYLES
 
-    # Selection feedback must remain near the keyboard and visibly persistent.
+    # Selection feedback must remain near the keyboard and visibly persistent,
+    # while layer/display changes must clear stale inspector content.
     assert "detail.after(panel)" in QUALITY
     assert "classList.add('is-selected')" in QUALITY
+    assert "function clearSelection()" in QUALITY
+    assert "$('detailRaw').textContent='—'" in QUALITY
     assert '.key.is-selected{' in STYLES
 
     # Long behavior inventories are progressively disclosed while current-layer
