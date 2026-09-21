@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "transport": {
+    "kind": "VIA raw HID",
+    "command_byte": 0,
+    "operation_byte": 1,
+    "multi_byte_integer_order": "big-endian"
+  },
+  "namespaces": {
+    "0xF0": {
+      "name": "rgb_profiles",
+      "source": "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/rgb_profile_protocol.c",
+      "command_macro": "XTREEMZE_RGB_PROFILE_COMMAND",
+      "protocol_version_macro": "XTREEMZE_RGB_PROFILE_PROTOCOL_VERSION",
+      "protocol_version": 1,
+      "operations": {
+        "XTREEMZE_RGB_GET_CAPABILITIES": 1,
+        "XTREEMZE_RGB_GET_PROFILE": 2,
+        "XTREEMZE_RGB_SET_PROFILE": 3,
+        "XTREEMZE_RGB_SAVE": 4,
+        "XTREEMZE_RGB_PREVIEW": 5,
+        "XTREEMZE_RGB_GET_COMBO_DURATION": 6,
+        "XTREEMZE_RGB_SET_COMBO_DURATION": 7,
+        "XTREEMZE_RGB_CANCEL_PREVIEW": 8
+      }
+    },
+    "0xF1": {
+      "name": "halcyon_settings",
+      "source": "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.c",
+      "header": "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_settings_protocol.h",
+      "command_macro": "XTREEMZE_HALCYON_SETTINGS_COMMAND",
+      "protocol_version_macro": "XTREEMZE_HALCYON_SETTINGS_PROTOCOL_VERSION",
+      "protocol_version": 1,
+      "operations": {
+        "XTREEMZE_HALCYON_GET_CAPABILITIES": 1,
+        "XTREEMZE_HALCYON_GET_LAYER_STYLE": 2,
+        "XTREEMZE_HALCYON_SET_LAYER_STYLE": 3,
+        "XTREEMZE_HALCYON_GET_MOD_STYLE": 4,
+        "XTREEMZE_HALCYON_SET_MOD_STYLE": 5,
+        "XTREEMZE_HALCYON_GET_TIMINGS": 6,
+        "XTREEMZE_HALCYON_SET_TIMINGS": 7,
+        "XTREEMZE_HALCYON_GET_DIM_STYLE": 8,
+        "XTREEMZE_HALCYON_SET_DIM_STYLE": 9,
+        "XTREEMZE_HALCYON_GET_TELEMETRY": 10,
+        "XTREEMZE_HALCYON_SAVE": 11,
+        "XTREEMZE_HALCYON_RESET": 12
+      }
+    }
+  },
+  "reserved": {
+    "0xF2": "Reserved for the TFT label/procedural-pattern protocol proposed by PR #68. Add it to namespaces only when the firmware implementation lands on halcyon."
+  }
+}

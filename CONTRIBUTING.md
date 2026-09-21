@@ -41,6 +41,15 @@ Run the repository source regression entry point when practical:
 bash tests/run_ci_regressions.sh
 ```
 
+Firmware changes must also satisfy the strict static-policy gates used in CI:
+
+```sh
+qmk lint -kb splitkb/halcyon/ferris/rev1 -km xtreemze_final --strict
+python3 scripts/check-firmware-antipatterns.py
+```
+
+The repository anti-pattern check intentionally rejects dynamic heap allocation and unbounded legacy string APIs in repository-owned firmware. Do not suppress these checks locally. If a future requirement genuinely needs an exception, change the policy explicitly in a reviewed PR with a concrete bounded-memory or safety rationale.
+
 Firmware-impacting changes should also compile the exact affected production target(s) against the pinned Vial-QMK revision and run focused tests for the touched subsystem.
 
 Do not describe source tests, mocked behavior, a successful compile, or CI success as physical hardware acceptance. USB lifecycle, split reconnect, either-master behavior, TFT/backlight behavior, encoder feel, persistent state across real power cycles, and similar hardware-dependent behavior require separate physical evidence.
