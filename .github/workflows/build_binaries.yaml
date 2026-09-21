@@ -64,6 +64,12 @@ jobs:
       - name: Validate userspace
         run: qmk userspace-doctor
 
+      - name: Strict QMK lint
+        run: qmk lint -kb splitkb/halcyon/ferris/rev1 -km xtreemze_final --strict
+
+      - name: Enforce firmware anti-pattern policy
+        run: python3 scripts/check-firmware-antipatterns.py
+
       - name: Check formatting and apply userspace QMK patches
         run: |
           bash scripts/check-changed-firmware-format.sh \
