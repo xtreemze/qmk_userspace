@@ -21,6 +21,7 @@ This index separates stable usage documentation from fork-specific project memor
 ## Migration and integration
 
 - [Halcyon legacy migration](halcyon-legacy-migration.md) — compatibility and migration notes for the fork-specific firmware line.
+- [Host configurator protocol contract](CONFIGURATOR_PROTOCOL.md) — stable raw-HID compatibility boundary and machine-readable contract for Python, WebHID, and native/Tauri clients.
 - [Fork patches](../patches/README.md) — patches intentionally applied to the pinned firmware dependency.
 
 ## Validation
