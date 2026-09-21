@@ -45,9 +45,61 @@
         "XTREEMZE_HALCYON_SAVE": 11,
         "XTREEMZE_HALCYON_RESET": 12
       }
+    },
+    "0xF2": {
+      "name": "halcyon_display",
+      "source": "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_display_protocol.c",
+      "header": "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/halcyon_display_protocol.h",
+      "command_macro": "XTREEMZE_HALCYON_DISPLAY_COMMAND",
+      "protocol_version_macro": "XTREEMZE_HALCYON_DISPLAY_PROTOCOL_VERSION",
+      "protocol_version": 1,
+      "operations": {
+        "XTREEMZE_HALCYON_DISPLAY_GET_CAPABILITIES": 1,
+        "XTREEMZE_HALCYON_DISPLAY_GET_LAYER": 2,
+        "XTREEMZE_HALCYON_DISPLAY_SET_LAYER": 3,
+        "XTREEMZE_HALCYON_DISPLAY_GET_MODIFIER_LABEL": 4,
+        "XTREEMZE_HALCYON_DISPLAY_SET_MODIFIER_LABEL": 5,
+        "XTREEMZE_HALCYON_DISPLAY_SAVE": 6,
+        "XTREEMZE_HALCYON_DISPLAY_RESET": 7
+      },
+      "packet_layouts": {
+        "capabilities_response": {
+          "minimum_length": 14,
+          "fields": {
+            "2": "protocol_version",
+            "3": "capability_flags",
+            "4": "layer_count",
+            "5": "modifier_count",
+            "6": "motif_count",
+            "7": "maximum_layer_label_characters",
+            "8": "maximum_modifier_label_characters",
+            "9": "minimum_tile_size",
+            "10": "maximum_tile_size",
+            "11": "maximum_motion_amplitude",
+            "12": "maximum_pulse_amplitude",
+            "13": "store_version"
+          }
+        },
+        "layer": {
+          "minimum_length": 17,
+          "fields": {
+            "2": "layer_index",
+            "12": "motif",
+            "13": "tile_width",
+            "14": "tile_height",
+            "15": "motion_amplitude",
+            "16": "pulse_amplitude",
+            "3..11": "9-byte NUL-terminated printable ASCII label"
+          }
+        },
+        "modifier_label": {
+          "minimum_length": 8,
+          "fields": {
+            "2": "modifier_index",
+            "3..7": "5-byte NUL-terminated printable ASCII label"
+          }
+        }
+      }
     }
-  },
-  "reserved": {
-    "0xF2": "Reserved for the TFT label/procedural-pattern protocol proposed by PR #68. Add it to namespaces only when the firmware implementation lands on halcyon."
   }
 }
