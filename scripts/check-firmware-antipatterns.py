@@ -22,8 +22,31 @@ RULES = (
         re.compile(r"\b(?:strcpy|strcat|sprintf|vsprintf|gets)\s*\("),
         "Unbounded legacy string APIs are forbidden; use bounded alternatives and explicit sizes.",
     ),
+    (
+        "unchecked-numeric-conversion",
+        re.compile(r"\b(?:atoi|atol|atoll)\s*\("),
+        "Unchecked numeric conversion is forbidden; use strto* with explicit range/end-pointer validation.",
+    ),
+    (
+        "stateful-tokenizer",
+        re.compile(r"\bstrtok\s*\("),
+        "strtok is forbidden because of implicit global state; use an explicit, re-entrant parser.",
+    ),
+    (
+        "nondeterministic-stdlib-rng",
+        re.compile(r"\b(?:rand|srand|random|srandom)\s*\("),
+        "Ambient libc randomness is forbidden; firmware behavior must use explicit deterministic state or a documented entropy source.",
+    ),
+    (
+        "diagnostic-suppression",
+        re.compile(
+            r"(?:\bNOLINT(?:NEXTLINE|BEGIN|END)?\b|"
+            r"#\s*pragma\s+(?:GCC|clang)\s+diagnostic\s+ignored\b|"
+            r"cppcheck-suppress\b)"
+        ),
+        "Inline/broad diagnostic suppression is forbidden; fix the cause or encode a narrow repository-level exception.",
+    ),
 )
-
 
 def iter_sources() -> list[Path]:
     sources: list[Path] = []
@@ -44,7 +67,9 @@ def main() -> int:
 
     for path in iter_sources():
         relative_path = path.relative_to(ROOT)
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
             for rule_name, pattern, message in RULES:
                 if pattern.search(line):
                     violations.append(
