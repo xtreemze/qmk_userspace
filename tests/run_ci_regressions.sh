@@ -23,6 +23,7 @@ run bash tests/xtreemze_os_fingerprint_trace.sh
 run bash tests/xtreemze_os_shortcut_cache.sh
 run bash tests/xtreemze_vial_factory_defaults.sh
 run bash tests/xtreemze_docs_consistency.sh
+run python3 tests/xtreemze_configurator_protocol_contract.py
 run python3 tests/xtreemze_visualizer_contract.py
 run python3 tests/xtreemze_visualizer_quality.py
 
