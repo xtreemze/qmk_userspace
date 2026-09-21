@@ -26,6 +26,7 @@ base = re.search(r'^#define HSV_EF_BG\s+(.*)$', header, re.M)[1]
 harness = r'''
 #include <assert.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,11 +35,22 @@ harness = r'''
 #define DISPLAY_LAYER_STYLE_COUNT 13
 #define PATTERN_ANIMATION_FRAME_MS 200
 #define MOD_RECENT_MS 2200
+#define PATTERN_TILE_MIN 12
+#define PATTERN_TILE_MAX 48
+#define PATTERN_MOTION_MAX 6
+#define PATTERN_PULSE_MAX 4
 #define HALCYON_DISPLAY_COLOR_LAYER_FG 0
 #define HALCYON_DISPLAY_COLOR_LAYER_BG 1
 #define HALCYON_DISPLAY_COLOR_MODIFIER 2
 static const int lcd_surface = 0;
 typedef struct { uint8_t h, s, v; } halcyon_display_hsv_t;
+typedef struct {
+    uint8_t motif;
+    uint8_t tile_width;
+    uint8_t tile_height;
+    uint8_t motion_amplitude;
+    uint8_t pulse_amplitude;
+} halcyon_display_pattern_t;
 typedef halcyon_display_hsv_t hsv_triplet_t;
 static uint8_t pixels[LCD_HEIGHT][LCD_WIDTH][3];
 static unsigned calls;
@@ -97,8 +109,6 @@ for layer in range(13):
         data = raw[(layer * 4 + frame) * size:(layer * 4 + frame + 1) * size]
         colors = {data[i:i+3] for i in range(0, size, 3)}
         assert colors <= {base_bytes, fg[layer], bg[layer]}, (layer, frame, 'palette drift/unpainted pixels')
-        # Filled motifs drift around the tile center; bilateral reflection is
-        # intentionally not required for the original diagonal/paired designs.
         pixel = lambda x, y: data[(y * 135 + x) * 3:(y * 135 + x + 1) * 3]
         assert any(pixel(x, y) != base_bytes for x in range(120, 135) for y in range(240)), (layer, 'right edge unpainted')
         normalized = bytes(0 if data[i:i+3] == base_bytes else 1 if data[i:i+3] == fg[layer] else 2 for i in range(0, size, 3))
@@ -109,9 +119,7 @@ for layer in range(13):
     assert len(set(hashes)) >= 4, (layer, 'expected at least four distinct animation shapes')
     sequences.append(tuple(hashes))
 assert len(set(sequences)) == 13, 'Layer geometry must be unique even without its palette.'
-# The MOUSE center changes between the bright and muted roles halfway through
-# the four-frame cycle. Motion alone must not substitute for the requested color exchange.
 center = (12 * 135 + 12) * 3
 assert raw[center:center+3] == fg[0]
 assert raw[2*size+center:2*size+center+3] == bg[0]
-print('13 distinct colorful four-frame animations; all 3,328 frames bounded and sanitizer-clean.')
+print('13 distinct colorful four-frame default animations; all 3,328 frames bounded and sanitizer-clean.')

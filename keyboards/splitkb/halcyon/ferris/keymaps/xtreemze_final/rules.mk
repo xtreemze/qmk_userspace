@@ -36,3 +36,7 @@ SRC += rgb_profile_protocol.c
 # Halcyon-specific TFT palettes, modifier colors, display timing and live host
 # telemetry. Settings replicate across the split so either half can become USB master.
 SRC += halcyon_settings_protocol.c
+
+# TFT labels and procedural layer-pattern geometry are a separate compatible
+# extension so the existing 0xF1 palette/timing protocol remains stable.
+SRC += halcyon_display_protocol.c

@@ -62,9 +62,29 @@ The capability response is authoritative for layer/modifier counts, timing bound
 
 Runtime edits and persistence are intentionally separate: setters update live state; `SAVE` makes the current state durable and schedules persistent split replication. `RESET` restores compiled defaults in live state and does not silently redefine the protocol version.
 
-## Reserved namespace
+### `0xF2` — Halcyon display labels and procedural patterns, protocol v1
 
-`0xF2` is reserved for the TFT label/procedural-pattern contract being developed in PR #68. It is not part of the active `halcyon` ABI until that firmware lands. The PR that merges it must extend the JSON contract and regression test in the same change.
+Implemented by `halcyon_display_protocol.c/.h`.
+
+Operations:
+
+| Operation | Value |
+| --- | ---: |
+| `GET_CAPABILITIES` | `0x01` |
+| `GET_LAYER` | `0x02` |
+| `SET_LAYER` | `0x03` |
+| `GET_MODIFIER_LABEL` | `0x04` |
+| `SET_MODIFIER_LABEL` | `0x05` |
+| `SAVE` | `0x06` |
+| `RESET` | `0x07` |
+
+The capability response requires at least 14 bytes. Bytes 2–13 report, in order: protocol version, capability flags, layer count, modifier count, motif count, maximum layer-label characters, maximum modifier-label characters, minimum and maximum tile size, maximum motion amplitude, maximum pulse amplitude, and store version.
+
+Layer read/write packets require at least 17 bytes. Byte 2 is the layer index; bytes 3–11 contain a nine-byte NUL-terminated printable-ASCII label field; bytes 12–16 contain motif, tile width, tile height, motion amplitude, and pulse amplitude. Clients must use the capability response for current counts and bounds rather than assuming the compiled defaults.
+
+Modifier-label packets require at least eight bytes. Byte 2 is the modifier index and bytes 3–7 contain a five-byte NUL-terminated printable-ASCII label field.
+
+Runtime writes update live display state and replicate to the split peer without forcing persistence. `SAVE` persists the current display store and schedules persistent split replication. `RESET` restores compiled defaults in live state. The display store schema/version remains independent from the host protocol version.
 
 ## Compatibility rules
 

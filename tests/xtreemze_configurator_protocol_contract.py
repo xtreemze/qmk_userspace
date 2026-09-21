@@ -7,7 +7,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "configurator-protocol-v1.json"
 
 DEFINE_RE = re.compile(r"^#define\s+(\w+)\s+(0x[0-9A-Fa-f]+|\d+)\b", re.MULTILINE)
-ENUM_ENTRY_RE = re.compile(r"^\s*(XTREEMZE_[A-Z0-9_]+)\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*,?\s*$", re.MULTILINE)
+ENUM_ENTRY_RE = re.compile(
+    r"^\s*(XTREEMZE_[A-Z0-9_]+)\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*,?\s*$",
+    re.MULTILINE,
+)
 
 
 def parse_int(value: str) -> int:
@@ -31,8 +34,9 @@ if data.get("schema_version") != 1:
     fail("unexpected configurator protocol contract schema version")
 
 namespaces = data.get("namespaces")
-if not isinstance(namespaces, dict) or set(namespaces) != {"0xF0", "0xF1"}:
-    fail("active contract must contain exactly 0xF0 and 0xF1 on the current halcyon branch")
+expected_namespaces = {"0xF0", "0xF1", "0xF2"}
+if not isinstance(namespaces, dict) or set(namespaces) != expected_namespaces:
+    fail("active contract must contain exactly 0xF0, 0xF1, and 0xF2")
 
 for namespace_hex, spec in namespaces.items():
     source = ROOT / spec["source"]
@@ -70,12 +74,17 @@ for namespace_hex, spec in namespaces.items():
                 f"contract requires {expected_value:#04x}"
             )
 
-reserved = data.get("reserved", {})
-if "0xF2" not in reserved:
-    fail("0xF2 reservation for PR #68 must remain explicit until the implementation lands")
+display = namespaces["0xF2"]
+layouts = display.get("packet_layouts", {})
+if layouts.get("capabilities_response", {}).get("minimum_length") != 14:
+    fail("0xF2 capability response length must match firmware")
+if layouts.get("layer", {}).get("minimum_length") != 17:
+    fail("0xF2 layer packet length must match firmware")
+if layouts.get("modifier_label", {}).get("minimum_length") != 8:
+    fail("0xF2 modifier-label packet length must match firmware")
 
 print(
     "Configurator protocol contract: "
     f"{sum(len(v['operations']) for v in namespaces.values())} operations "
-    "match firmware source across 0xF0/0xF1; 0xF2 remains reserved."
+    "match firmware source across 0xF0/0xF1/0xF2."
 )
