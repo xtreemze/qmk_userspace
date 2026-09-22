@@ -5,6 +5,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "configurator-protocol-v1.json"
+VECTORS = ROOT / "docs" / "configurator-protocol-v1-vectors.json"
 
 DEFINE_RE = re.compile(r"^#define\s+(\w+)\s+(0x[0-9A-Fa-f]+|\d+)\b", re.MULTILINE)
 ENUM_ENTRY_RE = re.compile(
@@ -83,8 +84,61 @@ if layouts.get("layer", {}).get("minimum_length") != 17:
 if layouts.get("modifier_label", {}).get("minimum_length") != 8:
     fail("0xF2 modifier-label packet length must match firmware")
 
+vectors_data = json.loads(VECTORS.read_text(encoding="utf-8"))
+if vectors_data.get("schema_version") != 1:
+    fail("unexpected configurator protocol vector schema version")
+
+vectors = vectors_data.get("vectors")
+if not isinstance(vectors, list) or not vectors:
+    fail("configurator protocol vectors must contain at least one vector")
+
+seen_names = set()
+for vector in vectors:
+    name = vector.get("name")
+    if not isinstance(name, str) or not name:
+        fail("every configurator vector needs a non-empty name")
+    if name in seen_names:
+        fail(f"duplicate configurator vector name: {name}")
+    seen_names.add(name)
+
+    namespace_hex = vector.get("namespace")
+    if namespace_hex not in namespaces:
+        fail(f"{name}: unknown namespace {namespace_hex!r}")
+    spec = namespaces[namespace_hex]
+
+    operation = vector.get("operation")
+    expected_operation = spec["operations"].get(operation)
+    if expected_operation is None:
+        fail(f"{name}: unknown operation {operation!r} for {namespace_hex}")
+
+    request = vector.get("request")
+    response = vector.get("response")
+    for packet_name, packet in (("request", request), ("response", response)):
+        if not isinstance(packet, list) or len(packet) < 2:
+            fail(f"{name}: {packet_name} must contain at least command and operation bytes")
+        if any(not isinstance(value, int) or value < 0 or value > 0xFF for value in packet):
+            fail(f"{name}: {packet_name} contains a non-byte value")
+
+    expected_command = int(namespace_hex, 16)
+    if request[:2] != [expected_command, expected_operation]:
+        fail(
+            f"{name}: request prefix {request[:2]!r} does not match "
+            f"{namespace_hex}/{operation}"
+        )
+    if response[:2] != request[:2]:
+        fail(f"{name}: response must preserve the request command/operation prefix")
+
+    if operation.endswith("GET_CAPABILITIES"):
+        if len(response) < 3:
+            fail(f"{name}: capability response must include protocol version")
+        if response[2] != spec["protocol_version"]:
+            fail(
+                f"{name}: capability response version {response[2]} does not match "
+                f"contract version {spec['protocol_version']}"
+            )
+
 print(
     "Configurator protocol contract: "
     f"{sum(len(v['operations']) for v in namespaces.values())} operations "
-    "match firmware source across 0xF0/0xF1/0xF2."
+    f"match firmware source across 0xF0/0xF1/0xF2; {len(vectors)} golden vectors validated."
 )
