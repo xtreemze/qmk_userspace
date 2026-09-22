@@ -1,0 +1,36 @@
+name: Strict anti-pattern policy
+
+on:
+  pull_request:
+    branches: [halcyon]
+    paths:
+      - "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/**"
+      - "users/halcyon_modules/splitkb/hlc_tft_display/**"
+      - "scripts/check-antipatterns.py"
+      - ".github/workflows/strict-antipatterns.yml"
+  push:
+    branches: [halcyon]
+    paths:
+      - "keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/**"
+      - "users/halcyon_modules/splitkb/hlc_tft_display/**"
+      - "scripts/check-antipatterns.py"
+      - ".github/workflows/strict-antipatterns.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Enforce architecture and embedded-safety policy
+        run: python scripts/check-antipatterns.py
