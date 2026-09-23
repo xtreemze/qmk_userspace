@@ -21,8 +21,8 @@ static bool                  display_font_loaded = false;
 
 static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
-painter_device_t lcd;
-painter_device_t lcd_surface;
+static painter_device_t lcd;
+static painter_device_t lcd_surface;
 
 typedef enum {
     DISPLAY_MODE_NORMAL = 0,
