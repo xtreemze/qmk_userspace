@@ -347,7 +347,7 @@ static bool seed_vial_macro_defaults(void);
 #endif
 #endif
 #ifdef QMK_SETTINGS
-static void seed_qmk_settings_defaults(void);
+static bool seed_qmk_settings_defaults(void);
 #endif
 #ifdef VIA_ENABLE
 static void seed_via_layout_options_default(void);
@@ -368,7 +368,9 @@ static void sync_compiled_defaults_to_dynamic_keymap_once(void) {
 #endif
 #endif
 #ifdef QMK_SETTINGS
-    seed_qmk_settings_defaults();
+    if (!seed_qmk_settings_defaults()) {
+        return; // Do not certify a partial factory seed.
+    }
 #endif
 #ifdef VIA_ENABLE
     seed_via_layout_options_default();
@@ -780,12 +782,15 @@ static const qmk_setting_seed_t xtreemze_qmk_settings_defaults[] = {
     { 27, 150 },
 };
 
-static void seed_qmk_settings_defaults(void) {
+static bool seed_qmk_settings_defaults(void) {
     for (uint8_t i = 0; i < ARRAY_SIZE(xtreemze_qmk_settings_defaults); ++i) {
         const qmk_setting_seed_t setting = xtreemze_qmk_settings_defaults[i];
         const uint32_t value = setting.value;
-        qmk_settings_set(setting.id, &value, sizeof(value));
+        if (qmk_settings_set(setting.id, &value, sizeof(value)) != 0) {
+            return false;
+        }
     }
+    return true;
 }
 #endif
 
