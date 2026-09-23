@@ -32,7 +32,9 @@ fi
 grep -q 'vial_alt_repeat_key_resolve_direct' "$resolver_patch" || fail "Vial resolver patch must expose the coherent direct-match API"
 grep -q 'bool vial_alt_repeat_key_resolve_direct' "$vial_source" || fail "patched Vial engine lacks direct-match resolver"
 grep -q 'vial_alt_repeat_key_match_t' "$vial_header" || fail "Vial direct-match result is not declared publicly"
-grep -q 'alt_repeat_key_resolve_direct_normalized' "$vial_source" || fail "stock Alternate Repeat does not share the direct-match resolver"
+stock_body="$(sed -n '/uint16_t get_alt_repeat_key_keycode_user(/,/^}/p' "$vial_source")"
+grep -q 'alt_repeat_key_normalize_keycode' <<<"$stock_body" || fail "stock Alternate Repeat normalization unexpectedly changed"
+grep -q 'alt_repeat_key_mods_match' <<<"$stock_body" || fail "stock Alternate Repeat modifier policy unexpectedly changed"
 resolver_body="$(sed -n '/bool vial_alt_repeat_key_resolve_direct(/,/^}/p' "$vial_source")"
 grep -q 'alt_repeat_key_normalize_keycode' <<<"$resolver_body" || fail "public resolver must use Vial normalization"
 if grep -q 'dynamic_keymap_get_alt_repeat_key' <<<"$resolver_body"; then
