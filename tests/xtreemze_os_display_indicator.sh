@@ -65,6 +65,23 @@ for expected_label in 'DETECTING' 'macOS' 'iOS' 'Windows' 'Linux'; do
         fail "Expected readable display label $expected_label."
 done
 
+shortcut_label_body="$(extract_function "$display_file" 'host_shortcut_label(halcyon_shortcut_family_t family)')"
+shortcut_compact_body="$(extract_function "$display_file" 'host_shortcut_compact_label(halcyon_shortcut_family_t family)')"
+for shortcut_body in "$shortcut_label_body" "$shortcut_compact_body"; do
+    grep -q 'HALCYON_SHORTCUT_APPLE' <<<"$shortcut_body" &&
+        grep -q 'HALCYON_SHORTCUT_CTRL' <<<"$shortcut_body" &&
+        grep -q 'HALCYON_SHORTCUT_UNKNOWN' <<<"$shortcut_body" ||
+        fail "Expected explicit APPLE, CTRL, and UNKNOWN shortcut presentation."
+    grep -q '"WAIT"' <<<"$shortcut_body" ||
+        fail "Expected unknown shortcut policy to render as an explicit waiting state."
+done
+if grep -A3 'HALCYON_SHORTCUT_UNKNOWN' <<<"$shortcut_label_body" | grep -q '"CTRL"'; then
+    fail "Expected unknown full shortcut policy not to render as CTRL."
+fi
+if grep -A3 'HALCYON_SHORTCUT_UNKNOWN' <<<"$shortcut_compact_body" | grep -q '"CTL"'; then
+    fail "Expected unknown compact shortcut policy not to render as CTL."
+fi
+
 grep -q 'exact_detected_os' "$keymap_file" || fail "Expected exact OS diagnostic state."
 grep -q 'effective_host_family' "$keymap_file" || fail "Expected separate shortcut-family state."
 grep -q 'effective_host_source' "$keymap_file" || fail "Expected separate shortcut-source state."
@@ -161,7 +178,7 @@ for (let codePoint = 0x20; codePoint <= 0x7e; codePoint++) {
 }
 const compactLines = [
     'DETECT', 'macOS', 'iOS', 'WIN', 'Linux',
-    'CMD QMK', 'CMD STOR', 'CMD DEF', 'CTL QMK', 'CTL STOR', 'CTL DEF',
+    'CMD QMK', 'CMD STOR', 'CMD DEF', 'CTL QMK', 'CTL STOR', 'WAIT DEF',
     'BOOT MST', 'WAKE MST', 'CHG MST', 'BOOT SLV', 'WAKE SLV', 'CHG SLV',
     'TRACE', '48/48', '!48/48', 'W FFFF', 'N48 F48', 'T48 Q48', 'C WIN', 'R WIN', 'NO TRACE',
 ];
