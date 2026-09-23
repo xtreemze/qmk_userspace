@@ -97,6 +97,34 @@ if "fail_on_unmatched_files: true" not in publish:
     fail("release creation must fail rather than silently publishing without firmware files")
 if "target_commitish: ${{ github.sha }}" not in publish:
     fail("moving latest release must target the exact workflow commit")
+
+immutable_markers = (
+    "- name: Publish immutable CI candidate",
+    "const tag = `ci-${context.sha}`;",
+    "draft: true",
+    "prerelease: true",
+    "if (!release.draft)",
+    "already exists and matches this build; leaving it untouched",
+    "refusing mutation",
+    "firmware-release-manifest.json",
+    "github.rest.repos.uploadReleaseAsset",
+    "github.rest.repos.updateRelease",
+)
+for marker in immutable_markers:
+    if marker not in publish:
+        fail(f"immutable CI candidate publisher is missing contract marker: {marker}")
+
+immutable_step = publish.split("- name: Publish immutable CI candidate", 1)[1].split(
+    "- name: Move latest tag and clean stale assets", 1
+)[0]
+if "deleteRelease(" in immutable_step or "deleteRef(" in immutable_step:
+    fail("immutable candidate publisher must never delete a published release or tag")
+if immutable_step.index("if (!release.draft)") > immutable_step.index("deleteReleaseAsset"):
+    fail("published immutable releases must enter the verify-only branch before draft asset repair")
+if immutable_step.index("Draft immutable release") > immutable_step.index("github.rest.repos.updateRelease"):
+    fail("immutable candidate assets must be digest-verified before the draft is published")
+if "not hardware-accepted" not in immutable_step:
+    fail("immutable CI candidate release must not imply physical hardware acceptance")
 if not re.search(r"(?m)^          files: \|\n            \*\*/\*\.uf2\s*$", publish):
     fail("RP2040 release must publish only the UF2 artifact class")
 if re.search(r"(?m)^\s+\*\*/\*\.(?:hex|bin)\s*$", publish):

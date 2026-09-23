@@ -152,6 +152,136 @@ jobs:
             exit 1
           fi
 
+      - name: Publish immutable CI candidate
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const { owner, repo } = context.repo;
+            const tag = `ci-${context.sha}`;
+            const shortSha = context.sha.slice(0, 12);
+            const expectedAssets = [
+              'splitkb_halcyon_ferris_rev1_xtreemze_final_display.uf2',
+              'splitkb_halcyon_ferris_rev1_xtreemze_final_encoder.uf2',
+              'firmware-release-manifest.json',
+            ];
+            const releaseName = `CI Firmware ${shortSha} (not hardware-accepted)`;
+            const releaseBody = [
+              `Immutable CI candidate for userspace commit \`${context.sha}\`.`,
+              '',
+              'This prerelease records the exact binaries and manifest produced by the green integration build.',
+              'It does **not** claim physical hardware acceptance; hardware sign-off remains tracked in issue #7.',
+            ].join('\n');
+
+            const localAsset = (name) => {
+              const data = fs.readFileSync(name);
+              return {
+                data,
+                size: data.length,
+                digest: `sha256:${crypto.createHash('sha256').update(data).digest('hex')}`,
+              };
+            };
+
+            const listAssets = async (releaseId) => github.paginate(
+              github.rest.repos.listReleaseAssets,
+              { owner, repo, release_id: releaseId, per_page: 100 },
+            );
+
+            const verifyPublished = async (release) => {
+              if (release.target_commitish !== context.sha) {
+                core.setFailed(`Immutable release ${tag} targets ${release.target_commitish}, expected ${context.sha}.`);
+                return false;
+              }
+              const assets = await listAssets(release.id);
+              const byName = new Map(assets.map((asset) => [asset.name, asset]));
+              if (assets.length !== expectedAssets.length || expectedAssets.some((name) => !byName.has(name))) {
+                core.setFailed(`Immutable release ${tag} has an unexpected asset set.`);
+                return false;
+              }
+              for (const name of expectedAssets) {
+                const expected = localAsset(name);
+                const actual = byName.get(name);
+                if (actual.size !== expected.size || actual.digest !== expected.digest) {
+                  core.setFailed(
+                    `Immutable release ${tag} asset ${name} differs from this build; refusing mutation.`,
+                  );
+                  return false;
+                }
+              }
+              return true;
+            };
+
+            let release;
+            try {
+              ({ data: release } = await github.rest.repos.getReleaseByTag({ owner, repo, tag }));
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              ({ data: release } = await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                target_commitish: context.sha,
+                name: releaseName,
+                body: releaseBody,
+                draft: true,
+                prerelease: true,
+              }));
+            }
+
+            if (!release.draft) {
+              if (await verifyPublished(release)) {
+                core.info(`Immutable release ${tag} already exists and matches this build; leaving it untouched.`);
+              }
+              return;
+            }
+
+            const existing = await listAssets(release.id);
+            for (const asset of existing) {
+              await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+            }
+
+            for (const name of expectedAssets) {
+              const asset = localAsset(name);
+              await github.rest.repos.uploadReleaseAsset({
+                owner,
+                repo,
+                release_id: release.id,
+                name,
+                data: asset.data,
+                headers: {
+                  'content-type': name.endsWith('.json') ? 'application/json' : 'application/octet-stream',
+                  'content-length': asset.size,
+                },
+              });
+            }
+
+            const draftAssets = await listAssets(release.id);
+            if (draftAssets.length !== expectedAssets.length) {
+              core.setFailed(`Draft immutable release ${tag} did not receive the exact expected asset count.`);
+              return;
+            }
+            for (const name of expectedAssets) {
+              const expected = localAsset(name);
+              const actual = draftAssets.find((asset) => asset.name === name);
+              if (!actual || actual.size !== expected.size || actual.digest !== expected.digest) {
+                core.setFailed(`Draft immutable release ${tag} failed digest verification for ${name}.`);
+                return;
+              }
+            }
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              tag_name: tag,
+              target_commitish: context.sha,
+              name: releaseName,
+              body: releaseBody,
+              draft: false,
+              prerelease: true,
+            });
+
       - name: Move latest tag and clean stale assets
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
