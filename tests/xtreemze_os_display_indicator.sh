@@ -205,3 +205,16 @@ grep -q 'host_resume_pending' <<<"$housekeeping_body" ||
 update_display_body="$(extract_function "$display_file" 'update_display(void)')"
 grep -q 'draw_host_marker' <<<"$update_display_body" ||
     fail "Expected the normal header to retain a compact host marker."
+
+alt_repeat_display_body="$(extract_function "$keymap_file" 'update_alt_repeat_display_text(uint16_t keycode)')"
+[[ -n "$alt_repeat_display_body" ]] ||
+    fail "Expected the TFT Alternate Repeat display updater."
+grep -q 'get_alt_repeat_key_keycode_user' <<<"$alt_repeat_display_body" ||
+    fail "Expected TFT Alternate Repeat status to use the active QMK/Vial resolver."
+if grep -q '!defined(VIAL_ALT_REPEAT_KEY_ENTRIES)' <<<"$alt_repeat_display_body"; then
+    fail "Expected Vial-enabled firmware not to compile the Alternate Repeat label path blank."
+fi
+grep -q 'KC_TRNS' <<<"$alt_repeat_display_body" && grep -q 'KC_NO' <<<"$alt_repeat_display_body" ||
+    fail "Expected unmatched Alternate Repeat keys to clear the TFT label."
+grep -q 'format_basic_keycode_name' <<<"$alt_repeat_display_body" ||
+    fail "Expected resolved Alternate Repeat endpoints to be formatted for the TFT header."

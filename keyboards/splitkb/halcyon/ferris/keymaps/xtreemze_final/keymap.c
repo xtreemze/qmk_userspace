@@ -949,10 +949,6 @@ static void refresh_rgb_profile_state(void) {
 }
 #endif
 
-#if defined(REPEAT_KEY_ENABLE) && !defined(VIAL_ALT_REPEAT_KEY_ENTRIES)
-uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods);
-#endif
-
 static void __attribute__((unused)) format_basic_keycode_name(uint8_t keycode, char *out, size_t out_size) {
     if (keycode >= KC_A && keycode <= KC_Z) {
         out[0] = 'A' + (char)(keycode - KC_A);
@@ -991,7 +987,7 @@ static void __attribute__((unused)) format_basic_keycode_name(uint8_t keycode, c
 }
 
 static void update_alt_repeat_display_text(uint16_t keycode) {
-#if defined(REPEAT_KEY_ENABLE) && !defined(VIAL_ALT_REPEAT_KEY_ENTRIES)
+#if defined(REPEAT_KEY_ENABLE)
     const uint8_t mods = get_mods() | get_oneshot_mods();
     const uint16_t alt_keycode = get_alt_repeat_key_keycode_user(keycode, mods);
 
