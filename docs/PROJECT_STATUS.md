@@ -45,11 +45,12 @@ Automated success is not physical hardware acceptance. The moving `latest` artif
 - PR #44 localized and pinned the release publisher.
 - PR #46 made moving-`latest` publication validation-first, non-destructive and RP2040-UF2-specific.
 - PR #50 added repository-local hardware-acceptance evidence snapshot tooling and documented its use. The helper captures provenance and physical-test context; it does not convert unperformed hardware checks into passes.
+- PR #80 made unknown host shortcut telemetry explicitly render as waiting instead of falsely reporting Ctrl.
+- PR #81 completed TFT painter-device internal-linkage cleanup after the stale public declarations were removed.
 
 ## Active implementation
 
 - #25 remains open for immutable hardware-accepted release history; the moving `latest` surface is intentionally only a CI candidate.
-- PR #81 completes the remaining #35 internal-linkage cleanup for TFT painter devices; its exact firmware CI is the acceptance gate for that source-only encapsulation change.
 
 ## Open priorities
 
@@ -66,7 +67,6 @@ Automated success is not physical hardware acceptance. The moving `latest` artif
 
 - #28: remove the deterministic encoder Repeat resolver's per-detent scan of Vial Alternate Repeat entries in NVM and reuse one authoritative RAM-resident policy where possible.
 - #31: restore production Vial Alternate Repeat status on the TFT using Vial's coherent resolver rather than the currently blank branch.
-- #35: reduce stale TFT public API and module-global painter-state exposure after exact build verification.
 
 ### Hardware and release evidence
 
