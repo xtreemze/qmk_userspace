@@ -95,9 +95,10 @@ harness += r"""
 #define XTREEMZE_DEFAULTS_EE_MARKER 0xAF
 static struct { uint8_t defaults_marker, rgb_profile, host_family; } xtreemze_user_data;
 static unsigned keymap_resets, dynamic_seeds, setting_seeds, layout_seeds, saves;
+static bool settings_seed_ok = true;
 static void dynamic_keymap_reset(void) { keymap_resets++; }
 static void seed_vial_dynamic_entry_defaults(void) { dynamic_seeds++; }
-static void seed_qmk_settings_defaults(void) { setting_seeds++; }
+static bool seed_qmk_settings_defaults(void) { setting_seeds++; return settings_seed_ok; }
 static void seed_via_layout_options_default(void) { layout_seeds++; }
 static void save_user_data(void) { saves++; }
 """
@@ -132,14 +133,20 @@ harness += r"""
     sync_compiled_defaults_to_dynamic_keymap_once();
     assert(xtreemze_user_data.defaults_marker == 0xAE && saves == 0);
     capacity = sizeof(buffer);
+    settings_seed_ok = false;
+    sync_compiled_defaults_to_dynamic_keymap_once();
+    assert(xtreemze_user_data.defaults_marker == 0xAE && saves == 0 && layout_seeds == 0);
+    assert(setting_seeds == 1);
+
+    settings_seed_ok = true;
     sync_compiled_defaults_to_dynamic_keymap_once();
     assert(xtreemze_user_data.defaults_marker == 0xAF && saves == 1);
-    assert(keymap_resets == 2 && dynamic_seeds == 2 && setting_seeds == 1 && layout_seeds == 1);
+    assert(keymap_resets == 3 && dynamic_seeds == 3 && setting_seeds == 2 && layout_seeds == 1);
     assert(xtreemze_user_data.rgb_profile == 0x42 && xtreemze_user_data.host_family == 1);
     buffer[0] = 0x42; // A subsequent user edit survives later boots.
     sync_compiled_defaults_to_dynamic_keymap_once();
-    assert(buffer[0] == 0x42 && saves == 1 && keymap_resets == 2);
-    puts("All 32 macros round-trip; escaping, capacity failure and one-time seeding pass.");
+    assert(buffer[0] == 0x42 && saves == 1 && keymap_resets == 3);
+    puts("All 32 macros round-trip; macro/QMK-settings failure atomicity and one-time seeding pass.");
 }
 """
 

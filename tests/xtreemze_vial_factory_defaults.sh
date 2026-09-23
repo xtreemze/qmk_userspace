@@ -194,6 +194,27 @@ assertTable('xtreemze_default_key_overrides', profile.key_override.map(entry => 
 assertTable('xtreemze_default_alt_repeat_keys', profile.alt_repeat_key.map(entry => `{ .keycode = ${normalizeKeycode(entry.keycode)}, .alt_keycode = ${normalizeKeycode(entry.alt_keycode)}, .allowed_mods = ${entry.allowed_mods}, .options = ${entry.options} },`));
 assertTable('xtreemze_qmk_settings_defaults', Object.entries(profile.settings).map(([id, value]) => `{ ${id}, ${value} },`));
 
+const qmkSeedBlock = source.match(/static bool seed_qmk_settings_defaults\(void\) \{\n([\s\S]*?)\n\}/);
+assert(qmkSeedBlock, 'QMK settings factory seeding must report success/failure.');
+assert(qmkSeedBlock[1].includes('qmk_settings_set(setting.id, &value, sizeof(value)) != 0'), 'QMK settings seeding must check every setter result.');
+assert(qmkSeedBlock[1].includes('return false;') && qmkSeedBlock[1].includes('return true;'), 'QMK settings seeding must fail closed and report complete success.');
+
+const syncDefaultsBlock = source.match(/static void sync_compiled_defaults_to_dynamic_keymap_once\(void\) \{\n([\s\S]*?)\n\}/);
+assert(syncDefaultsBlock, 'Missing one-shot factory default synchronizer.');
+assert(syncDefaultsBlock[1].includes('if (!seed_qmk_settings_defaults())'), 'Factory synchronization must stop when QMK settings seeding fails.');
+const qmkSeedGuardOffset = syncDefaultsBlock[1].indexOf('if (!seed_qmk_settings_defaults())');
+const markerOffset = syncDefaultsBlock[1].indexOf('xtreemze_user_data.defaults_marker = XTREEMZE_DEFAULTS_EE_MARKER;');
+assert(qmkSeedGuardOffset >= 0 && markerOffset > qmkSeedGuardOffset, 'Factory marker must only be written after successful QMK settings seeding.');
+
+const simulateQmkSettingsSeed = results => {
+    for (const result of results) {
+        if (result !== 0) return false;
+    }
+    return true;
+};
+assert(simulateQmkSettingsSeed([0, 0, 0]), 'Successful QMK settings setters must permit certification.');
+assert(!simulateQmkSettingsSeed([0, -1, 0]), 'A simulated QMK settings failure must prevent certification.');
+
 const macroStart = source.lastIndexOf('static bool seed_vial_macro_defaults(void)');
 const macroBlock = source.slice(macroStart, source.indexOf('#ifdef QMK_SETTINGS', macroStart));
 let macroTerminators = 0;
