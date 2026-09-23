@@ -478,9 +478,9 @@ static void expect_vial_precedence(void) {
     vial_alt_repeat_key_match_t match = {0};
 
     /* More required modifiers beat a less-specific earlier match. */
-    set_entry(24, KC_D, KC_U, MOD_LCTL, vial_arep_enabled | vial_arep_option_bidirectional);
-    set_entry(25, LCTL(KC_D), LCTL(KC_A), 0, vial_arep_enabled | vial_arep_option_bidirectional);
-    assert(vial_alt_repeat_key_resolve_direct(KC_D, MOD_LCTL, &match));
+    set_entry(24, KC_K, KC_U, MOD_LCTL, vial_arep_enabled | vial_arep_option_bidirectional);
+    set_entry(25, LCTL(KC_K), LCTL(KC_A), 0, vial_arep_enabled | vial_arep_option_bidirectional);
+    assert(vial_alt_repeat_key_resolve_direct(KC_K, MOD_LCTL, &match));
     assert(match.index == 25);
     assert(match.side == vial_alt_repeat_match_primary);
 
