@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document defines the complete physical acceptance testing matrix for the Halcyon Ferris keyboard. All tests must pass on both master orientations before any firmware release is considered stable.
+This document defines the physical acceptance testing matrix for the Halcyon Ferris keyboard. The moving `latest` GitHub release is an automated CI candidate, not a hardware-acceptance claim. A firmware build is hardware-accepted only after the applicable tests below are exercised on real hardware, evidence is recorded, and sign-off is attached to issue #7.
 
 ---
 
@@ -190,21 +190,21 @@ Pass Criteria:
 ✓ Click is distinct from rotation
 ```
 
-#### C.3: Encoder Acceleration
-**Objective**: Fast rotation provides acceleration if configured
+#### C.3: Encoder Rate Consistency
+**Objective**: Verify fast rotation remains predictable without assuming an acceleration feature
 
 ```
 Test Steps:
-1. Rotate slowly → should increment by 1
-2. Rotate fast → should increment by 3-5
-3. Verify acceleration is smooth
-4. Acceleration should match configuration
+1. Rotate slowly in both directions
+2. Rotate quickly in both directions
+3. Rapidly alternate direction
+4. Compare emitted actions with the documented encoder mapping
 
 Pass Criteria:
-✓ Acceleration curves smooth
-✓ No acceleration on slow rotation
-✓ Noticeable acceleration on fast
-✓ Configurable via Vial
+✓ No unexplained missed or duplicate actions
+✓ Direction remains deterministic
+✓ Any acceleration behavior is explicitly implemented and documented before it is treated as required
+✓ Do not require Vial-configurable acceleration unless that capability is actually exposed
 ```
 
 ---
@@ -382,22 +382,21 @@ Pass Criteria:
 ```
 
 #### F.3: M10 Bootstrap Macro
-**Objective**: M10 macro hardening works (#26 validation)
+**Objective**: Verify the compiled factory macro matches the repository's current security decision (#26)
 
 ```
 Test Steps:
-1. Flash firmware with default config
-2. Open Vial → check M10
-3. M10 should contain: curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh | bash
-4. Press M10 in terminal → verify command appears (not executed)
-5. Review command → should point to 'main' branch, not 'master'
+1. Flash the exact candidate firmware
+2. Open Vial and inspect M10
+3. Compare M10 byte-for-byte with the canonical factory profile/source for the same commit
+4. Invoke M10 in a non-destructive text field or terminal without submitting it
+5. Confirm the macro does not append Enter/Return
 
 Pass Criteria:
-✓ M10 macro present
-✓ Uses 'main' branch (not 'master')
-✓ No Enter key (requires manual submission)
-✓ URL accessible (returns 200 OK)
-✓ No execution without manual press
+✓ M10 matches the candidate commit's canonical profile/source
+✓ No Enter/Return is emitted automatically
+✓ The command is reviewable before manual submission
+✓ Branch-tip versus pinned/verified bootstrap policy is reported according to the current #26 decision; this matrix does not invent a branch-name requirement
 ```
 
 ---
@@ -425,23 +424,22 @@ Pass Criteria:
 ✓ EEPROM behavior identical
 ```
 
-#### G.2: Firmware Determinism Validation (#47)
-**Objective**: Same source produces identical binaries
+#### G.2: Distributed Build Identity & Reproducibility Evidence (#25, #47)
+**Objective**: Record the exact distributed binaries without claiming reproducibility that the current Vial `BUILD_ID` semantics do not provide
 
 ```
 Test Steps:
-1. Build display module
-2. SHA256 firmware_display.uf2 → save hash1
-3. Clean build
-4. Build display module again
-5. SHA256 firmware_display.uf2 → save hash2
-6. Compare hash1 vs hash2
+1. Record the userspace commit, pinned Vial-QMK commit and immutable build-tool identity
+2. Record SHA-256 and size for both distributed UF2 files
+3. Confirm those values match firmware-release-manifest.json
+4. Until #47 removes per-build random compatibility identity, treat repeated-build digest differences as expected evidence rather than an acceptance failure
+5. After #47 establishes deterministic compatibility identity, perform repeated clean builds and compare digests before claiming reproducibility
 
 Pass Criteria:
-✓ hash1 == hash2 (byte-for-byte identical)
-✓ Proves deterministic build
-✓ Same applies to encoder module
-✓ Proves release reproducibility
+✓ Distributed UF2 digests and sizes match the manifest
+✓ Source/dependency/tool identities are recorded
+✓ No byte-reproducibility claim is made while random BUILD_ID remains
+✓ Any future reproducibility claim is backed by repeated-build evidence
 ```
 
 ---
@@ -515,7 +513,7 @@ Pass Criteria:
 ### C. Encoder Module
 - [ ] C.1 Encoder Rotation: PASS / FAIL / PARTIAL
 - [ ] C.2 Encoder Button: PASS / FAIL / PARTIAL
-- [ ] C.3 Encoder Acceleration: PASS / FAIL / PARTIAL
+- [ ] C.3 Encoder Rate Consistency: PASS / FAIL / PARTIAL
 
 ### D. Split Synchronization
 - [ ] D.1 Disconnect/Reconnect: PASS / FAIL / PARTIAL
@@ -534,7 +532,7 @@ Pass Criteria:
 
 ### G. Multi-Module Consistency
 - [ ] G.1 Module Identical Config: PASS / FAIL / PARTIAL
-- [ ] G.2 Firmware Determinism: PASS / FAIL / PARTIAL
+- [ ] G.2 Distributed Build Identity/Reproducibility Evidence: PASS / FAIL / PARTIAL
 
 ### Overall Result
 **ACCEPTED** / **CONDITIONAL** (issues noted) / **REJECTED** (blocking issues)
@@ -557,7 +555,7 @@ Firmware is **ACCEPTED FOR RELEASE** when:
 - ✅ Both master orientations tested
 - ✅ #47 EEPROM persistence validated
 - ✅ #26 M10 macro verified
-- ✅ Firmware determinism confirmed (same binary)
+- ✅ Distributed UF2 digests/provenance match the release manifest; reproducibility is claimed only when #47 permits and repeated-build evidence supports it
 - ✅ No blocking security issues
 - ✅ Signed off by tester
 
