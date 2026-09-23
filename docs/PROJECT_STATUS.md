@@ -1,6 +1,6 @@
 # Project status and audit snapshot
 
-Snapshot date: 2026-09-06
+Snapshot date: 2026-09-23
 
 This page is a current-state summary. Durable findings, decisions, research, risks and hardware evidence live in GitHub Issues; implementation and documentation changes live in pull requests.
 
@@ -11,7 +11,7 @@ This page is a current-state summary. Durable findings, decisions, research, ris
 - SplitKB Halcyon upstream was last checked on 2026-09-04 and remained `0d2653b3ed58807a63915fa55d071f98d12a8991`; that commit was already integrated. Continue the dated decision log in #10 before the next synchronization.
 - Production Vial-QMK is pinned to `dd43959ae5c08d8a28d38a1acf7b04e86b14a344`. Candidate updates and decisions remain tracked in #11.
 - The local firmware build uses audited `qmk_cli` image digest `sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a` and commit-pinned checkout/upload Actions.
-- The release job is repository-local, validation-first and non-destructive. Artifact download, GitHub scripting and release creation Actions are commit-pinned; only the publish job receives `contents: write`.
+- The release job is repository-local, validation-first and non-destructive. Artifact download, GitHub scripting and release creation Actions are commit-pinned; only the publish job receives `contents: write`. The moving `latest` release is explicitly a prerelease CI candidate and is not hardware acceptance.
 - The canonical Ferris Vial profile is `keyboards/splitkb/halcyon/ferris/keymaps/xtreemze_final/xtreemzeVial.vil`, SHA-256 `281a1e2ff27dc6fff2a34b60fec276280fec2723389b4706895e657db3fd3a3a`, with factory marker `0xB0`.
 - `qmk.json` defines two production Ferris targets: TFT display and encoder-module firmware.
 - GitHub Issues are the durable project-memory surface; PRs are the change and review surface. `docs/PROJECT_GUIDE.md` defines the working model.
@@ -34,7 +34,7 @@ The release workflow currently provides these source/build-level guarantees:
 - every `qmk.json` production target has an exact documented compile command;
 - retained production ELFs provide flash and RP2040 linker-region RAM headroom measurements for both production targets.
 
-Automated success is not physical hardware acceptance. Split reconnect, either-master behavior, TFT/backlight behavior, suspend/resume and other electrical/runtime observations remain tracked separately in #7.
+Automated success is not physical hardware acceptance. The moving `latest` artifact is a CI candidate only. Split reconnect, either-master behavior, TFT/backlight behavior, suspend/resume and other electrical/runtime observations remain tracked separately in #7; immutable hardware-accepted release history remains #25.
 
 ## Recently integrated
 
@@ -48,7 +48,8 @@ Automated success is not physical hardware acceptance. Split reconnect, either-m
 
 ## Active implementation
 
-- PR #51 advances #25 with a deterministic firmware release provenance manifest. It records source/dependency identity and UF2 hashes while keeping physical hardware acceptance explicitly separate. Immutable historical releases and the remaining manifest evidence are still follow-up work under #25.
+- #25 remains open for immutable hardware-accepted release history; the moving `latest` surface is intentionally only a CI candidate.
+- PR #81 completes the remaining #35 internal-linkage cleanup for TFT painter devices; its exact firmware CI is the acceptance gate for that source-only encapsulation change.
 
 ## Open priorities
 
@@ -64,7 +65,6 @@ Automated success is not physical hardware acceptance. Split reconnect, either-m
 ### Input and display correctness
 
 - #28: remove the deterministic encoder Repeat resolver's per-detent scan of Vial Alternate Repeat entries in NVM and reuse one authoritative RAM-resident policy where possible.
-- #30: render unknown shortcut policy as an explicit unknown/waiting state rather than incorrectly claiming Ctrl is active.
 - #31: restore production Vial Alternate Repeat status on the TFT using Vial's coherent resolver rather than the currently blank branch.
 - #35: reduce stale TFT public API and module-global painter-state exposure after exact build verification.
 
