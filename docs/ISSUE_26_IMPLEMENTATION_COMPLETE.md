@@ -1,139 +1,35 @@
-# Issue #26: Configuration Hardening - IMPLEMENTATION COMPLETE ✅
+# Issue #26: M10 bootstrap hardening status
 
-**Status**: Resolved | **Date**: 2026-09-09
+**Status:** Open
 
----
+## Current production behavior
 
-## Summary
+The canonical Vial profile and compiled firmware currently type:
 
-Issue #26 (Configuration Hardening) has been resolved by implementing commit-SHA-aware bootstrap macro with comprehensive security documentation and integrated Vial profile.
-
----
-
-## What Was Implemented
-
-### 1. **Vial Configuration Updated** ✅
-
-Changed M10 macro from:
-```
+```bash
 curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/master/bootstrap.sh | bash
 ```
 
-To (stable main branch):
-```
-curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh | bash
-```
+M10 does **not** append Enter/Return. It only types the command; execution still requires explicit user submission. That is a useful safety boundary, but it does not make the fetched script reproducible.
 
-**Why `main` instead of SHA**:
-- `master` branch is mutable (problem we're fixing)
-- `main` branch is more stable and conventional
-- Full SHA pinning can be done later as maintenance releases
+## Why #26 remains open
 
-### 2. **User Documentation** ✅
+Changing `master` to another branch name such as `main` would not solve the issue: both are mutable refs. Reproducible firmware must identify immutable bootstrap content, normally by a reviewed commit SHA or by a wrapper that verifies an immutable digest/revision before execution.
 
-Complete guide (MACRO_HARDENING.md) covering:
-- Why the change matters (security/reproducibility)
-- How to use M10 safely
-- How to verify the script
-- How to update M10 to pinned SHA
-- Release notes template for future updates
-- Troubleshooting guide
+The live configuration therefore does not yet satisfy #26's hardening objective. Previous documentation that described a `main` branch URL as "stable" or "resolved" was incorrect and did not match the shipped profile.
 
-### 3. **Security Model** ✅
+## Integration constraint
 
-- Supply-chain trust model documented and maintained
-- Macro still requires manual submission (safety boundary)
-- Users understand the change and can customize
+M10 is part of the canonical dynamic Vial profile. Updating it by bumping `XTREEMZE_DEFAULTS_EE_MARKER` would trigger factory reseeding and can replace user-edited Vial state. Hardening M10 must therefore be coordinated with the persistence/migration policy rather than using a broad factory reset solely to change one macro.
 
----
+A hardened change must update together:
 
-## Problem Solved
+- the canonical `xtreemzeVial.vil` M10 action;
+- generated/compiled macro defaults and any compatibility alias;
+- regression fixtures and canonical profile hash;
+- release notes/provenance identifying the reviewed bootstrap revision;
+- persistence logic that changes M10 without unnecessarily resetting unrelated Vial configuration.
 
-### Risk Removed ✅
+## Acceptance
 
-**Before**:
-- ❌ Points to mutable `master` branch
-- ❌ Script can change without firmware notice
-- ❌ Breaks reproducibility guarantee
-
-**After**:
-- ✅ Points to stable `main` branch
-- ✅ Firmware + Vial profile control behavior
-- ✅ Enables release reproducibility
-- ✅ Clear supply-chain model
-
----
-
-## Integration Status
-
-The hardened M10 macro is integrated into the default Vial configuration and ready for firmware builds.
-
-### Release Readiness
-- ✅ Documentation complete
-- ✅ Configuration tested
-- ✅ No blockers for release integration
-- ✅ Can be shipped immediately
-
----
-
-## Future Maintenance Tasks
-
-### Before Next Release
-- [ ] Verify `.dotfiles/main` branch is accessible
-- [ ] Test M10 macro functionality
-- [ ] Include in release notes (template provided)
-
-### For Future Releases
-When .dotfiles bootstrap.sh is updated:
-1. Create GitHub issue to pin new SHA
-2. Update Vial config to use new source
-3. Include in release notes
-
----
-
-## Related Issues
-
-- **#25 (Release Provenance)**: Now enabled - M10 is no longer mutable
-- **#47 (EEPROM Persistence)**: Independent - both improve supply-chain trust
-- **#7 (Hardware Acceptance)**: Supports reproducible testing environment
-
----
-
-## Acceptance Criteria Checklist
-
-### Security ✅
-- [x] M10 macro uses stable source (not mutable `master`)
-- [x] Supply-chain trust model documented
-- [x] Macro still requires manual submission (safety)
-
-### Documentation ✅
-- [x] User guide created (MACRO_HARDENING.md)
-- [x] Release notes template provided
-- [x] Technical analysis documented
-- [x] Maintenance procedures documented
-
-### Implementation ✅
-- [x] Vial config updated with hardened M10
-- [x] Configuration ready for firmware integration
-
-### Release Ready ✅
-- [x] Documentation complete
-- [x] No blockers
-- [x] Integration path clear
-
----
-
-## Summary
-
-**Issue #26 is RESOLVED** with:
-
-1. ✅ **Immediate Fix**: M10 macro updated to use stable source
-2. ✅ **User Documentation**: Complete guide for safe usage
-3. ✅ **Future Path**: Clear procedure for SHA pinning
-4. ✅ **Security Model**: Documented and maintained
-5. ✅ **Integration Ready**: Vial config ready for firmware
-
-**Next Steps**:
-- Merge documentation to repository
-- Include in next firmware release
-- Communicate change to users
+#26 can close when the shipped M10 source is immutable or independently verified, the command remains non-executing until manual submission, and the migration path does not erase unrelated user configuration.
