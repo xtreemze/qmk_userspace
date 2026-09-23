@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xtreemze <xtreemze@gmail.com>
+Date: Wed, 23 Sep 2026 15:12:00 +0800
+Subject: [PATCH] Expose Vial RAM alternate-repeat direct-match resolver
+
+The Halcyon encoder needs the orientation of the winning live Vial
+Alternate Repeat pair, but it must not rescan EEPROM or reimplement that
+policy in userspace.
+
+Expose a narrow direct-match result backed by Vial's coherent RAM table.
+The resolver uses Vial's existing normalization, modifier matching,
+best-fit and slot-order rules while leaving the pinned upstream Alternate
+Repeat implementation byte-for-byte untouched.
+
+Default-alt fallback is intentionally excluded. Ordinary Alternate Repeat
+continues to use the stock Vial path.
+---
+ quantum/vial.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ quantum/vial.h | 14 ++++++++++++++
+ 2 files changed, 62 insertions(+)
+
+diff --git a/quantum/vial.c b/quantum/vial.c
+--- a/quantum/vial.c
++++ b/quantum/vial.c
+@@ -774,4 +774,52 @@ uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods) {
+ 
+     return alt_keycode;
+ }
++
++bool vial_alt_repeat_key_resolve_direct(uint16_t keycode, uint8_t mods, vial_alt_repeat_key_match_t *match) {
++    int8_t best_fit = -1;
++    vial_alt_repeat_key_match_t best = {0};
++
++    keycode = alt_repeat_key_normalize_keycode(keycode, &mods);
++
++    for (size_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
++        const alt_repeat_key_t* entry = &vial_alt_repeat_key[i];
++        const uint8_t options = entry->options;
++        if (!(options & vial_arep_enabled)) {
++            continue;
++        }
++
++        if (entry->keycode == keycode &&
++                alt_repeat_key_mods_match(mods, entry->required_mods, entry->allowed_mods, options)) {
++            const int8_t fit = bitpop(entry->required_mods);
++            if (fit > best_fit) {
++                best.index = (uint8_t)i;
++                best.options = options;
++                best.side = vial_alt_repeat_match_primary;
++                best_fit = fit;
++            }
++        }
++
++        if (entry->alt_keycode == keycode &&
++                (options & vial_arep_option_bidirectional) != 0 &&
++                alt_repeat_key_mods_match(mods, entry->alt_required_mods, entry->allowed_mods, options)) {
++            const int8_t fit = bitpop(entry->alt_required_mods);
++            if (fit > best_fit) {
++                best.index = (uint8_t)i;
++                best.options = options;
++                best.side = vial_alt_repeat_match_alternate;
++                best_fit = fit;
++            }
++        }
++    }
++
++    if (best_fit < 0) {
++        return false;
++    }
++
++    if (match != NULL) {
++        *match = best;
++    }
++    return true;
++}
++
+ #endif
+diff --git a/quantum/vial.h b/quantum/vial.h
+--- a/quantum/vial.h
++++ b/quantum/vial.h
+@@ -216,6 +216,20 @@ enum {
+     vial_arep_enabled = (1 << 3),
+ };
+ 
++typedef enum {
++    vial_alt_repeat_match_none = 0,
++    vial_alt_repeat_match_primary,
++    vial_alt_repeat_match_alternate,
++} vial_alt_repeat_match_side_t;
++
++typedef struct {
++    uint8_t index;
++    uint8_t options;
++    vial_alt_repeat_match_side_t side;
++} vial_alt_repeat_key_match_t;
++
++bool vial_alt_repeat_key_resolve_direct(uint16_t keycode, uint8_t mods, vial_alt_repeat_key_match_t *match);
++
+ #else
+ #undef VIAL_ALT_REPEAT_KEY_ENTRIES
+ #define VIAL_ALT_REPEAT_KEY_ENTRIES 0
+-- 
+2.51.0

@@ -4,10 +4,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 qmk_dir="$repo_root/qmk_firmware"
 os_patch="$repo_root/patches/0001-os-detection-fingerprint-trace.patch"
-repeat_patch="$repo_root/patches/0002-repeat-last-record-accessor.patch"
 override_patch="$repo_root/patches/0003-repeat-key-override-weak-mods.patch"
 combo_patch="$repo_root/patches/0004-combo-triggered-user-hook.patch"
-repeat_source="$qmk_dir/quantum/repeat_key.c"
+resolver_patch="$repo_root/patches/0005-vial-alt-repeat-ram-resolver.patch"
+vial_source="$qmk_dir/quantum/vial.c"
+vial_header="$qmk_dir/quantum/vial.h"
 override_source="$qmk_dir/quantum/process_keycode/process_key_override.c"
 combo_source="$qmk_dir/quantum/process_keycode/process_combo.c"
 combo_header="$qmk_dir/quantum/process_keycode/process_combo.h"
@@ -20,17 +21,25 @@ fail() {
 
 [[ -d "$qmk_dir/.git" ]] || fail "pinned QMK checkout is required"
 [[ -f "$os_patch" ]] || fail "OS fingerprint patch is missing"
-[[ -f "$repeat_patch" ]] || fail "Repeat last-record accessor patch is missing"
 [[ -f "$override_patch" ]] || fail "Repeat/Key Override weak-mod patch is missing"
 [[ -f "$combo_patch" ]] || fail "Combo activation hook patch is missing"
+[[ -f "$resolver_patch" ]] || fail "Vial Alternate Repeat RAM-resolver patch is missing"
 
 if grep -q 'quantum/repeat_key.c' "$os_patch"; then
     fail "OS fingerprint patch must not contain Repeat-engine changes"
 fi
 
-grep -q '721affff7b2ca2aafcef3092a707b0ff1196dfb1' "$repeat_patch" || fail "Repeat accessor patch must record its upstream retirement commit"
-grep -q 'keyrecord_t\* get_last_record(void)' "$repeat_source" || fail "patched Repeat engine lacks get_last_record implementation"
-grep -q 'return &last_record;' "$repeat_source" || fail "get_last_record implementation does not expose native Repeat state"
+grep -q 'vial_alt_repeat_key_resolve_direct' "$resolver_patch" || fail "Vial resolver patch must expose the coherent direct-match API"
+grep -q 'bool vial_alt_repeat_key_resolve_direct' "$vial_source" || fail "patched Vial engine lacks direct-match resolver"
+grep -q 'vial_alt_repeat_key_match_t' "$vial_header" || fail "Vial direct-match result is not declared publicly"
+stock_body="$(sed -n '/uint16_t get_alt_repeat_key_keycode_user(/,/^}/p' "$vial_source")"
+grep -q 'alt_repeat_key_normalize_keycode' <<<"$stock_body" || fail "stock Alternate Repeat normalization unexpectedly changed"
+grep -q 'alt_repeat_key_mods_match' <<<"$stock_body" || fail "stock Alternate Repeat modifier policy unexpectedly changed"
+resolver_body="$(sed -n '/bool vial_alt_repeat_key_resolve_direct(/,/^}/p' "$vial_source")"
+grep -q 'alt_repeat_key_normalize_keycode' <<<"$resolver_body" || fail "public resolver must use Vial normalization"
+if grep -q 'dynamic_keymap_get_alt_repeat_key' <<<"$resolver_body"; then
+    fail "public resolver must not read the dynamic-keymap EEPROM path"
+fi
 
 grep -q 'd7ad3bf8aa05ead807984845480542affb3a054e' "$override_patch" || fail "Repeat/Key Override patch must record its upstream retirement commit"
 grep -q 'elif defined(REPEAT_KEY_ENABLE)' "$override_source" || fail "patched Key Override engine lacks Repeat-specific weak-mod handling"
@@ -45,8 +54,8 @@ helper_uses=$(grep -c 'bash scripts/apply-qmk-patches.sh qmk_firmware' "$workflo
 [[ "$helper_uses" -eq 2 ]] || fail "regression and reusable-build jobs must share the patch-series helper"
 
 mapfile -t patches < <(find "$repo_root/patches" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.patch' -printf '%f\n' | sort)
-expected='0001-os-detection-fingerprint-trace.patch 0002-repeat-last-record-accessor.patch 0003-repeat-key-override-weak-mods.patch 0004-combo-triggered-user-hook.patch'
+expected='0001-os-detection-fingerprint-trace.patch 0003-repeat-key-override-weak-mods.patch 0004-combo-triggered-user-hook.patch 0005-vial-alt-repeat-ram-resolver.patch'
 [[ "${patches[*]}" == "$expected" ]] || fail "numbered QMK patch series is unexpected: ${patches[*]}"
 
 git -C "$qmk_dir" diff --check
-printf 'QMK patch responsibilities and upstream backport checks passed.\n'
+printf 'QMK patch responsibilities and Vial RAM-resolver checks passed.\n'

@@ -21,22 +21,6 @@ Retire this patch only after the replacement Vial/QMK dependency provides the
 same trace contract required by the TFT diagnostic path, or after that diagnostic
 contract is deliberately removed.
 
-## 0002 — Repeat Key last-record accessor
-
-`0002-repeat-last-record-accessor.patch` backports upstream QMK commit
-`721affff7b2ca2aafcef3092a707b0ff1196dfb1` (2026-06-18, QMK PR #26263). The pinned
-Vial-QMK `repeat_key.h` declares `get_last_record()` but its `repeat_key.c` lacks
-the implementation. The deterministic Halcyon encoder translation uses that
-accessor to preserve native Repeat state while orienting Vial bidirectional pairs.
-
-The backport intentionally keeps the pinned Vial declaration's non-const return
-signature. Later QMK changed API details can be reconciled when the Vial-QMK pin
-advances; do not mix that migration into this compatibility patch.
-
-Retire this patch as soon as the pinned Vial-QMK revision contains upstream QMK
-commit `721affff7b2ca2aafcef3092a707b0ff1196dfb1` or an equivalent compatible
-implementation.
-
 ## 0003 — Repeat Key + Key Override weak modifiers
 
 `0003-repeat-key-override-weak-mods.patch` backports upstream QMK commit
@@ -53,6 +37,26 @@ ordinary Key Override semantics.
 Retire this patch as soon as the pinned Vial-QMK revision contains upstream QMK
 commit `d7ad3bf8aa05ead807984845480542affb3a054e` or an equivalent fix. Pin review
 must explicitly check this condition.
+
+## 0005 — Vial Alternate Repeat RAM resolver
+
+`0005-vial-alt-repeat-ram-resolver.patch` exposes the direct-match winner from
+Vial's existing coherent RAM-resident Alternate Repeat table. The public result
+contains the winning slot, options and whether the remembered key matched the
+primary or alternate side. The resolver operates beside the pinned stock
+`get_alt_repeat_key_keycode_user()` and deliberately leaves that upstream
+implementation untouched. Both paths use Vial's existing normalization,
+modifier matching, RAM table, best-fit and slot-order semantics; focused
+regressions lock those expectations for the pinned dependency.
+
+The resolver deliberately excludes default-alt fallback. Encoder deterministic
+orientation only canonicalizes a winning direct bidirectional pair; one-way,
+default-alt and unmatched cases continue through stock Repeat/Alternate Repeat.
+
+This local compatibility extension resolves #28 and enables #63 without
+per-detent EEPROM reads or `last_record` mutation. Retire it when the pinned
+Vial-QMK revision exposes an equivalent coherent direct-match API, or when the
+encoder orientation policy no longer needs pair-side metadata.
 
 ## Patch policy
 
