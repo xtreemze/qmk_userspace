@@ -43,9 +43,11 @@ must explicitly check this condition.
 `0005-vial-alt-repeat-ram-resolver.patch` exposes the direct-match winner from
 Vial's existing coherent RAM-resident Alternate Repeat table. The public result
 contains the winning slot, options and whether the remembered key matched the
-primary or alternate side. Vial's stock `get_alt_repeat_key_keycode_user()`
-reuses the same direct-match helper, so the encoder policy does not duplicate
-normalization, modifier matching, best-fit or slot-order precedence.
+primary or alternate side. The resolver operates beside the pinned stock
+`get_alt_repeat_key_keycode_user()` and deliberately leaves that upstream
+implementation untouched. Both paths use Vial's existing normalization,
+modifier matching, RAM table, best-fit and slot-order semantics; focused
+regressions lock those expectations for the pinned dependency.
 
 The resolver deliberately excludes default-alt fallback. Encoder deterministic
 orientation only canonicalizes a winning direct bidirectional pair; one-way,
