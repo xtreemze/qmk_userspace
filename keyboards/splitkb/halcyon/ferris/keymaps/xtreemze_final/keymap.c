@@ -139,7 +139,10 @@ typedef struct {
 #endif
 } xtreemze_user_data_t;
 
+_Static_assert(sizeof(xtreemze_user_data_t) <= EECONFIG_USER_DATA_SIZE, "xtreemze user data exceeds QMK user datablock");
+
 static xtreemze_user_data_t xtreemze_user_data;
+static bool user_data_schema_writable = true;
 
 static void set_user_data_defaults(xtreemze_user_data_t *data) {
     memset(data, 0, sizeof(*data));
@@ -159,24 +162,49 @@ static void set_user_data_defaults(xtreemze_user_data_t *data) {
 }
 
 void eeconfig_init_user_datablock(void) {
+    user_data_schema_writable = true;
     set_user_data_defaults(&xtreemze_user_data);
-    eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
+    if (eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data)) != sizeof(xtreemze_user_data)) {
+        user_data_schema_writable = false;
+    }
 }
 
 static void save_user_data(void) {
-    eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
+    if (!user_data_schema_writable) {
+        return;
+    }
+    if (eeconfig_update_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data)) != sizeof(xtreemze_user_data)) {
+        user_data_schema_writable = false;
+    }
 }
 
 static void load_user_data(void) {
+    user_data_schema_writable = true;
     if (!eeconfig_is_user_datablock_valid()) {
         eeconfig_init_user_datablock();
         return;
     }
 
-    eeconfig_read_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data));
-    if (xtreemze_user_data.magic != XTREEMZE_USER_DATA_MAGIC || xtreemze_user_data.version != XTREEMZE_USER_DATA_VERSION) {
+    if (eeconfig_read_user_datablock(&xtreemze_user_data, 0, sizeof(xtreemze_user_data)) != sizeof(xtreemze_user_data)) {
         set_user_data_defaults(&xtreemze_user_data);
-        save_user_data();
+        user_data_schema_writable = false;
+        return;
+    }
+
+    if (xtreemze_user_data.magic != XTREEMZE_USER_DATA_MAGIC) {
+        eeconfig_init_user_datablock();
+        return;
+    }
+
+    if (xtreemze_user_data.version != XTREEMZE_USER_DATA_VERSION) {
+        /*
+         * A valid block with our magic but an unsupported schema may belong to
+         * newer firmware. Use safe RAM defaults for this boot, but preserve the
+         * raw EEPROM and Vial dynamic configuration for a future migration.
+         */
+        set_user_data_defaults(&xtreemze_user_data);
+        user_data_schema_writable = false;
+        return;
     }
 
     if (xtreemze_user_data.chord_override_ms < XTREEMZE_CHORD_MS_MIN || xtreemze_user_data.chord_override_ms > XTREEMZE_CHORD_MS_MAX) {
@@ -2006,7 +2034,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 void keyboard_post_init_user(void) {
     load_user_data();
-    sync_compiled_defaults_to_dynamic_keymap_once();
+    if (user_data_schema_writable) {
+        sync_compiled_defaults_to_dynamic_keymap_once();
+    }
 #ifdef RGB_MATRIX_ENABLE
     refresh_rgb_profile_state();
 #endif
