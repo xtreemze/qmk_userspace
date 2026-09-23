@@ -12,6 +12,7 @@ run() {
 run bash tests/qmk_patch_series.sh
 run bash tests/changed_firmware_format_scope.sh
 run bash tests/ci_build_boundary.sh
+run python3 tests/workflow_action_pins.py
 run python3 tests/firmware_resource_baseline.py
 run python3 tests/release_manifest.py
 run bash tests/halcyon_tft_backlight_rules.sh
