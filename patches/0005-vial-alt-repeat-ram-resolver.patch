@@ -16,17 +16,12 @@ This intentionally excludes default-alt fallback from the public direct
 resolver. Callers that need ordinary Alternate Repeat fallback continue to
 use the stock QMK/Vial path.
 ---
- quantum/vial.c | 82 ++++++++++++++++++++++++++++++++++++++------------
- quantum/vial.h | 14 +++++++++
- 2 files changed, 77 insertions(+), 19 deletions(-)
-
 diff --git a/quantum/vial.h b/quantum/vial.h
-index 9c66275d4b..1111111111 100644
 --- a/quantum/vial.h
 +++ b/quantum/vial.h
-@@ -214,6 +214,20 @@ enum {
-     vial_arep_enabled = (1 << 3),
- };
+@@ -99,6 +99,20 @@
+ } vial_tap_dance_entry_t;
+ _Static_assert(sizeof(vial_tap_dance_entry_t) == 10, "Unexpected size of the vial_tap_dance_entry_t structure");
  
 +typedef enum {
 +    vial_alt_repeat_match_none = 0,
@@ -43,62 +38,96 @@ index 9c66275d4b..1111111111 100644
 +bool vial_alt_repeat_key_resolve_direct(uint16_t keycode, uint8_t mods, vial_alt_repeat_key_match_t *match);
 +
  #else
- #undef VIAL_ALT_REPEAT_KEY_ENTRIES
- #define VIAL_ALT_REPEAT_KEY_ENTRIES 0
+ #undef VIAL_TAP_DANCE_ENTRIES
+ #define VIAL_TAP_DANCE_ENTRIES 0
 diff --git a/quantum/vial.c b/quantum/vial.c
-index 42eb4c5e2a..2222222222 100644
 --- a/quantum/vial.c
 +++ b/quantum/vial.c
-@@ -722,46 +722,90 @@ static bool alt_repeat_key_mods_match(uint8_t mods, uint8_t required_mods, uint
+@@ -728,51 +728,82 @@
      return (mods & required_mods) == required_mods && (mods & ~allowed_mods) == 0;
  }
  
 -uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods) {
 -    uint16_t alt_keycode = KC_TRNS;
-+static bool alt_repeat_key_resolve_direct_normalized(uint16_t keycode, uint8_t mods, vial_alt_repeat_key_match_t *match) {
-     int8_t best_fit = -1;
-+    vial_alt_repeat_key_match_t best = {0};
- 
+-    int8_t best_fit = -1;
+-
 -    keycode = alt_repeat_key_normalize_keycode(keycode, &mods);
 -
-     for (size_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
-         const alt_repeat_key_t* entry = &vial_alt_repeat_key[i];
-         const uint8_t options = entry->options;
-         if (!(options & vial_arep_enabled)) { // Skip disabled entries.
-             continue;
-         }
- 
+-    for (size_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
+-        const alt_repeat_key_t* entry = &vial_alt_repeat_key[i];
+-        const uint8_t options = entry->options;
+-        if (!(options & vial_arep_enabled)) { // Skip disabled entries.
+-            continue;
+-        }
+-
 -        // Search for an entry with matching keycode and mods. If there is more
 -        // than one match, the entry with the most mods wins.
-         if (entry->keycode == keycode &&
-                 alt_repeat_key_mods_match(mods, entry->required_mods, entry->allowed_mods, options)) {
-             const int8_t fit = bitpop(entry->required_mods);
-             if (fit > best_fit) {
+-        if (entry->keycode == keycode &&
+-                alt_repeat_key_mods_match(mods, entry->required_mods, entry->allowed_mods, options)) {
+-            const int8_t fit = bitpop(entry->required_mods);
+-            if (fit > best_fit) {
 -                alt_keycode = (entry->alt_required_mods << 8) | entry->alt_keycode;
+-                best_fit = fit;
+-            }
+-        }
+-
+-        // If the entry is bidirectional, check for match with the alt keycode.
+-        if (entry->alt_keycode == keycode &&
+-                (options & vial_arep_option_bidirectional) != 0 &&
+-                alt_repeat_key_mods_match(mods, entry->alt_required_mods, entry->allowed_mods, options)) {
+-            const int8_t fit = bitpop(entry->alt_required_mods);
+-            if (fit > best_fit) {
+-                alt_keycode = (entry->required_mods << 8) | entry->keycode;
+-                best_fit = fit;
+-            }
+-        }
+-
+-        // If this entry is the default alt key and allowed mods are satisfied,
+-        // use it if no there is no other match.
+-        if ((options & vial_arep_option_default_to_this_alt_key) != 0 &&
+-                best_fit == -1 && alt_keycode == KC_TRNS &&
+-                alt_repeat_key_mods_match(mods, 0, entry->allowed_mods, options)) {
+-            alt_keycode = (entry->alt_required_mods << 8) | entry->alt_keycode;
+-        }
+-    }
+-
+-    return alt_keycode;
+-}
++static bool alt_repeat_key_resolve_direct_normalized(uint16_t keycode, uint8_t mods, vial_alt_repeat_key_match_t *match) {
++    int8_t best_fit = -1;
++    vial_alt_repeat_key_match_t best = {0};
++
++    for (size_t i = 0; i < VIAL_ALT_REPEAT_KEY_ENTRIES; ++i) {
++        const alt_repeat_key_t* entry = &vial_alt_repeat_key[i];
++        const uint8_t options = entry->options;
++        if (!(options & vial_arep_enabled)) { // Skip disabled entries.
++            continue;
++        }
++
++        if (entry->keycode == keycode &&
++                alt_repeat_key_mods_match(mods, entry->required_mods, entry->allowed_mods, options)) {
++            const int8_t fit = bitpop(entry->required_mods);
++            if (fit > best_fit) {
 +                best.index = (uint8_t)i;
 +                best.options = options;
 +                best.side = vial_alt_repeat_match_primary;
-                 best_fit = fit;
-             }
-         }
- 
--        // If the entry is bidirectional, check for match with the alt keycode.
-         if (entry->alt_keycode == keycode &&
-                 (options & vial_arep_option_bidirectional) != 0 &&
-                 alt_repeat_key_mods_match(mods, entry->alt_required_mods, entry->allowed_mods, options)) {
-             const int8_t fit = bitpop(entry->alt_required_mods);
-             if (fit > best_fit) {
--                alt_keycode = (entry->required_mods << 8) | entry->keycode;
++                best_fit = fit;
++            }
++        }
++
++        if (entry->alt_keycode == keycode &&
++                (options & vial_arep_option_bidirectional) != 0 &&
++                alt_repeat_key_mods_match(mods, entry->alt_required_mods, entry->allowed_mods, options)) {
++            const int8_t fit = bitpop(entry->alt_required_mods);
++            if (fit > best_fit) {
 +                best.index = (uint8_t)i;
 +                best.options = options;
 +                best.side = vial_alt_repeat_match_alternate;
-                 best_fit = fit;
-             }
-         }
++                best_fit = fit;
++            }
++        }
 +    }
- 
--        // If this entry is the default alt key and allowed mods are satisfied,
--        // use it if no there is no other match.
++
 +    if (best_fit < 0) {
 +        return false;
 +    }
@@ -133,17 +162,13 @@ index 42eb4c5e2a..2222222222 100644
 +            continue;
 +        }
 +
-         if ((options & vial_arep_option_default_to_this_alt_key) != 0 &&
--                best_fit == -1 && alt_keycode == KC_TRNS &&
-                 alt_repeat_key_mods_match(mods, 0, entry->allowed_mods, options)) {
--            alt_keycode = (entry->alt_required_mods << 8) | entry->alt_keycode;
++        if ((options & vial_arep_option_default_to_this_alt_key) != 0 &&
++                alt_repeat_key_mods_match(mods, 0, entry->allowed_mods, options)) {
 +            return (entry->alt_required_mods << 8) | entry->alt_keycode;
-         }
-     }
- 
--    return alt_keycode;
++        }
++    }
++
 +    return KC_TRNS;
- }
++}
  #endif
--- 
-2.51.0
+ 
