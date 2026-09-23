@@ -551,12 +551,20 @@ static const char *host_shortcut_label(halcyon_shortcut_family_t family) {
             return "CTRL";
         case HALCYON_SHORTCUT_UNKNOWN:
         default:
-            return "CTRL";
+            return "WAIT";
     }
 }
 
 static const char *host_shortcut_compact_label(halcyon_shortcut_family_t family) {
-    return family == HALCYON_SHORTCUT_APPLE ? "CMD" : "CTL";
+    switch (family) {
+        case HALCYON_SHORTCUT_APPLE:
+            return "CMD";
+        case HALCYON_SHORTCUT_CTRL:
+            return "CTL";
+        case HALCYON_SHORTCUT_UNKNOWN:
+        default:
+            return "WAIT";
+    }
 }
 
 static const char *host_source_label(halcyon_host_source_t source) {
