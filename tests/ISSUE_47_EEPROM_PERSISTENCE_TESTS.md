@@ -1,6 +1,9 @@
-# Issue #47: EEPROM Persistence & Determinism - Complete Test Suite
+# Issue #47: EEPROM Persistence & Determinism - Migration Test Plan
 
-**Date**: 2026-09-09 | **Status**: Test Framework Complete
+**Date**: 2026-10-09 | **Status**: Pre-implementation test plan
+
+> [!WARNING]
+> This file is a pre-implementation hardware/test plan, not evidence that #47 is complete. As of 2026-10-09 the production Vial-QMK pin still generates a random 24-bit `BUILD_ID` on every compile, there is no `HALCYON_VIAL_COMPAT_GEN` implementation, and M10 still types the mutable `.dotfiles/master` bootstrap URL. Steps below that refer to deterministic BUILD_IDs or a compatibility generation describe the target design only and must not be reported as passing until the implementation exists and executable fixtures prove it.
 
 ---
 
@@ -296,49 +299,9 @@ Validation:
 
 ---
 
-### T2.3: M10 Bootstrap Macro Validation (#26)
+### T2.3: M10 Bootstrap Macro Boundary (#26)
 
-**Objective**: Verify M10 hardening works correctly
-
-**Setup**:
-```bash
-1. Flash firmware
-2. Open Vial → Macros → M10
-3. Verify M10 contains:
-   Text: "curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh | bash"
-4. Verify NO Enter key at end (requires manual submission)
-```
-
-**Functional Test**:
-```
-1. In terminal, press/type M10
-2. Full URL should appear: curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh | bash
-3. Command should NOT execute (no automatic Enter)
-4. User can review URL
-5. User manually presses Enter to execute
-
-Expected: Command typed, not executed
-```
-
-**URL Verification**:
-```bash
-# Verify URL is valid and accessible
-curl -I https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh
-# Should return 200 OK (or 404 if repo doesn't exist yet - document this)
-
-# Verify uses 'main' branch (not 'master')
-grep "master" <<< "curl -fsSL https://raw.githubusercontent.com/xtreemze/.dotfiles/main/bootstrap.sh | bash" || echo "✓ No 'master' branch reference"
-
-# Verify uses specific source (not mutable reference)
-echo "✓ Uses specific branch 'main' (stable, not mutable 'master')"
-```
-
-**Pass Criteria**:
-- ✓ M10 contains full curl command
-- ✓ URL uses 'main' branch (not 'master')
-- ✓ No Enter key (requires manual submission)
-- ✓ URL accessible or properly documented
-- ✓ Typing M10 shows command, doesn't execute
+M10 hardening is tracked independently in #26 and is not a prerequisite for #47. Current firmware intentionally preserves manual submission but still types the mutable `.dotfiles/master` URL. For #47, only verify that the persistence migration does not unexpectedly rewrite unrelated Vial macro slots. Do not treat branch-name changes as source immutability.
 
 ---
 
