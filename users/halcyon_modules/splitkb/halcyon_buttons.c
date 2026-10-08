@@ -3,6 +3,9 @@
 
 #include QMK_KEYBOARD_H
 #include "matrix.h"
+#ifdef RGB_MATRIX_ENABLE
+#    include "rgb_matrix.h"
+#endif
 
 #ifdef SPLIT_KEYBOARD
 #    define ROWS_PER_HAND (MATRIX_ROWS / 2)
@@ -61,6 +64,15 @@ void matrix_init_kb(void) {
     for (uint8_t i = 0; i < num_pins; i++) {
         gpio_set_pin_input_high(BUTTON_PINS[i]);
     }
+
+#if defined(RGB_MATRIX_ENABLE) && !defined(HALCYON_LEGACY)
+    // Virtual Halcyon module-button columns are not physical RGB LEDs.
+    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+        for (uint8_t col = VIRTUAL_COL_START; col < MATRIX_COLS; col++) {
+            g_led_config.matrix_co[row][col] = NO_LED;
+        }
+    }
+#endif
 
     matrix_init_user();
 }
