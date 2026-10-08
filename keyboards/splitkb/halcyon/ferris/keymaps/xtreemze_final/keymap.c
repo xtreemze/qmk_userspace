@@ -1987,10 +1987,6 @@ static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_
 }
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (process_encoder_lighting_keycode(keycode, record)) {
-        return false;
-    }
-
     if (!IS_ENCODEREVENT(record->event) || (keycode != QK_REPEAT_KEY && keycode != QK_ALT_REPEAT_KEY)) {
         return true;
     }
@@ -2027,6 +2023,10 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
 /* END XTREEMZE_ENCODER_REPEAT_POLICY */
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (process_encoder_lighting_keycode(keycode, record)) {
+        return false;
+    }
+
     if (!record->event.pressed) {
         return true;
     }
