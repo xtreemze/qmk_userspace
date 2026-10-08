@@ -61,6 +61,10 @@ def main() -> None:
     baseline_targets = baseline.get("targets")
     if not isinstance(baseline_targets, dict):
         fail("firmware resource baseline targets must be an object")
+    # A diagnostic-only image is not a production resource baseline. Its actual
+    # size remains visible in the CI-generated firmware resource report.
+    diagnostic_targets = {target for target in expected_targets if target.endswith("_tft_diagnostic")}
+    expected_targets -= diagnostic_targets
     if set(baseline_targets) != expected_targets:
         missing = sorted(expected_targets - set(baseline_targets))
         extra = sorted(set(baseline_targets) - expected_targets)
