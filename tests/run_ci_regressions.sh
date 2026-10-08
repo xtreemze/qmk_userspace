@@ -19,6 +19,7 @@ run bash tests/halcyon_tft_backlight_rules.sh
 run python3 tests/halcyon_module_sync.py
 run bash tests/halcyon_tft_layout_rules.sh
 run python3 tests/xtreemze_encoder_repeat_direction.py
+run python3 tests/usb_resume_diagnostic.py
 run bash tests/xtreemze_os_display_indicator.sh
 run bash tests/xtreemze_os_fingerprint_trace.sh
 run bash tests/xtreemze_os_shortcut_cache.sh

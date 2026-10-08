@@ -40,3 +40,9 @@ SRC += halcyon_settings_protocol.c
 # TFT labels and procedural layer-pattern geometry are a separate compatible
 # extension so the existing 0xF1 palette/timing protocol remains stable.
 SRC += halcyon_display_protocol.c
+
+# Opt-in A/B diagnostic for issue #8. Production builds leave QMK's
+# OS-detection USB recovery reset disabled; diagnostic builds may enable it.
+ifeq ($(XTREEMZE_USB_RESET_DIAGNOSTIC),yes)
+OPT_DEFS += -DOS_DETECTION_KEYBOARD_RESET
+endif
