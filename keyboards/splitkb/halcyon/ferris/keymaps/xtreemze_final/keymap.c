@@ -88,7 +88,6 @@ typedef enum {
     HOST_SOURCE_LIVE,
 } host_source_t;
 
-static char alt_repeat_display_text[24] = "";
 
 #ifdef OS_DETECTION_ENABLE
 static host_family_t session_host_family   = HOST_FAMILY_UNKNOWN;
@@ -1019,27 +1018,6 @@ static void __attribute__((unused)) format_basic_keycode_name(uint8_t keycode, c
     }
 }
 
-static void update_alt_repeat_display_text(uint16_t keycode) {
-#if defined(REPEAT_KEY_ENABLE)
-    const uint8_t mods = get_mods() | get_oneshot_mods();
-    const uint16_t alt_keycode = get_alt_repeat_key_keycode_user(keycode, mods);
-
-    if (alt_keycode == KC_TRNS || alt_keycode == KC_NO) {
-        alt_repeat_display_text[0] = '\0';
-        return;
-    }
-
-    const uint8_t basic = (uint8_t)(alt_keycode & 0xFF);
-    char key_name[8] = {0};
-
-    format_basic_keycode_name(basic, key_name, sizeof(key_name));
-    snprintf(alt_repeat_display_text, sizeof(alt_repeat_display_text), "%s", key_name);
-#else
-    (void)keycode;
-    alt_repeat_display_text[0] = '\0';
-#endif
-}
-
 static inline bool is_macro_keycode(uint16_t keycode) {
     return keycode >= XM_0 && keycode <= XM_9;
 }
@@ -1947,13 +1925,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return true;
     }
 
-#if defined(REPEAT_KEY_ENABLE)
-    if (keycode != QK_REPEAT_KEY && keycode != QK_ALT_REPEAT_KEY) {
-        update_alt_repeat_display_text(keycode);
-    }
-#else
-    update_alt_repeat_display_text(keycode);
-#endif
 
     if (keycode == RGB_SLAY) {
 #ifdef RGB_MATRIX_ENABLE
@@ -2058,9 +2029,6 @@ void suspend_wakeup_init_user(void) {
 #endif
 }
 
-const char *halcyon_display_alt_repeat_text_user(void) {
-    return alt_repeat_display_text;
-}
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
     static const char *const layer_names[] = {
