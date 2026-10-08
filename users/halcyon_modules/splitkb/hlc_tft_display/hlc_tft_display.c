@@ -33,7 +33,6 @@ typedef enum {
 static uint8_t                  last_mod_state              = 0xFF;
 static uint16_t                 last_visible_mod_mask       = 0xFFFF;
 static uint8_t                  last_display_layer          = 0xFF;
-static char                     last_arp_text[24]           = "";
 static uint32_t                 last_mod_seen[4]            = {0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL};
 static uint32_t                 last_background_redraw      = 0;
 static uint8_t                  last_background_layer       = 0xFF;
@@ -721,7 +720,6 @@ static void reset_normal_display_cache(void) {
     last_display_layer     = 0xFF;
     last_background_layer  = 0xFF;
     last_background_redraw = 0;
-    last_arp_text[0]       = '\0';
 }
 
 #ifdef XTREEMZE_OS_FINGERPRINT_TRACE
@@ -822,8 +820,8 @@ static bool update_os_fingerprint_page(void) {
 }
 #endif
 
-static void draw_host_marker(const char *layer_name, bool has_arp_text) {
-    if (!has_observed_host_telemetry || has_arp_text) return;
+static void draw_host_marker(const char *layer_name) {
+    if (!has_observed_host_telemetry) return;
     const char *const marker       = host_marker_label(observed_host_telemetry.os);
     const int16_t     marker_width = qp_textwidth(Retron27, marker);
     const int16_t     layer_width  = qp_textwidth(Retron27, layer_name);
@@ -840,11 +838,7 @@ bool update_display(void) {
     const uint8_t     active_layer              = get_highest_layer(layer_state | default_layer_state);
     const uint8_t     active_mods               = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
     const uint32_t    now                       = timer_read32();
-    const char *const arp_text_raw              = halcyon_display_alt_repeat_text_user();
-    const char *const arp_text                  = arp_text_raw != NULL ? arp_text_raw : "";
-    const bool        has_arp_text              = arp_text[0] != '\0';
     const bool        first_run                 = (last_display_layer == 0xFF);
-    const bool        arp_changed               = strcmp(last_arp_text, arp_text) != 0;
     uint16_t          active_mod_indicator_mask = 0;
     const uint16_t    visible_mod_mask          = build_mod_indicator_masks(active_mods, &active_mod_indicator_mask);
 
@@ -867,18 +861,12 @@ bool update_display(void) {
         display_dirty          = true;
     }
 
-    if (background_redrawn || arp_changed || need_full_redraw) {
+    if (background_redrawn || need_full_redraw) {
         qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, Retron27->line_height + 12, HSV_EF_BG, true);
         const hsv_triplet_t layer_color = layer_fg(active_layer);
         const char *const   layer_name  = display_layer_label(active_layer);
         qp_drawtext_recolor(lcd_surface, STATUS_X, STATUS_LAYER_Y, Retron27, layer_name, layer_color.h, layer_color.s, layer_color.v, HSV_EF_BG);
-        if (has_arp_text) {
-            const int16_t arp_width = qp_textwidth(Retron27, arp_text);
-            int16_t       arp_x     = (int16_t)LCD_WIDTH - (int16_t)STATUS_X - arp_width;
-            if (arp_x < STATUS_X) arp_x = STATUS_X;
-            qp_drawtext_recolor(lcd_surface, (uint16_t)arp_x, STATUS_LAYER_Y, Retron27, arp_text, 122, 82, 187, HSV_EF_BG);
-        }
-        draw_host_marker(layer_name, has_arp_text);
+        draw_host_marker(layer_name);
         last_display_layer = active_layer;
         display_dirty      = true;
     }
@@ -897,7 +885,6 @@ bool update_display(void) {
     }
 
     last_visible_mod_mask = visible_mod_mask;
-    if (arp_changed) snprintf(last_arp_text, sizeof(last_arp_text), "%s", arp_text);
     return display_dirty;
 }
 
