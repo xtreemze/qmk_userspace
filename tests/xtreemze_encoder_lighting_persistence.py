@@ -40,11 +40,11 @@ for persistent_call in (
 ):
     assert persistent_call not in block, f"encoder path must not call persistent API directly: {persistent_call}"
 
-pre = keymap.index("bool pre_process_record_user")
 process = keymap.index("bool process_record_user")
-pre_block = keymap[pre:process]
-assert "process_encoder_lighting_keycode(keycode, record)" in pre_block
-assert "return false;" in pre_block
+post_init = keymap.index("void keyboard_post_init_user")
+process_block = keymap[process:post_init]
+assert "process_encoder_lighting_keycode(keycode, record)" in process_block
+assert process_block.index("process_encoder_lighting_keycode") < process_block.index("if (!record->event.pressed)")
 
 scan = keymap.index("void matrix_scan_user")
 wake = keymap.index("void suspend_wakeup_init_user")
