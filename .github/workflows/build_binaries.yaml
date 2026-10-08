@@ -86,7 +86,13 @@ jobs:
           qmk userspace-compile -e DUMP_CI_METADATA=yes $EXTRA_ARGS || touch .failed
           ./qmk_firmware/util/ci/generate_failure_markdown.sh > "$GITHUB_STEP_SUMMARY" || true
           truncate --size='<960K' "$GITHUB_STEP_SUMMARY" || true
-          [ ! -f .failed ] || exit 1
+          if [ -f .failed ]; then
+            echo "Build failed; collecting target compiler errors from QMK output logs:"
+            find qmk_firmware/.build -type f \( -name '*.log' -o -name '*.err' \) -print -exec tail -n 100 {} \; 2>/dev/null || true
+            echo "Generated QMK failure details:"
+            ./qmk_firmware/util/ci/generate_failure_markdown.sh || true
+            exit 1
+          fi
 
       - name: Report firmware resource usage
         run: python3 scripts/report-firmware-resources.py
