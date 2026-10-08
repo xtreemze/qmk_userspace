@@ -910,6 +910,27 @@ void module_suspend_wakeup_init_kb(void) {
     host_resume_pending    = true;
 }
 
+#ifdef HLC_TFT_DIAGNOSTIC
+// Isolated panel/SPI test. Avoid the animation model and RGB565 surface.
+// A lighted but unresponsive panel indicates a graphics-path failure.
+static uint32_t tft_diagnostic_previous_ms = 0;
+static uint8_t tft_diagnostic_color = 0;
+
+static void tft_diagnostic_draw(void) {
+    static const hsv_t colors[] = {
+        {0, 255, 255},     // red
+        {85, 255, 255},    // green
+        {170, 255, 255},   // blue
+        {0, 0, 255},       // white
+        {0, 0, 0},         // black
+    };
+    qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, colors[tft_diagnostic_color], true);
+    qp_flush(lcd);
+    tft_diagnostic_color = (tft_diagnostic_color + 1) % 5;
+    tft_diagnostic_previous_ms = timer_read32();
+}
+#endif
+
 bool module_post_init_kb(void) {
     backlight_wakeup();
     lcd         = qp_st7789_make_spi_device(LCD_WIDTH, LCD_HEIGHT, LCD_CS_PIN, LCD_DC_PIN, LCD_RST_PIN, LCD_SPI_DIVISOR, LCD_SPI_MODE);
@@ -920,6 +941,11 @@ bool module_post_init_kb(void) {
     qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_power(lcd, true);
     qp_flush(lcd);
+#ifdef HLC_TFT_DIAGNOSTIC
+    tft_diagnostic_draw();
+    if (!module_post_init_user()) return false;
+    return true;
+#endif
     qp_init(lcd_surface, LCD_ROTATION);
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_EF_BG, true);
     qp_surface_draw(lcd_surface, lcd, 0, 0, false);
@@ -929,6 +955,14 @@ bool module_post_init_kb(void) {
 }
 
 bool display_module_housekeeping_task_kb(bool second_display) {
+#ifdef HLC_TFT_DIAGNOSTIC
+    (void)second_display;
+    if (timer_elapsed32(tft_diagnostic_previous_ms) >= 1500) {
+        tft_diagnostic_draw();
+    }
+    return true;
+#endif
+
     if (display_wakeup_pending) {
         display_wakeup_pending = false;
         if (!qp_power(lcd, true)) {
