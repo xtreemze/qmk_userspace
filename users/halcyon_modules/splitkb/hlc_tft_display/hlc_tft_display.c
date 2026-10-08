@@ -33,7 +33,6 @@ typedef enum {
 static uint8_t                  last_mod_state              = 0xFF;
 static uint16_t                 last_visible_mod_mask       = 0xFFFF;
 static uint8_t                  last_display_layer          = 0xFF;
-static char                     last_arp_text[24]           = "";
 static uint32_t                 last_mod_seen[4]            = {0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL};
 static uint32_t                 last_background_redraw      = 0;
 static uint8_t                  last_background_layer       = 0xFF;
