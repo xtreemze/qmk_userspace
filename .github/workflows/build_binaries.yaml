@@ -85,6 +85,10 @@ jobs:
           fi
           qmk userspace-compile -e DUMP_CI_METADATA=yes $EXTRA_ARGS || touch .failed
           ./qmk_firmware/util/ci/generate_failure_markdown.sh > "$GITHUB_STEP_SUMMARY" || true
+          if [ -f .failed ]; then
+            echo "=== QMK compilation failure details ==="
+            cat "$GITHUB_STEP_SUMMARY" || true
+          fi
           truncate --size='<960K' "$GITHUB_STEP_SUMMARY" || true
           if [ -f .failed ]; then
             echo "Build failed; collecting target compiler errors from QMK output logs:"
