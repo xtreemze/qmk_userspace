@@ -40,3 +40,8 @@ SRC += halcyon_settings_protocol.c
 # TFT labels and procedural layer-pattern geometry are a separate compatible
 # extension so the existing 0xF1 palette/timing protocol remains stable.
 SRC += halcyon_display_protocol.c
+
+# Enable direct ST7789 color diagnostic only for the opt-in CI build.
+ifeq ($(HLC_TFT_DIAGNOSTIC),1)
+    OPT_DEFS += -DHLC_TFT_DIAGNOSTIC
+endif
