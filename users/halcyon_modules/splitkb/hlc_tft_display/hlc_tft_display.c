@@ -313,10 +313,6 @@ static const char *display_layer_label(uint8_t layer) {
     return halcyon_display_layer_name_user(layer);
 }
 
-__attribute__((weak)) const char *halcyon_display_alt_repeat_text_user(void) {
-    return "---";
-}
-
 __attribute__((weak)) bool halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry) {
     if (telemetry == NULL) {
         return false;
