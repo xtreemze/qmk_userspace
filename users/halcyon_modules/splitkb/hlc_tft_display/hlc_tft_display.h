@@ -93,7 +93,6 @@ typedef enum {
 } halcyon_display_color_domain_t;
 
 const char *halcyon_display_layer_name_user(uint8_t layer);
-const char *halcyon_display_alt_repeat_text_user(void);
 bool        halcyon_display_host_telemetry_user(halcyon_host_telemetry_t *telemetry);
 
 /* Keyboard/user hooks for runtime display customization. The module provides
