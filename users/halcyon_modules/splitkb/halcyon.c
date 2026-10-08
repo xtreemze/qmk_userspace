@@ -153,12 +153,14 @@ void housekeeping_task_kb(void) {
 
     // Keep wake/suspend brightness state current before any display housekeeping.
     // The TFT path may use that state while recovering or drawing this pass.
-    if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
-        if (backlight_off) {
-            backlight_wakeup();
+    if (HLC_BACKLIGHT_TIMEOUT != 0) {
+        if (last_input_activity_elapsed() <= HLC_BACKLIGHT_TIMEOUT) {
+            if (backlight_off) {
+                backlight_wakeup();
+            }
+        } else if (!backlight_off) {
+            backlight_suspend();
         }
-    } else if (!backlight_off) {
-        backlight_suspend();
     }
 
     if (master) {
