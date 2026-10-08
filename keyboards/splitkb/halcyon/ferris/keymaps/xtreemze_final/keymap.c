@@ -1857,6 +1857,108 @@ static void run_macro_slot(uint8_t slot) {
 #endif
 }
 
+/* BEGIN XTREEMZE_ENCODER_LIGHTING_PERSISTENCE */
+#define ENCODER_LIGHTING_PERSIST_QUIET_MS 750
+
+static bool     encoder_rgb_persist_dirty       = false;
+static bool     encoder_backlight_persist_dirty = false;
+static uint32_t encoder_lighting_last_change    = 0;
+
+static void mark_encoder_lighting_dirty(bool rgb) {
+    if (rgb) {
+        encoder_rgb_persist_dirty = true;
+    } else {
+        encoder_backlight_persist_dirty = true;
+    }
+    encoder_lighting_last_change = timer_read32();
+}
+
+static bool process_encoder_lighting_keycode(uint16_t keycode, keyrecord_t *record) {
+    if (!IS_ENCODEREVENT(record->event)) {
+        return false;
+    }
+
+    bool rgb_keycode = true;
+    switch (keycode) {
+#ifdef RGB_MATRIX_ENABLE
+        case RM_SATD:
+            if (record->event.pressed) rgb_matrix_decrease_sat_noeeprom();
+            break;
+        case RM_SATU:
+            if (record->event.pressed) rgb_matrix_increase_sat_noeeprom();
+            break;
+        case RM_VALD:
+            if (record->event.pressed) rgb_matrix_decrease_val_noeeprom();
+            break;
+        case RM_VALU:
+            if (record->event.pressed) rgb_matrix_increase_val_noeeprom();
+            break;
+        case RM_SPDD:
+            if (record->event.pressed) rgb_matrix_decrease_speed_noeeprom();
+            break;
+        case RM_SPDU:
+            if (record->event.pressed) rgb_matrix_increase_speed_noeeprom();
+            break;
+        case RM_PREV:
+            if (record->event.pressed) rgb_matrix_step_reverse_noeeprom();
+            break;
+        case RM_NEXT:
+            if (record->event.pressed) rgb_matrix_step_noeeprom();
+            break;
+        case RM_HUED:
+            if (record->event.pressed) rgb_matrix_decrease_hue_noeeprom();
+            break;
+        case RM_HUEU:
+            if (record->event.pressed) rgb_matrix_increase_hue_noeeprom();
+            break;
+#endif
+#ifdef BACKLIGHT_ENABLE
+        case BL_DOWN: {
+            rgb_keycode = false;
+            if (record->event.pressed) {
+                const uint8_t level = get_backlight_level();
+                backlight_level_noeeprom(level > 0 ? level - 1 : 0);
+            }
+            break;
+        }
+        case BL_UP: {
+            rgb_keycode = false;
+            if (record->event.pressed) {
+                const uint8_t level = get_backlight_level();
+                backlight_level_noeeprom(level < BACKLIGHT_LEVELS ? level + 1 : BACKLIGHT_LEVELS);
+            }
+            break;
+        }
+#endif
+        default:
+            return false;
+    }
+
+    if (record->event.pressed) {
+        mark_encoder_lighting_dirty(rgb_keycode);
+    }
+    return true;
+}
+
+static void persist_encoder_lighting_if_idle(void) {
+    if ((!encoder_rgb_persist_dirty && !encoder_backlight_persist_dirty) || timer_elapsed32(encoder_lighting_last_change) < ENCODER_LIGHTING_PERSIST_QUIET_MS) {
+        return;
+    }
+#ifdef RGB_MATRIX_ENABLE
+    if (encoder_rgb_persist_dirty) {
+        eeconfig_force_flush_rgb_matrix();
+        encoder_rgb_persist_dirty = false;
+    }
+#endif
+#ifdef BACKLIGHT_ENABLE
+    if (encoder_backlight_persist_dirty) {
+        eeconfig_update_backlight_current();
+        encoder_backlight_persist_dirty = false;
+    }
+#endif
+}
+/* END XTREEMZE_ENCODER_LIGHTING_PERSISTENCE */
+
 /* BEGIN XTREEMZE_ENCODER_REPEAT_POLICY */
 typedef enum {
     encoder_repeat_passthrough = 0,
@@ -1921,6 +2023,10 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
 /* END XTREEMZE_ENCODER_REPEAT_POLICY */
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (process_encoder_lighting_keycode(keycode, record)) {
+        return false;
+    }
+
     if (!record->event.pressed) {
         return true;
     }
@@ -2020,6 +2126,7 @@ void matrix_scan_user(void) {
 #ifdef RGB_MATRIX_ENABLE
     refresh_rgb_profile_state();
 #endif
+    persist_encoder_lighting_if_idle();
 }
 
 void suspend_wakeup_init_user(void) {
