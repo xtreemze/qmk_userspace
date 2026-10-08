@@ -76,11 +76,17 @@ for index, entry in enumerate(targets):
         raise SystemExit(f"FAIL: build target {index} environment must be an object.")
 
     target_name = env.get("TARGET")
-    module_flags = [name for name, value in env.items() if name.startswith("HLC_") and value == "1"]
+    # The diagnostic target adds a feature flag, not a second physical module.
+    module_flags = [name for name, value in env.items() if name in ("HLC_TFT_DISPLAY", "HLC_ENCODER") and value == "1"]
     if not isinstance(target_name, str) or not target_name:
         raise SystemExit(f"FAIL: build target {index} is missing TARGET.")
     if len(module_flags) != 1:
         raise SystemExit(f"FAIL: build target {target_name} must enable exactly one HLC_* module flag.")
+
+    if target_name.endswith("_tft_diagnostic"):
+        if env.get("HLC_TFT_DIAGNOSTIC") != "1" or module_flags != ["HLC_TFT_DISPLAY"]:
+            raise SystemExit("FAIL: TFT diagnostic must enable only the display module and diagnostic feature.")
+        continue
 
     expected_command = (
         f"qmk compile -kb {keyboard} -km {keymap} "
