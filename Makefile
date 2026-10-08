@@ -7,9 +7,10 @@ ifeq ($(QMK_USERSPACE),)
     QMK_USERSPACE := $(shell pwd)
 endif
 
-QMK_FIRMWARE_ROOT = $(shell qmk config -ro user.qmk_home | cut -d= -f2 | sed -e 's@^None$$@@g')
+QMK_BIN := qmk
+QMK_FIRMWARE_ROOT = $(shell $(QMK_BIN) env QMK_FIRMWARE)
 ifeq ($(QMK_FIRMWARE_ROOT),)
-    $(error Cannot determine qmk_firmware location. `qmk config -ro user.qmk_home` is not set)
+    $(error Cannot determine qmk_firmware location. `qmk env QMK_FIRMWARE` is not set)
 endif
 
 %:
