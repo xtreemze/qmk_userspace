@@ -914,19 +914,19 @@ void module_suspend_wakeup_init_kb(void) {
 // Isolated panel/SPI test. Avoid the animation model and RGB565 surface.
 // A lighted but unresponsive panel indicates a graphics-path failure.
 static uint32_t tft_diagnostic_previous_ms = 0;
-static uint8_t tft_diagnostic_color = 0;
+static uint8_t  tft_diagnostic_color       = 0;
 
 static void tft_diagnostic_draw(void) {
     static const hsv_t colors[] = {
-        {0, 255, 255},     // red
-        {85, 255, 255},    // green
-        {170, 255, 255},   // blue
-        {0, 0, 255},       // white
-        {0, 0, 0},         // black
+        {0, 255, 255},   // red
+        {85, 255, 255},  // green
+        {170, 255, 255}, // blue
+        {0, 0, 255},     // white
+        {0, 0, 0},       // black
     };
     qp_rect(lcd, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, colors[tft_diagnostic_color], true);
     qp_flush(lcd);
-    tft_diagnostic_color = (tft_diagnostic_color + 1) % 5;
+    tft_diagnostic_color       = (tft_diagnostic_color + 1) % 5;
     tft_diagnostic_previous_ms = timer_read32();
 }
 #endif
