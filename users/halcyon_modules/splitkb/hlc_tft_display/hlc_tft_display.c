@@ -835,12 +835,12 @@ bool update_display(void) {
     bool display_dirty = false;
     ensure_display_font_loaded();
 
-    const uint8_t     active_layer              = get_highest_layer(layer_state | default_layer_state);
-    const uint8_t     active_mods               = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
-    const uint32_t    now                       = timer_read32();
-    const bool        first_run                 = (last_display_layer == 0xFF);
-    uint16_t          active_mod_indicator_mask = 0;
-    const uint16_t    visible_mod_mask          = build_mod_indicator_masks(active_mods, &active_mod_indicator_mask);
+    const uint8_t  active_layer              = get_highest_layer(layer_state | default_layer_state);
+    const uint8_t  active_mods               = get_mods() | get_weak_mods() | get_oneshot_mods() | get_oneshot_locked_mods();
+    const uint32_t now                       = timer_read32();
+    const bool     first_run                 = (last_display_layer == 0xFF);
+    uint16_t       active_mod_indicator_mask = 0;
+    const uint16_t visible_mod_mask          = build_mod_indicator_masks(active_mods, &active_mod_indicator_mask);
 
     const bool layer_changed          = active_layer != last_display_layer;
     const bool need_full_redraw       = first_run || layer_changed;
