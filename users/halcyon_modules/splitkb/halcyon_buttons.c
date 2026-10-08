@@ -3,6 +3,9 @@
 
 #include QMK_KEYBOARD_H
 #include "matrix.h"
+#ifdef RGB_MATRIX_ENABLE
+#    include "rgb_matrix.h"
+#endif
 
 #ifdef SPLIT_KEYBOARD
 #    define ROWS_PER_HAND (MATRIX_ROWS / 2)
