@@ -103,3 +103,10 @@ Use pull requests for code, tests, workflows, configuration and documentation ch
 When a PR discovers a material unresolved risk or design question, leave it behind as an Issue rather than burying it in a merged conversation. When an Issue is resolved, close it with the implementing PR or evidence that changed the decision.
 
 Do not describe source tests, mocked behavior or successful compilation as physical acceptance. Where behavior depends on actual split hardware, USB lifecycle, display electronics or persistent state across real power cycles, record that evidence separately in the relevant issue.
+
+## 2026-10-15 palette editor candidate
+
+The #101 candidate adds a modal keyboard palette editor against the existing RGB
+and TFT stores, with deterministic host C tests and exact production-target
+builds. It remains experimental pending RGB split persistence support and the
+physical #7/#16 matrix. No EEPROM reservation or v1 packet layout changes.

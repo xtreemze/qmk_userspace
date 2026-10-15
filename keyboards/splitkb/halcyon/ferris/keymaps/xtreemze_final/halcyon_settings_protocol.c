@@ -17,6 +17,7 @@
 #    endif
 
 #    include <stdint.h>
+#    include <stdio.h>
 #    include <string.h>
 
 #    define XTREEMZE_HALCYON_SETTINGS_MAGIC 0x58484C43UL /* "XHLC" */
@@ -174,6 +175,7 @@ static void settings_store_ensure_loaded(void) {
         settings_store_set_defaults();
         settings_store_save_local();
     }
+    settings_store.reserved[0] = 0; /* Runtime editor marker is never durable. */
     settings_store_loaded = true;
 }
 
@@ -182,6 +184,56 @@ static void schedule_sync(bool persist) {
     sync_chunk   = 0;
     sync_pending = true;
     sync_persist = persist;
+}
+
+static xtreemze_halcyon_settings_store_t palette_settings_backup;
+static bool palette_settings_old_dirty;
+
+void xtreemze_palette_settings_begin(void) {
+    settings_store_ensure_loaded();
+    palette_settings_backup = settings_store;
+    palette_settings_old_dirty = settings_store_dirty;
+}
+
+void xtreemze_palette_settings_end(bool save) {
+    memcpy(settings_store.reserved, palette_settings_backup.reserved, sizeof(settings_store.reserved));
+    if (save) {
+        if (settings_store_dirty) settings_store_save_local();
+    } else {
+        settings_store = palette_settings_backup;
+        settings_store_dirty = palette_settings_old_dirty;
+    }
+    schedule_sync(save);
+}
+
+void xtreemze_palette_settings_preview(uint8_t scope, uint8_t index, uint8_t parameter, uint8_t h, uint8_t s) {
+    const uint8_t state[] = {0xED, scope, index, parameter, h, s};
+    if (memcmp(settings_store.reserved, state, sizeof(state)) == 0) return;
+    memcpy(settings_store.reserved, state, sizeof(state));
+    schedule_sync(false);
+}
+
+const char *xtreemze_palette_settings_label(void) {
+    settings_store_ensure_loaded();
+    if (settings_store.reserved[0] != 0xED) return NULL;
+    static char label[24];
+    const char scopes[] = "GLMC";
+    const char parameters[] = "HSV";
+    snprintf(label, sizeof(label), "EDIT %c%u %c", scopes[settings_store.reserved[1] % 4], settings_store.reserved[2], parameters[settings_store.reserved[3] % 3]);
+    return label;
+}
+
+void xtreemze_palette_settings_color(uint8_t scope, uint8_t index, uint8_t h, uint8_t s, uint8_t v) {
+    (void)v;
+    /* Bright readable accent; identical hue, reduced display saturation. */
+    const xtreemze_halcyon_hsv_t color = {h, s > 96 ? 96 : s, 255};
+    if (scope == 1 && index < XTREEMZE_HALCYON_LAYER_COUNT) settings_store.layer_fg[index] = color;
+    else if (scope == 2 && index < 4) {
+        const uint8_t winners[] = {0, 1, 2, 3, 0, 2, 1, 1, 0, 2};
+        for (uint8_t i = 0; i < sizeof(winners); i++) if (winners[i] == index) settings_store.mod_active[i] = color;
+    } else return;
+    settings_store_dirty = true;
+    schedule_sync(false);
 }
 
 static void settings_sync_slave_handler(uint8_t in_buflen, const void *in_data, uint8_t out_buflen, void *out_data) {
@@ -221,7 +273,7 @@ static void settings_sync_slave_handler(uint8_t in_buflen, const void *in_data, 
     settings_store        = incoming_store;
     settings_store_loaded = true;
     settings_store_dirty  = !incoming_persist;
-    if (incoming_persist) {
+    if (incoming_persist && settings_store.reserved[0] != 0xED) {
         settings_store_save_local();
     }
 }
@@ -230,11 +282,12 @@ static void sync_housekeeping(void) {
     const bool master    = is_keyboard_master();
     const bool connected = is_transport_connected();
 
+    if (master != last_master_state && settings_store.reserved[0] == 0xED) settings_store.reserved[0] = 0;
     if (master != last_master_state || connected != last_transport_connected) {
         last_master_state        = master;
         last_transport_connected = connected;
         if (master && connected) {
-            schedule_sync(true);
+            schedule_sync(!settings_store_dirty && settings_store.reserved[0] != 0xED);
         }
     }
 
@@ -277,7 +330,7 @@ bool module_post_init_user(void) {
     last_master_state        = is_keyboard_master();
     last_transport_connected = is_transport_connected();
     if (last_master_state && last_transport_connected) {
-        schedule_sync(true);
+        schedule_sync(!settings_store_dirty && settings_store.reserved[0] != 0xED);
     }
     return true;
 }
@@ -295,6 +348,12 @@ bool halcyon_display_color_override_user(uint8_t domain, uint8_t index, bool act
     }
     settings_store_ensure_loaded();
 
+    if (domain == HALCYON_DISPLAY_COLOR_LAYER_FG && settings_store.reserved[0] == 0xED) {
+        color->h = settings_store.reserved[4];
+        color->s = settings_store.reserved[5] > 96 ? 96 : settings_store.reserved[5];
+        color->v = 255;
+        return true;
+    }
     const xtreemze_halcyon_hsv_t *source = NULL;
     switch (domain) {
         case HALCYON_DISPLAY_COLOR_LAYER_FG:
@@ -527,7 +586,7 @@ bool xtreemze_halcyon_settings_raw_hid_receive(uint8_t *data, uint8_t length) {
             if (settings_store_dirty) {
                 settings_store_save_local();
             }
-            schedule_sync(true);
+            schedule_sync(!settings_store_dirty && settings_store.reserved[0] != 0xED);
             break;
         case XTREEMZE_HALCYON_RESET:
             settings_store_set_defaults();
