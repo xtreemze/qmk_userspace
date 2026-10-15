@@ -120,6 +120,14 @@ typedef struct {
     keyevent_t event;
 } keyrecord_t;
 
+/* Palette mode is a separate tested owner. This harness exercises normal
+ * encoder dispatch when the modal owner permits the event through. */
+static bool xtreemze_palette_process(uint16_t keycode, keyrecord_t *record) {
+    (void)keycode;
+    (void)record;
+    return true;
+}
+
 enum {
     vial_arep_option_default_to_this_alt_key = (1 << 0),
     vial_arep_option_bidirectional = (1 << 1),

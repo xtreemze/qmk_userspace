@@ -21,6 +21,7 @@ static uint32_t preview_started, now;
 static layer_state_t layer_state = 12, default_layer_state = 1;
 static bool master = true, transport = true, combos = true;
 static int saves, settings_saves;
+static uint32_t matrix_rows[MATRIX_ROWS];
 static uint32_t timer_read32(void) { return now; }
 static uint32_t timer_elapsed32(uint32_t n) { return now-n; }
 static bool is_keyboard_master(void) { return master; }
@@ -30,7 +31,7 @@ static void clear_keyboard(void) {}
 static void layer_clear(void) { layer_state = 0; }
 static void layer_state_set(layer_state_t s) { layer_state=s; }
 static uint8_t get_highest_layer(layer_state_t s) { uint8_t i=0; while(s>>=1) i++; return i; }
-static int matrix_get_row(int row) { (void)row; return 0; }
+static int matrix_get_row(int row) { return matrix_rows[row]; }
 static bool is_combo_enabled(void) { return combos; }
 static void combo_disable(void) { combos=false; }
 static void combo_enable(void) { combos=true; }
@@ -63,5 +64,29 @@ int main(void) {
   xtreemze_palette_enter(); palette_wait_release=false; master=false;
   xtreemze_palette_housekeeping(); xtreemze_palette_housekeeping();
   assert(!palette_active && saves==1);
+  master=true;
+  /* Hold threshold, entry release drain and exit release drain are observable. */
+  keyrecord_t enter={.event={.pressed=true}};
+  assert(!xtreemze_palette_process(XTREEMZE_PALETTE_KEYCODE,&enter));
+  now += 699; xtreemze_palette_housekeeping(); assert(!palette_active);
+  matrix_rows[0]=1;
+  now++; xtreemze_palette_housekeeping(); assert(palette_active && palette_wait_release);
+  const int prior_saves=saves;
+  key(0,1); assert(!palette_exiting && saves==prior_saves);
+  matrix_rows[0]=0; xtreemze_palette_housekeeping(); assert(!palette_wait_release);
+  for(int i=0;i<100;i++) key(1,1);
+  assert(saves==prior_saves);
+  matrix_rows[0]=1; key(0,0); xtreemze_palette_housekeeping();
+  assert(palette_active && palette_exiting);
+  matrix_rows[0]=0; xtreemze_palette_housekeeping();
+  assert(!palette_active && layer_state==12);
+  for(int i=0;i<20;i++) {
+    xtreemze_palette_enter(); palette_wait_release=false;
+    for(int j=0;j<80;j++) key(0,3);
+    assert(palette_index < palette_count());
+    transport=false; xtreemze_palette_housekeeping();
+    xtreemze_palette_housekeeping(); transport=true;
+    assert(!palette_active && saves==prior_saves);
+  }
   return 0;
 }
