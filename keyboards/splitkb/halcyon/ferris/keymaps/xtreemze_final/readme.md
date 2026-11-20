@@ -125,3 +125,37 @@ qmk compile -kb splitkb/halcyon/ferris/rev1 -km xtreemze_final -e HLC_ENCODER=1 
 ```
 
 Flash the left half with the `*_display` artifact and the right half with the `*_encoder` artifact.
+
+### Experimental temporary palette editor (#101)
+
+Bind `QK_KB_0 + 21` (numeric `0x7E15`) in Vial's Any keycode control. Hold it
+for 700 ms, then release all keys. The mode temporarily clears the active layer
+stack without changing the Vial keymap; exit restores the saved stack. All
+normal key/encoder events are consumed while editing and while draining held
+keys at entry/exit. Combos are disabled temporarily; host modifiers are cleared.
+
+Controls use matrix coordinates, independent of the user's key bindings:
+
+| Matrix position | Action |
+| --- | --- |
+| row 0, col 0 | Cancel and restore runtime snapshot |
+| row 0, col 1 | Save and exit (RGB currently master-local) |
+| row 0, col 2 | Next scope: layer, modifier, combo, global |
+| row 0, col 3 / row 1, col 2 | Next / previous target |
+| row 0, col 4 | Cycle hue, saturation, brightness |
+| row 1, col 0 / row 1, col 1 | Decrease / increase |
+| Encoder clockwise / counterclockwise | Increase / decrease selected parameter |
+
+The TFT shows EDIT plus scope/target/parameter and a matching hue accent.
+Layer and modifier edits update the existing 0xF1 runtime settings. Combo/global
+have no corresponding stored TFT accent field in protocol v1. Detents do not
+save EEPROM; Save coalesces changes to one local save per dirty store. Cancel,
+60 seconds idle, USB loss/suspend, split connectivity change or loss of master
+roll back runtime state. Boot starts outside editor mode. Host extension writes
+are rejected while the modal editor owns the stores.
+
+This is experimental: RGB 0xF0 has no split profile replication or durable
+acknowledgement. Save is master-local for RGB; TFT retains its existing split
+replication. Either-master durable parity and physical suspend/reconnect,
+TFT/encoder and held-key acceptance remain required under #7/#16/#101. Do not
+publish this as a hardware-certified release.

@@ -11,6 +11,8 @@
 #include "rgb_matrix.h"
 #include "timer.h"
 #include "via.h"
+#include "usb_device_state.h"
+#include "split_util.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -279,7 +281,10 @@ static void rgb_profile_refresh(void) {
     last_applied_preview = preview_active;
 }
 
+#include "palette_editor_impl.h"
+
 void housekeeping_task_user(void) {
+    xtreemze_palette_housekeeping();
     rgb_profile_refresh();
 }
 
@@ -375,6 +380,7 @@ static void rgb_command_preview(uint8_t *data, uint8_t length) {
 
 /* One keyboard-level raw HID router owns the custom command namespace. */
 void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
+    if (xtreemze_palette_is_active()) { data[0] = id_unhandled; return; }
     if (xtreemze_halcyon_settings_raw_hid_receive(data, length)) {
         return;
     }

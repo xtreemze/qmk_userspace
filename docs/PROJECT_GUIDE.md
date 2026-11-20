@@ -75,6 +75,15 @@ bash tests/run_ci_regressions.sh
 ```
 
 The CI gate should remain deterministic and use the same pinned firmware dependency as builds.
+On macOS, these standalone scripts require Bash 4+ and GNU find (`-printf`),
+not the system Bash/find. With Homebrew `bash` and `findutils` installed, use:
+
+```sh
+PATH="$(brew --prefix findutils)/libexec/gnubin:$(brew --prefix)/bin:$PATH" bash tests/run_ci_regressions.sh
+```
+
+Keep the pinned `qmk_firmware` checkout and repository patches in place; using
+GNU tools changes command compatibility, not the firmware validation target.
 
 ### Firmware-impacting changes
 

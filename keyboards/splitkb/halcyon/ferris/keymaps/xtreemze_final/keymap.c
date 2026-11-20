@@ -3,6 +3,7 @@
 
 #include QMK_KEYBOARD_H
 #include "dynamic_keymap.h"
+#include "halcyon_settings_protocol.h"
 #ifdef VIA_ENABLE
 #include "via.h"
 #endif
@@ -58,7 +59,8 @@ enum custom_keycodes {
     OS_CUT,
     OS_UNDO,
     OS_SALL,
-    OS_TRACE_VIEW
+    OS_TRACE_VIEW,
+    PALETTE_EDIT
 };
 
 /*
@@ -920,6 +922,7 @@ static void trigger_chord_profile(void) {
 }
 
 static void refresh_rgb_profile_state(void) {
+    if (xtreemze_palette_is_active()) return;
     static uint32_t last_rgb_refresh_generation = 0xFFFFFFFFUL;
     static uint8_t last_rgb_refresh_mods = 0xFF;
     static uint8_t last_rgb_refresh_layer = 0xFF;
@@ -1987,6 +1990,7 @@ static bool xtreemze_encoder_repeat_resolve(uint16_t requested_keycode, encoder_
 }
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!xtreemze_palette_process(keycode, record)) return false;
     if (!IS_ENCODEREVENT(record->event) || (keycode != QK_REPEAT_KEY && keycode != QK_ALT_REPEAT_KEY)) {
         return true;
     }
@@ -2138,6 +2142,8 @@ void suspend_wakeup_init_user(void) {
 
 
 const char *halcyon_display_layer_name_user(uint8_t layer) {
+    const char *editor_label = xtreemze_palette_settings_label();
+    if (editor_label != NULL) return editor_label;
     static const char *const layer_names[] = {
         "MOUSE",
         "QWERTY",

@@ -9,6 +9,8 @@ run() {
     "$@"
 }
 
+run cc -std=c11 -Wall -Wextra -Werror tests/palette_editor.c -o /tmp/halcyon-palette-editor-test
+run /tmp/halcyon-palette-editor-test
 run bash tests/qmk_patch_series.sh
 run bash tests/changed_firmware_format_scope.sh
 run bash tests/ci_build_boundary.sh
